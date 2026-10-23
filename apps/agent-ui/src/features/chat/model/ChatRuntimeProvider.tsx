@@ -6,12 +6,9 @@ import {
   type AppendMessage,
 } from "@assistant-ui/react";
 import { convertLangChainBaseMessage } from "@assistant-ui/react-langchain";
-import { useStream } from "@langchain/react";
 
+import { useChatSession } from "../api/useChatSession";
 import { ChatStreamContext } from "./chat-stream-context";
-
-const ASSISTANT_ID = "agent";
-const API_URL = new URL("/agent", window.location.origin).href;
 
 function messageText(message: AppendMessage): string {
   return message.content
@@ -23,6 +20,10 @@ function messageText(message: AppendMessage): string {
     .trim();
 }
 
+/**
+ * Bridges the LangChain stream into an assistant-ui runtime.
+ * UI components never touch the transport directly.
+ */
 export function ChatRuntimeProvider({
   threadId,
   onThreadIdChange,
@@ -32,13 +33,7 @@ export function ChatRuntimeProvider({
   onThreadIdChange: (threadId: string | undefined) => void;
   children: ReactNode;
 }) {
-  const stream = useStream({
-    assistantId: ASSISTANT_ID,
-    apiUrl: API_URL,
-    threadId: threadId ?? null,
-    onThreadId: onThreadIdChange,
-    maxReconnectAttempts: 2,
-  });
+  const stream = useChatSession({ threadId, onThreadIdChange });
 
   const messages = useExternalMessageConverter({
     callback: convertLangChainBaseMessage,

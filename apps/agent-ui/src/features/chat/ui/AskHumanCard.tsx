@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useChatStream } from "./chat-stream-context";
+import { useChatStream } from "../model/chat-stream-context";
 
 type AskHumanPayload = {
   type: "ask_human";

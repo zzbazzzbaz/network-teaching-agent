@@ -1,11 +1,11 @@
 import { ComposerPrimitive, ThreadPrimitive } from "@assistant-ui/react";
 import { useNavigate } from "@tanstack/react-router";
 
+import { useChatStream } from "../model/chat-stream-context";
+import { usePendingInterrupt } from "../model/usePendingInterrupt";
 import { AskHumanCard } from "./AskHumanCard";
-import { useChatStream } from "./chat-stream-context";
 import { AssistantMessage, UserMessage } from "./MessageParts";
 import { TodoPanel } from "./TodoPanel";
-import { usePendingInterrupt } from "./usePendingInterrupt";
 
 function ErrorBanner() {
   const stream = useChatStream();
@@ -39,7 +39,7 @@ function Composer() {
   );
 }
 
-export function ChatView({ threadId }: { threadId: string | undefined }) {
+export function ChatPage({ threadId }: { threadId: string | undefined }) {
   const navigate = useNavigate();
   const pending = usePendingInterrupt();
   const pendingInterrupt = threadId ? pending : undefined;

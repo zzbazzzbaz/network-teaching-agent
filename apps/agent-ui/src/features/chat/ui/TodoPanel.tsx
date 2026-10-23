@@ -1,4 +1,4 @@
-import { useChatStream } from "./chat-stream-context";
+import { useChatStream } from "../model/chat-stream-context";
 
 type TodoStatus = "pending" | "in_progress" | "completed" | string;
 

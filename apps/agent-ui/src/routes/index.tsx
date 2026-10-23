@@ -1,8 +1,7 @@
 import { useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { ChatRuntimeProvider } from "@/features/chat/ChatRuntimeProvider";
-import { ChatView } from "@/features/chat/ChatView";
+import { ChatPage, ChatRuntimeProvider } from "@/features/chat";
 
 type ChatSearch = {
   threadId?: string;
@@ -15,10 +14,10 @@ export const Route = createFileRoute("/")({
         ? search.threadId
         : undefined,
   }),
-  component: ChatPage,
+  component: ChatRoute,
 });
 
-function ChatPage() {
+function ChatRoute() {
   const { threadId } = Route.useSearch();
   const navigate = Route.useNavigate();
 
@@ -39,7 +38,7 @@ function ChatPage() {
       threadId={threadId}
       onThreadIdChange={handleThreadIdChange}
     >
-      <ChatView threadId={threadId} />
+      <ChatPage threadId={threadId} />
     </ChatRuntimeProvider>
   );
 }

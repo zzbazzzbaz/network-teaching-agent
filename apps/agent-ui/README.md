@@ -4,6 +4,8 @@
 
 完整范围与验收标准见 [`docs/chat/10.23/agent-ui-spec.md`](../../docs/chat/10.23/agent-ui-spec.md)。
 
+目录分层与依赖规则见 [`docs/chat/10.23/agent-ui-architecture.md`](../../docs/chat/10.23/agent-ui-architecture.md)。
+
 ## 技术栈
 
 - Vite 8 + React 19 + TypeScript
