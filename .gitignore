@@ -1,0 +1,29 @@
+# macOS / editors
+.DS_Store
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local agent state
+.langgraph_api/
+
+# Ignored app
+apps/agent-chat-ui/
+
+# Node
+node_modules/
+dist/
+build/
+.next/
