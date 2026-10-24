@@ -18,6 +18,10 @@ from agent.core.config import get_settings
 
 auth = Auth()
 
+# 协议常量：必须与 API 端 app/core/constants.py 保持一致。
+JWT_ISSUER = "computer-network-agent"
+JWT_AUDIENCE = "agent"
+
 
 @lru_cache
 def _jwks_client() -> PyJWKClient:
@@ -26,14 +30,13 @@ def _jwks_client() -> PyJWKClient:
 
 
 def _verify(token: str) -> dict[str, Any]:
-    settings = get_settings()
     signing_key = _jwks_client().get_signing_key_from_jwt(token)
     payload = jwt.decode(
         token,
         signing_key.key,
         algorithms=["RS256"],
-        audience=settings.jwt.audience,
-        issuer=settings.jwt.issuer,
+        audience=JWT_AUDIENCE,
+        issuer=JWT_ISSUER,
         options={"require": ["exp", "iat", "sub"]},
     )
     if payload.get("typ") != "access":

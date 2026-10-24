@@ -24,9 +24,7 @@ from app.repositories.user_repository import user_repository
 def _validate_username(username: str) -> str:
     resolved = username.strip()
     if not (MIN_USERNAME_LENGTH <= len(resolved) <= MAX_USERNAME_LENGTH):
-        raise ValidationError(
-            f"用户名长度须为 {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} 个字符"
-        )
+        raise ValidationError(f"用户名长度须为 {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} 个字符")
     return resolved
 
 

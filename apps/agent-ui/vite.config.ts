@@ -7,11 +7,7 @@ import { requireEnv } from "./env.ts";
 
 const AGENT_URL = requireEnv("AGENT_URL");
 const API_URL = requireEnv("API_URL");
-const PORT = Number(requireEnv("UI_PORT"));
-
-if (!Number.isInteger(PORT) || PORT <= 0) {
-  throw new Error(`UI_PORT 必须是正整数，当前值：${requireEnv("UI_PORT")}`);
-}
+const DEV_PORT = 5173;
 
 export default defineConfig({
   plugins: [
@@ -24,7 +20,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: PORT,
+    port: DEV_PORT,
     strictPort: true,
     proxy: {
       "/api": {

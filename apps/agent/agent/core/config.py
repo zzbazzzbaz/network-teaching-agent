@@ -42,8 +42,6 @@ class JWTSettings(_Base):
     model_config = SettingsConfigDict(env_prefix="JWT_")
 
     jwks_url: str
-    issuer: str
-    audience: str
 
 
 class Settings(_Base):

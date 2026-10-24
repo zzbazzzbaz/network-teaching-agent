@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// 与后端共用 apps/.env，前端不在代码里保留任何默认值。
+// 运行时配置与后端共用 apps/.env，不在代码里保留回退值。
 const ENV_FILE = fileURLToPath(new URL("../.env", import.meta.url));
 
 function parseEnvFile(file: string): Record<string, string> {

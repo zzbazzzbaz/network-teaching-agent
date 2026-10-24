@@ -2,7 +2,6 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, Engine, create_engine, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 
 class Base(DeclarativeBase):
@@ -15,18 +14,6 @@ class Base(DeclarativeBase):
 
 
 def create_db_engine(url: str) -> Engine:
-    if url.startswith("sqlite"):
-        if url in {"sqlite://", "sqlite:///:memory:"}:
-            return create_engine(
-                url,
-                connect_args={"check_same_thread": False},
-                poolclass=StaticPool,
-            )
-        return create_engine(
-            url,
-            pool_pre_ping=True,
-            connect_args={"check_same_thread": False},
-        )
     return create_engine(url, pool_pre_ping=True)
 
 

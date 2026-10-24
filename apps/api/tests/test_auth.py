@@ -11,7 +11,9 @@ REFRESH = "/api/v1/auth/refresh"
 ME = "/api/v1/auth/me"
 
 
-def login(client: TestClient, username: str = "alice", password: str = "password123") -> dict[str, Any]:
+def login(
+    client: TestClient, username: str = "alice", password: str = "password123"
+) -> dict[str, Any]:
     response = client.post(LOGIN, json={"username": username, "password": password})
     assert response.status_code == 200, response.text
     return response.json()
@@ -62,7 +64,9 @@ def test_refresh_rotates_tokens(client: TestClient, create_user: Callable[..., U
     assert me.status_code == 200
 
 
-def test_access_and_refresh_tokens_are_not_interchangeable(client: TestClient, create_user: Callable[..., Users]) -> None:
+def test_access_and_refresh_tokens_are_not_interchangeable(
+    client: TestClient, create_user: Callable[..., Users]
+) -> None:
     create_user()
     data = login(client)
 

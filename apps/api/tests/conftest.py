@@ -1,5 +1,5 @@
+import uuid
 from collections.abc import Callable, Iterator
-from pathlib import Path
 from typing import cast
 
 import pytest
@@ -7,8 +7,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
 from app.core.config import get_settings
+from app.core.database import create_db_engine
 from app.core.security import hash_password
 from app.models.user import Users
 
@@ -36,17 +39,34 @@ def jwt_key_paths(tmp_path_factory: pytest.TempPathFactory) -> tuple[str, str]:
 
 
 @pytest.fixture
+def database_url() -> Iterator[str]:
+    """每个测试使用独立的 Postgres schema，避免污染开发数据。"""
+    settings = get_settings()
+    schema = f"test_{uuid.uuid4().hex}"
+    admin_engine = create_db_engine(settings.db.database_url)
+    with admin_engine.begin() as connection:
+        connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+    try:
+        url = make_url(settings.db.database_url)
+        yield url.update_query_dict({"options": f"-csearch_path={schema}"}).render_as_string(
+            hide_password=False
+        )
+    finally:
+        with admin_engine.begin() as connection:
+            connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+        admin_engine.dispose()
+
+
+@pytest.fixture
 def client(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
+    database_url: str,
     jwt_key_paths: tuple[str, str],
 ) -> Iterator[TestClient]:
     private_path, public_path = jwt_key_paths
-    monkeypatch.setenv("DB_DATABASE_URL", f"sqlite:///{tmp_path / 'test.db'}")
+    monkeypatch.setenv("DB_DATABASE_URL", database_url)
     monkeypatch.setenv("JWT_PRIVATE_KEY_PATH", private_path)
     monkeypatch.setenv("JWT_PUBLIC_KEY_PATH", public_path)
-    monkeypatch.setenv("JWT_ISSUER", "test-issuer")
-    monkeypatch.setenv("JWT_AUDIENCE", "test-audience")
     get_settings.cache_clear()
 
     from app.main import create_app

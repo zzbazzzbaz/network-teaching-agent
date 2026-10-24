@@ -14,8 +14,12 @@ from jwt import algorithms
 
 from app.core.config import get_settings
 from app.core.constants import (
+    ACCESS_TOKEN_TTL_SECONDS,
     ACCESS_TOKEN_TYPE,
     JWT_ALGORITHM,
+    JWT_AUDIENCE,
+    JWT_ISSUER,
+    REFRESH_TOKEN_TTL_SECONDS,
     REFRESH_TOKEN_TYPE,
 )
 from app.core.exceptions import UnauthorizedError, ValidationError
@@ -60,11 +64,10 @@ def key_id() -> str:
 
 
 def _encode_token(user_id: str, token_type: str, ttl_seconds: int) -> str:
-    settings = get_settings()
     now = int(time.time())
     payload = {
-        "iss": settings.jwt.issuer,
-        "aud": settings.jwt.audience,
+        "iss": JWT_ISSUER,
+        "aud": JWT_AUDIENCE,
         "sub": str(user_id),
         "iat": now,
         "exp": now + ttl_seconds,
@@ -81,7 +84,7 @@ def _encode_token(user_id: str, token_type: str, ttl_seconds: int) -> str:
 
 def create_access_token(user_id: str) -> tuple[str, int]:
     """返回 (token, 有效秒数)。"""
-    ttl = get_settings().jwt.access_token_ttl_seconds
+    ttl = ACCESS_TOKEN_TTL_SECONDS
     return _encode_token(user_id, ACCESS_TOKEN_TYPE, ttl), ttl
 
 
@@ -89,19 +92,18 @@ def create_refresh_token(user_id: str) -> str:
     return _encode_token(
         user_id,
         REFRESH_TOKEN_TYPE,
-        get_settings().jwt.refresh_token_ttl_seconds,
+        REFRESH_TOKEN_TTL_SECONDS,
     )
 
 
 def decode_token(token: str, *, expected_type: str) -> dict[str, Any]:
-    settings = get_settings()
     try:
         payload: dict[str, Any] = jwt.decode(
             token,
             _public_key_value(),
             algorithms=[JWT_ALGORITHM],
-            audience=settings.jwt.audience,
-            issuer=settings.jwt.issuer,
+            audience=JWT_AUDIENCE,
+            issuer=JWT_ISSUER,
             options={"require": ["exp", "iat", "sub"]},
         )
     except jwt.PyJWTError as e:

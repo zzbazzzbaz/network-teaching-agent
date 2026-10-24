@@ -1,13 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-import { requireEnv } from "./env.ts";
-
 // 前端 E2E 对接真实后端：API 与 Agent 需要提前启动，本配置只负责拉起前端 dev server。
-const APP_URL = requireEnv("E2E_APP_URL");
-const APP_PORT = new URL(APP_URL).port;
-if (!APP_PORT) {
-  throw new Error(`E2E_APP_URL 必须包含端口，当前值：${APP_URL}`);
-}
+const APP_PORT = 5174;
+const APP_URL = `http://localhost:${APP_PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",

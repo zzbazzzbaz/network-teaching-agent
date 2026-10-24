@@ -108,7 +108,9 @@ def test_session_ownership(client: TestClient, create_user: Callable[..., Users]
     assert client.get(f"{SESSIONS}/{session_id}", headers=alice).status_code == 200
 
 
-def test_session_list_is_isolated_and_ordered(client: TestClient, create_user: Callable[..., Users]) -> None:
+def test_session_list_is_isolated_and_ordered(
+    client: TestClient, create_user: Callable[..., Users]
+) -> None:
     create_user("alice", "password123")
     create_user("bob", "password456")
     alice = _login(client, "alice", "password123")

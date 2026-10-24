@@ -58,9 +58,7 @@ def cmd_create_user(args: argparse.Namespace) -> int:
     with factory() as session:
         username = args.username.strip()
         if not (MIN_USERNAME_LENGTH <= len(username) <= MAX_USERNAME_LENGTH):
-            raise SystemExit(
-                f"用户名长度须为 {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} 个字符"
-            )
+            raise SystemExit(f"用户名长度须为 {MIN_USERNAME_LENGTH}-{MAX_USERNAME_LENGTH} 个字符")
         if user_repository.get_by_username(session, username) is not None:
             print(f"用户已存在: {username}", file=sys.stderr)
             return 1

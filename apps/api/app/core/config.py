@@ -41,10 +41,6 @@ class JWTSettings(_Base):
 
     private_key_path: str
     public_key_path: str
-    issuer: str
-    audience: str
-    access_token_ttl_seconds: int
-    refresh_token_ttl_seconds: int
 
     @field_validator("private_key_path", "public_key_path")
     @classmethod
