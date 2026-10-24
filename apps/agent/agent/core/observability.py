@@ -12,9 +12,6 @@ from langfuse.langchain import CallbackHandler
 
 from agent.core.config import get_settings
 
-TRACE_NAME = "network-teaching-agent"
-TRACE_TAGS = ["network-teaching", "langgraph"]
-
 
 @lru_cache
 def get_langfuse() -> Langfuse:

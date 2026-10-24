@@ -27,6 +27,7 @@ Langfuse 通过 LangChain `CallbackHandler` 自动生成 trace / generation / to
 
 - `agent/core/observability.py` 显式初始化客户端，并在进程内复用 handler；
 - `agent/main.py` 把 handler 绑定到 graph 默认 config，LangGraph Server 的每次 run 自动上报；
+- `create_deep_agent(name=...)` 的名字同时作为 Langfuse trace 名；
 - `agent/core/auth.py` 在 run metadata 注入 `langfuse_user_id` 与 `langfuse_session_id`（`thread_id`），一次对话聚合为一个 session。
 
 `LANGFUSE_TRACING_ENVIRONMENT` / `LANGFUSE_RELEASE` 可选，用于在 Langfuse 中区分环境与构建版本。

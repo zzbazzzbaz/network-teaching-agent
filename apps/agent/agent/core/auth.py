@@ -54,13 +54,9 @@ async def stamp_thread_owner(
     ctx: Auth.types.AuthContext,
     value: Auth.types.on.threads.create.value,
 ) -> dict[str, str]:
-    """会话创建：把 owner 写入 metadata；返回 owner 过滤保护 if_exists 的已有会话。"""
-    metadata = value.get("metadata")
-    if metadata is None:
-        metadata = {}
-        value["metadata"] = metadata
-    metadata["owner"] = ctx.user.identity
-    return {"owner": ctx.user.identity}
+    filters = {"owner": ctx.user.identity}
+    value.setdefault("metadata", {}).update(filters)
+    return filters
 
 
 @auth.on.threads.create_run
@@ -68,21 +64,22 @@ async def stamp_run_owner(
     ctx: Auth.types.AuthContext,
     value: Auth.types.on.threads.create_run.value,
 ) -> dict[str, str]:
-    """发起 run：过滤非本人会话；写入 owner 与 Langfuse 关联字段。
-
-    `thread_id` 是 LangGraph 的 checkpoint key，Langfuse 不会自动把它当作 session，
-    这里显式映射；用户身份以服务端鉴权结果为准，覆盖客户端可能传入的同名字段。
-    """
-    metadata = value.get("metadata")
-    if metadata is None:
-        metadata = {}
-        value["metadata"] = metadata
-    metadata["owner"] = ctx.user.identity
-    metadata["langfuse_user_id"] = ctx.user.identity
     thread_id = value.get("thread_id")
-    if thread_id is not None:
-        metadata["langfuse_session_id"] = str(thread_id)
-    return {"owner": ctx.user.identity}
+    if thread_id is None:
+        raise Auth.exceptions.HTTPException(
+            status_code=403, detail="禁止通过 run 创建临时会话，请先创建会话"
+        )
+    if value.get("if_not_exists") == "create":
+        raise Auth.exceptions.HTTPException(
+            status_code=403, detail="禁止通过 run 隐式创建会话，请先创建会话"
+        )
+
+    filters = {"owner": ctx.user.identity}
+    metadata = value.setdefault("metadata", {})
+    metadata.update(filters)
+    metadata["langfuse_user_id"] = ctx.user.identity
+    metadata["langfuse_session_id"] = str(thread_id)
+    return filters
 
 
 @auth.on.threads.update
@@ -90,13 +87,9 @@ async def pin_thread_owner(
     ctx: Auth.types.AuthContext,
     value: Auth.types.on.threads.update.value,
 ) -> dict[str, str]:
-    """更新会话：强制保留 owner，防止通过 metadata 把会话转给他人。"""
-    metadata = value.get("metadata")
-    if metadata is None:
-        metadata = {}
-        value["metadata"] = metadata
-    metadata["owner"] = ctx.user.identity
-    return {"owner": ctx.user.identity}
+    filters = {"owner": ctx.user.identity}
+    value.setdefault("metadata", {}).update(filters)
+    return filters
 
 
 @auth.on.threads
