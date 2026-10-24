@@ -1,0 +1,68 @@
+# syntax=docker/dockerfile:1.7
+FROM node:22-bookworm-slim
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Bootstrap CA certificates from the default mirror first.
+# The Node base image has no ca-certificates, so HTTPS mirrors cannot be used yet.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Now switch to the Tencent Cloud Debian mirror.
+RUN set -e; \
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+      sed -i 's|http://deb.debian.org/debian-security|http://mirrors.cloud.tencent.com/debian-security|g; s|http://deb.debian.org/debian|http://mirrors.cloud.tencent.com/debian|g' /etc/apt/sources.list.d/debian.sources; \
+    fi; \
+    if [ -f /etc/apt/sources.list ]; then \
+      sed -i 's|http://deb.debian.org/debian-security|http://mirrors.cloud.tencent.com/debian-security|g; s|http://deb.debian.org/debian|http://mirrors.cloud.tencent.com/debian|g' /etc/apt/sources.list; \
+    fi
+
+# Prevent apt from trying to start services during build
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
+    && chmod +x /usr/sbin/policy-rc.d
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      coreutils ca-certificates curl git jq procps iproute2 less vim-tiny nano \
+      sudo util-linux python3 python3-pip python3-venv \
+      nginx openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# code-server: use the official amd64 tarball, bundled Node, no runtime download
+COPY vendor/code-server-4.106.3-linux-amd64.tar.gz /tmp/code-server.tar.gz
+RUN mkdir -p /usr/local/lib/code-server \
+    && tar -xzf /tmp/code-server.tar.gz -C /usr/local/lib/code-server --strip-components=1 \
+    && ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server \
+    && rm -f /tmp/code-server.tar.gz \
+    && code-server --version
+
+# ttyd static binary
+COPY vendor/ttyd.x86_64 /usr/local/bin/ttyd
+RUN chmod 755 /usr/local/bin/ttyd && ttyd --version
+
+# AGS management daemon
+COPY --from=ccr.ccs.tencentyun.com/ags-image/envd:v0.5.14 \
+     --chmod=755 /usr/bin/envd /usr/bin/envd
+
+# Non-root user (AGS exec defaults to "user")
+RUN usermod -l user -d /home/user -m -s /bin/bash node \
+    && groupmod -n user node \
+    && echo 'user ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/user \
+    && chmod 0440 /etc/sudoers.d/user \
+    && mkdir -p /home/user/workspace /logs \
+    && chown -R user:user /home/user /logs
+
+COPY nginx.conf /etc/nginx/conf.d/sandbox.conf
+COPY start.sh /opt/start.sh
+RUN chmod 755 /opt/start.sh \
+    && rm -f /etc/nginx/sites-enabled/default \
+    && nginx -t
+
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    PIP_BREAK_SYSTEM_PACKAGES=1
+
+EXPOSE 9000 49983
+CMD ["/opt/start.sh"]
