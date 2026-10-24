@@ -3,6 +3,13 @@ FROM node:22-bookworm-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+# Mirror used while installing packages. CI can override this (for example
+# with deb.debian.org) without changing the runtime mirror below.
+ARG APT_MIRROR=mirrors.cloud.tencent.com
+
+# Mirror written into the final image for runtime apt usage.
+ARG RUNTIME_APT_MIRROR=mirrors.cloud.tencent.com
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Bootstrap CA certificates from the default mirror first.
@@ -11,14 +18,12 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Now switch to the Tencent Cloud Debian mirror.
+# Switch to the build-time Debian mirror.
 RUN set -e; \
-    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
-      sed -i 's|http://deb.debian.org/debian-security|http://mirrors.cloud.tencent.com/debian-security|g; s|http://deb.debian.org/debian|http://mirrors.cloud.tencent.com/debian|g' /etc/apt/sources.list.d/debian.sources; \
-    fi; \
-    if [ -f /etc/apt/sources.list ]; then \
-      sed -i 's|http://deb.debian.org/debian-security|http://mirrors.cloud.tencent.com/debian-security|g; s|http://deb.debian.org/debian|http://mirrors.cloud.tencent.com/debian|g' /etc/apt/sources.list; \
-    fi
+    for f in /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list; do \
+      [ -f "$f" ] || continue; \
+      sed -i -E "s|https?://[^/]+/debian-security|http://${APT_MIRROR}/debian-security|g; s|https?://[^/]+/debian|http://${APT_MIRROR}/debian|g" "$f"; \
+    done
 
 # Prevent apt from trying to start services during build
 RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
@@ -29,6 +34,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       sudo util-linux python3 python3-pip python3-venv \
       nginx openssh-client \
     && rm -rf /var/lib/apt/lists/*
+
+# Point runtime apt sources at the Tencent Cloud mirror, even when the image
+# was built with a different mirror (for example on GitHub Actions).
+RUN set -e; \
+    for f in /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list; do \
+      [ -f "$f" ] || continue; \
+      sed -i -E "s|https?://[^/]+/debian-security|http://${RUNTIME_APT_MIRROR}/debian-security|g; s|https?://[^/]+/debian|http://${RUNTIME_APT_MIRROR}/debian|g" "$f"; \
+    done
 
 # code-server: use the official amd64 tarball, bundled Node, no runtime download
 COPY vendor/code-server-4.106.3-linux-amd64.tar.gz /tmp/code-server.tar.gz

@@ -1,0 +1,83 @@
+name: Build sandbox image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/sandbox/**"
+      - ".github/workflows/sandbox-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sandbox-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/network-teaching-agent-sandbox
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache vendored binaries
+        uses: actions/cache@v4
+        with:
+          path: apps/sandbox/vendor
+          key: sandbox-vendor-${{ hashFiles('apps/sandbox/fetch-vendor.sh') }}
+
+      - name: Fetch vendored binaries
+        working-directory: apps/sandbox
+        env:
+          MIRROR: ""
+        run: ./fetch-vendor.sh
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/sandbox
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APT_MIRROR=deb.debian.org
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### Sandbox image pushed"
+            echo ""
+            echo '```'
+            echo "${{ env.IMAGE_NAME }}:latest"
+            echo "${{ steps.meta.outputs.tags }}"
+            echo "digest: ${{ steps.build.outputs.digest }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

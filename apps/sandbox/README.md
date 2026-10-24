@@ -21,6 +21,37 @@
 
 ## 构建镜像
 
+### GitHub Actions（推荐）
+
+推送到 `main` 且改动 `apps/sandbox/**` 时，仓库根目录的
+`.github/workflows/sandbox-image.yml` 会自动：
+
+1. 下载 code-server / ttyd 到 `vendor/`
+2. 用 Buildx 构建 `linux/amd64` 镜像
+3. 推送到 Docker Hub 公开仓库
+   `15688463267/network-teaching-agent-sandbox`
+4. 生成 `latest` 和 `sha-<commit>` 两个标签
+
+首次使用需要在 GitHub 仓库的
+Settings → Secrets and variables → Actions 中添加：
+
+| Secret | 值 |
+|---|---|
+| `DOCKERHUB_USERNAME` | `15688463267` |
+| `DOCKERHUB_TOKEN` | Docker Hub PAT，至少 Read & Write |
+
+也可以手动触发：
+
+```bash
+gh workflow run sandbox-image.yml
+gh run watch
+```
+
+镜像构建完成后，工作流 Summary 会输出镜像 digest。AGS 拉取时使用 `latest`
+或固定的 `sha-<commit>` 标签。
+
+### 本地构建（可选）
+
 ```bash
 ./fetch-vendor.sh
 
@@ -30,7 +61,8 @@ docker tag dev-sandbox:v2 ccr.ccs.tencentyun.com/aigame/dev-sandbox:v2
 docker push ccr.ccs.tencentyun.com/aigame/dev-sandbox:v2
 ```
 
-`vendor/` 只保留在本地，不提交到 git。换一台机器构建前，先执行一次 `./fetch-vendor.sh`。
+`vendor/` 只保留在本地，不提交到 git。换一台机器构建前，先执行一次
+`./fetch-vendor.sh`。
 
 ## 创建 AGS 沙箱工具
 
@@ -38,13 +70,13 @@ docker push ccr.ccs.tencentyun.com/aigame/dev-sandbox:v2
 tccli ags CreateSandboxTool --region ap-shanghai \
   --ToolName dev-sandbox-2c4g \
   --ToolType custom \
-  --Description "VSCode + Web Shell 沙盒（2C4G）" \
+  --Description "VSCode + Web Shell 沙盒（Docker Hub）" \
   --NetworkConfiguration '{"NetworkMode":"PUBLIC"}' \
   --DefaultTimeout 30m \
   --RoleArn 'qcs::cam::uin/100037354656:roleName/ai-game-platform-test-role' \
   --CustomConfiguration '{
-    "Image":"ccr.ccs.tencentyun.com/aigame/dev-sandbox:v2",
-    "ImageRegistryType":"personal",
+    "Image":"docker.io/15688463267/network-teaching-agent-sandbox:latest",
+    "ImageRegistryType":"custom",
     "Command":["/opt/start.sh"],
     "Ports":[
       {"Name":"web","Port":9000,"Protocol":"TCP"},
@@ -61,6 +93,14 @@ tccli ags CreateSandboxTool --region ap-shanghai \
     }
   }'
 ```
+
+`ImageRegistryType` 使用 `custom` 表示第三方公开镜像仓库。Docker Hub 仓库必须
+是 **Public**；AGS 会通过腾讯云的公开镜像源拉取，不需要在工具里配置 Docker Hub
+用户名和密码。
+
+如果仍使用腾讯云 CCR 个人版，把 `Image` 改回
+`ccr.ccs.tencentyun.com/aigame/dev-sandbox:v2`，并把 `ImageRegistryType` 改成
+`personal`。
 
 ## 启动实例
 
