@@ -100,7 +100,7 @@ test.describe("Agent 资源隔离", () => {
 
     const bobRun = await request.post(`/agent/threads/${threadId}/runs`, {
       headers: bearer(bobToken),
-      data: { assistant_id: "agent", input: { messages: [] } },
+      data: { assistant_id: "exp_agent", input: { messages: [] } },
     });
     expect([403, 404]).toContain(bobRun.status());
 

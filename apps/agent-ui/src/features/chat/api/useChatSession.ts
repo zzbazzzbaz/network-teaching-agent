@@ -3,7 +3,7 @@ import { useStream } from "@langchain/react";
 
 import { createLangGraphClient } from "@/shared/langgraph";
 
-const ASSISTANT_ID = "agent";
+const ASSISTANT_ID = "exp_agent";
 
 /**
  * Owns the LangGraph session: transport, thread identity, reconnection.
