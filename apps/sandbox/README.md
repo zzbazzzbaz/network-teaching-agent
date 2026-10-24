@@ -57,7 +57,8 @@ mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:sha-<commit
 
 生产环境建议固定 `sha-<commit>`，避免 `latest` 被后续构建覆盖。AGS 创建工具时
 会把 tag 解析成 `ImageDigest` 并固定，后续 Docker Hub 的 `latest` 更新不会影响
-已创建的 Sandbox Tool。
+已创建的 Sandbox Tool。当前验证过的标签是 `sha-1d5f643`（digest
+`sha256:518a4747709766e940a6ccc46a4cfca5b4933fd469b268fa81f37b096f558e8c`）。
 
 ### 本地构建（可选）
 
@@ -84,7 +85,7 @@ tccli ags CreateSandboxTool --region ap-shanghai \
   --DefaultTimeout 30m \
   --RoleArn 'qcs::cam::uin/100037354656:roleName/ai-game-platform-test-role' \
   --CustomConfiguration '{
-    "Image":"mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:latest",
+    "Image":"mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:sha-1d5f643",
     "ImageRegistryType":"custom",
     "Command":["/opt/start.sh"],
     "Ports":[
