@@ -11,6 +11,7 @@ dependencies = [
     "pydantic-settings",
     "e2b>=2.59.0",
     "langfuse>=5.0.4",
+    "pyjwt[crypto]>=2.10.1"
 ]
 
 [tool.setuptools.packages.find]
@@ -22,12 +23,6 @@ line-length = 100
 preview = true
 lint.select = ["E", "F", "I", "UP", "B", "ANN", "PYI", "PGH003"]
 lint.ignore = ["E501"]
-
-[tool.ty.rules]
-dynamic-function-decorator-return = "error"
-missing-type-argument = "error"
-possibly-unresolved-reference = "warn"
-unsound-return-statement = "error"
 
 [tool.uv]
 # langgraph-api 0.16.x pins opentelemetry-exporter-prometheus<0.64 (OTel SDK ~1.42),
