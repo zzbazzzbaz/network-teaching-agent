@@ -2,37 +2,40 @@
 
 React 19 + Vite 8 聊天前端，后端为 `apps/api` 与 `apps/agent`。
 
-## 配置
+## 目录
 
-运行时只读取 `apps/.env`：
-
-```dotenv
-AGENT_URL=http://127.0.0.1:2024
-API_URL=http://127.0.0.1:8000
+```text
+apps/agent-ui/
+├── src/
+│   ├── app/          入口、router、全局样式
+│   ├── routes/       TanStack Router 路由
+│   ├── features/     auth、chat、sessions
+│   └── shared/       请求、登录态、LangGraph Client
+├── e2e/              Playwright 用例与账号
+├── env.ts            读取 apps/.env
+├── vite.config.ts    开发端口 5173、代理
+├── playwright.config.ts  E2E 端口 5174
+└── package.json
 ```
 
-缺少变量时 Vite 报错。开发端口固定 `5173`，E2E 端口固定 `5174`。
+## 配置
 
-## 启动
+运行时只读取 `apps/.env`：`AGENT_URL=http://127.0.0.1:2024`、`API_URL=http://127.0.0.1:8000`。
+
+缺少变量时 Vite 报错。开发端口 `5173`，E2E 端口 `5174`。
+
+## 启动与命令
 
 ```bash
 cd apps/agent-ui
 npm install
 npm run dev
-```
-
-`/api` 代理到 `API_URL`，`/agent` 代理到 `AGENT_URL`。
-
-## 命令
-
-```bash
-npm run dev
 npm run build
 npm run lint
 npm run test:e2e
-npm run test:e2e:ui
-npm run test:e2e:report
 ```
+
+`/api` 代理到 `API_URL`，`/agent` 代理到 `AGENT_URL`。
 
 ## E2E
 

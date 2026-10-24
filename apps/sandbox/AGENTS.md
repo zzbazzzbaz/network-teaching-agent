@@ -29,7 +29,7 @@ gh workflow run sandbox-image.yml && gh run watch
 
 ```bash
 tccli ags UpdateSandboxTool --region ap-shanghai --ToolId sdt-rynngtwo \
-  --CustomConfiguration '<完整配置 JSON>'
+  --CustomConfiguration '{"Image":"mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:sha-<commit>","ImageRegistryType":"custom","Command":["/opt/start.sh"],"Ports":[{"Name":"web","Port":9000,"Protocol":"TCP"},{"Name":"envd","Port":49983,"Protocol":"TCP"}],"Resources":{"CPU":"1000m","Memory":"2Gi","Storage":"10Gi"}}'
 ```
 
 `CustomConfiguration` 必须包含 `Image`、`ImageRegistryType`、`Command`、`Ports`、`Resources`；`ImageRegistryType` 固定为 `custom`。
