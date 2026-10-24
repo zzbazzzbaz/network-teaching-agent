@@ -1,6 +1,6 @@
 # agent
 
-LangGraph 智能体：DeepAgents 编排、JWT 鉴权、`ask_human` 中断。
+LangGraph 智能体：DeepAgents 编排、JWT 鉴权、中断。
 
 ## 目录
 
