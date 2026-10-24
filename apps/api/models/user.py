@@ -1,9 +1,10 @@
 import uuid
 
 from sqlalchemy import Boolean, String, Text, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
+from models.session import Session
 
 
 class Users(Base):
@@ -13,3 +14,9 @@ class Users(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True)
     password_hash: Mapped[str] = mapped_column(Text)
     status: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    sessions: Mapped[list[Session]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
