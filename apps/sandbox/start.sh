@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mkdir -p /logs /home/user/workspace /home/user/.config /home/user/.local/share
+WORKSPACE_DIR=/home/user/workspace
+
+mkdir -p /logs "$WORKSPACE_DIR" /home/user/.config /home/user/.local/share
 chown -R user:user /home/user /logs
 
 # envd: AGS management daemon on 49983
@@ -23,13 +25,13 @@ chown -R user:user /home/user /logs
         --abs-proxy-base-path=/vscode \
         --disable-telemetry \
         --disable-update-check \
-        /home/user/workspace
+        "$WORKSPACE_DIR"
     echo "[$(date -Is)] code-server exited, restarting..." >&2
     sleep 1
   done
 ) >>/logs/code-server.log 2>&1 &
 
-# ttyd: web shell on 127.0.0.1:7681
+# ttyd: web shell on 127.0.0.1:7681, starting in the shared workspace
 (
   while true; do
     runuser -u user -- env HOME=/home/user \
@@ -38,7 +40,7 @@ chown -R user:user /home/user /logs
         --interface 127.0.0.1 \
         --base-path /ttyd \
         --writable \
-        /bin/bash -l
+        /bin/bash -c "cd $WORKSPACE_DIR && exec /bin/bash -l"
     echo "[$(date -Is)] ttyd exited, restarting..." >&2
     sleep 1
   done

@@ -8,11 +8,13 @@ from e2b import (
     SandboxException,
 )
 
+DEFAULT_WORK_DIR = "/home/user/workspace"
+
 
 class AgsBackend(BaseSandbox):
     enable_capture_offload = True
 
-    def __init__(self, *, sandbox: Sandbox, work_dir: str = "/home/user") -> None:
+    def __init__(self, *, sandbox: Sandbox, work_dir: str = DEFAULT_WORK_DIR) -> None:
         self._sandbox = sandbox
         self._default_timeout = 300
         self._user = "user"

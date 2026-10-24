@@ -130,6 +130,8 @@ Shell:  https://9000-<instance-id>.ap-shanghai.tencentags.com/ttyd/
 健康检查: https://9000-<instance-id>.ap-shanghai.tencentags.com/health
 ```
 
+code-server、ttyd 和 agent 的 shell 默认工作目录统一为 `/home/user/workspace`。
+
 ## 验证
 
 ```bash
