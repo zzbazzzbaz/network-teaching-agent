@@ -16,7 +16,7 @@ class AgsBackend(BaseSandbox):
 
     def __init__(self, *, sandbox: Sandbox, work_dir: str = DEFAULT_WORK_DIR) -> None:
         self._sandbox = sandbox
-        self._default_timeout = 300
+        self._default_timeout = 3600
         self._user = "user"
         self._work_dir = work_dir
 

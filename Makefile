@@ -22,7 +22,7 @@ run-api:
 	cd apps/api && uv run --env-file $(ENV_FILE) fastapi run --no-reload --port 8000
 
 run-agent:
-	cd apps/agent && uv run --env-file $(ENV_FILE) langgraph dev --no-reload --n-jobs-per-worker 4
+	cd apps/agent && uv run --env-file $(ENV_FILE) langgraph dev --no-browser --no-reload --n-jobs-per-worker 4
 
 run-ui:
 	cd apps/agent-ui && npm run dev
