@@ -7,6 +7,9 @@ import {
 } from "@assistant-ui/react";
 import { convertLangChainBaseMessage } from "@assistant-ui/react-langchain";
 
+import { ensureFreshToken } from "@/shared/http";
+import { getSession } from "@/shared/session";
+
 import { useChatSession } from "../api/useChatSession";
 import { ChatStreamContext } from "./chat-stream-context";
 
@@ -47,6 +50,8 @@ export function ChatRuntimeProvider({
     onNew: async (message: AppendMessage) => {
       const text = messageText(message);
       if (!text) return;
+      await ensureFreshToken();
+      if (getSession() === null) return;
       await stream.submit({
         messages: [{ type: "human", content: text }],
       });

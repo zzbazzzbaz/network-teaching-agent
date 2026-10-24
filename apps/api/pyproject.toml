@@ -15,7 +15,24 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["app", "app.*"]
+include = [
+    "api",
+    "api.*",
+    "core",
+    "core.*",
+    "models",
+    "models.*",
+    "repositories",
+    "repositories.*",
+    "services",
+    "services.*",
+    "gateway",
+    "gateway.*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py314"

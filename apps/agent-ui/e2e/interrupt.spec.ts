@@ -1,9 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("ask_human 中断", () => {
-  test("中断卡片渲染选项，作答后 agent 继续运行", async ({ page }) => {
-    await page.goto("/");
+import { createNewSession, login } from "./helpers";
 
+test.describe("ask_human 中断", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await createNewSession(page);
+  });
+
+  test("中断卡片渲染选项，作答后 agent 继续运行", async ({ page }) => {
     await page
       .getByTestId("composer-input")
       .fill("请直接调用 ask_human 工具考我一题，不要解释。");

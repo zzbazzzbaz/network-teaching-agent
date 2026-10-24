@@ -1,9 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("基础聊天", () => {
-  test("初始为空态，输入框为空时不能发送", async ({ page }) => {
-    await page.goto("/");
+import { createNewSession, login } from "./helpers";
 
+test.describe("基础聊天", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await createNewSession(page);
+  });
+
+  test("初始为空态，输入框为空时不能发送", async ({ page }) => {
     await expect(page.getByTestId("empty-state")).toBeVisible();
     await expect(page.getByTestId("composer-input")).toBeVisible();
     await expect(page.getByTestId("composer-send")).toBeDisabled();
@@ -13,8 +18,6 @@ test.describe("基础聊天", () => {
   test("发送消息后收到流式回复，URL 带上 threadId，刷新可恢复", async ({
     page,
   }) => {
-    await page.goto("/");
-
     const input = page.getByTestId("composer-input");
     await input.fill("用一句话解释 TCP 三次握手的目的是什么。");
     await page.getByTestId("composer-send").click();

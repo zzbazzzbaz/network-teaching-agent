@@ -1,0 +1,94 @@
+# API
+
+登录、会话列表与 JWKS。**不提供注册接口**，账号由管理员在服务器上创建。
+
+## 本地启动
+
+```bash
+cd apps/api
+cp ../.env.example ../.env   # 首次；按需填写
+uv sync
+```
+
+生成 JWT 密钥（首次）：
+
+```bash
+mkdir -p .keys
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out .keys/jwt_private.pem
+openssl rsa -pubout -in .keys/jwt_private.pem -out .keys/jwt_public.pem
+chmod 600 .keys/jwt_private.pem
+```
+
+`.keys/` 已在根 `.gitignore` 中忽略，不要提交私钥。
+
+启动数据库与 API：
+
+```bash
+cd apps
+docker compose -f docker-compose.dev.yml up -d --wait
+cd api
+uv run fastapi dev main.py --port 8000
+```
+
+## 账号管理
+
+```bash
+cd apps/api
+
+# 创建（交互式输入密码）
+uv run python cli.py create-user --username student
+
+# 重置密码 / 禁用 / 启用 / 列表
+uv run python cli.py reset-password --username student
+uv run python cli.py disable-user --username student
+uv run python cli.py enable-user --username student
+uv run python cli.py list-users
+```
+
+自动化场景可加 `--password`，但注意它会进入 shell history。
+
+## 接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/auth/login` | 用户名 + 密码登录 |
+| POST | `/api/v1/auth/refresh` | refresh token 换发新 token |
+| GET | `/api/v1/auth/me` | 当前用户 |
+| GET | `/api/v1/sessions` | 当前用户的会话列表 |
+| POST | `/api/v1/sessions` | 新建会话 |
+| GET | `/api/v1/sessions/{id}` | 会话详情（仅本人） |
+| PATCH | `/api/v1/sessions/{id}` | 重命名（仅本人） |
+| POST | `/api/v1/sessions/{id}/touch` | 更新最近使用时间 |
+| DELETE | `/api/v1/sessions/{id}` | 删除（仅本人） |
+| GET | `/.well-known/jwks.json` | Agent 验签用公钥 |
+| GET | `/health` | 健康检查 |
+
+会话的 `session_id` 同时作为 LangGraph 的 `thread_id`，前端打开会话时用它补建运行时线程。
+
+## JWT 配置
+
+在 `apps/.env` 中配置：
+
+```dotenv
+JWT_ISSUER=computer-network-agent
+JWT_AUDIENCE=agent
+ACCESS_TOKEN_TTL_SECONDS=1800
+REFRESH_TOKEN_TTL_SECONDS=604800
+```
+
+私钥/公钥默认位于 `apps/api/.keys/`，也可用 `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH` 覆盖。
+
+无状态 JWT 下，禁用用户或重置密码不会立即吊销已签发的 access token；最长在 `ACCESS_TOKEN_TTL_SECONDS` 后失效，refresh 时会重新检查账号状态。
+
+Agent 默认从 `http://127.0.0.1:8000/.well-known/jwks.json` 拉公钥。部署到容器时通过进程环境变量设置 `JWKS_URL`；本地 E2E 用 `JWKS_URL_OVERRIDE` 指向测试 API（`langgraph dev` 会用 `apps/.env` 覆盖同名进程变量，因此 E2E 使用 override 字段）。
+
+## 测试
+
+```bash
+cd apps/api
+uv run ruff check .
+uv run ty check .
+uv run pytest -q
+```
+
+测试使用临时 SQLite 和临时 RSA 密钥，不依赖本地 Postgres。

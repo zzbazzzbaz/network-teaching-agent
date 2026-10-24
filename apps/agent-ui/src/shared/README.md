@@ -1,15 +1,16 @@
 # shared
 
-只放与业务无关、可被任意 feature 复用的东西。
+只放与具体页面无关、可被任意 feature 复用的基础设施。
 
 ```
 shared/
-├── ui/    通用展示组件（按钮、空态、弹层）
-└── lib/   纯函数、格式化、常量
+├── http.ts       统一请求、Bearer 注入、401 续期、ApiError
+├── session.ts    浏览器端登录态存储
+└── langgraph.ts  LangGraph SDK Client、thread 补建/删除
 ```
 
 规则：
 
 - `shared` **不能** import `features/`、`routes/`、`app/`。
-- 通用组件不得包含聊天、会话、agent 等业务概念。
+- 这里只放跨 feature 的传输与存储基础设施，不放 UI，也不放页面状态。
 - 只有出现第二个 feature 且确实重复时，才把代码提升到这里。

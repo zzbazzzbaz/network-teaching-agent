@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { useStream } from "@langchain/react";
 
+import { createLangGraphClient } from "@/shared/langgraph";
+
 const ASSISTANT_ID = "agent";
-const API_URL = new URL("/agent", window.location.origin).href;
 
 /**
  * Owns the LangGraph session: transport, thread identity, reconnection.
@@ -14,9 +16,11 @@ export function useChatSession({
   threadId: string | undefined;
   onThreadIdChange: (threadId: string | undefined) => void;
 }) {
+  const client = useMemo(() => createLangGraphClient(), []);
+
   return useStream({
+    client,
     assistantId: ASSISTANT_ID,
-    apiUrl: API_URL,
     threadId: threadId ?? null,
     onThreadId: onThreadIdChange,
     maxReconnectAttempts: 2,
