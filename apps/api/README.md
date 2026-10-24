@@ -27,7 +27,7 @@ chmod 600 .keys/jwt_private.pem
 cd apps
 docker compose -f docker-compose.dev.yml up -d --wait
 cd api
-uv run fastapi dev main.py --port 8000
+uv run fastapi dev app/main.py --port 8000
 ```
 
 ## 账号管理
@@ -36,13 +36,13 @@ uv run fastapi dev main.py --port 8000
 cd apps/api
 
 # 创建（交互式输入密码）
-uv run python -m scripts.cli create-user --username student
+uv run python -m app.scripts.cli create-user --username student
 
 # 重置密码 / 禁用 / 启用 / 列表
-uv run python -m scripts.cli reset-password --username student
-uv run python -m scripts.cli disable-user --username student
-uv run python -m scripts.cli enable-user --username student
-uv run python -m scripts.cli list-users
+uv run python -m app.scripts.cli reset-password --username student
+uv run python -m app.scripts.cli disable-user --username student
+uv run python -m app.scripts.cli enable-user --username student
+uv run python -m app.scripts.cli list-users
 ```
 
 自动化场景可加 `--password`，但注意它会进入 shell history。
@@ -67,20 +67,22 @@ uv run python -m scripts.cli list-users
 
 ## JWT 配置
 
-在 `apps/.env` 中配置：
+在 `apps/.env` 中配置（没有代码内默认值，缺少任一项都会启动失败）：
 
 ```dotenv
+JWT_PRIVATE_KEY_PATH=.keys/jwt_private.pem
+JWT_PUBLIC_KEY_PATH=.keys/jwt_public.pem
 JWT_ISSUER=computer-network-agent
 JWT_AUDIENCE=agent
-ACCESS_TOKEN_TTL_SECONDS=1800
-REFRESH_TOKEN_TTL_SECONDS=604800
+JWT_ACCESS_TOKEN_TTL_SECONDS=1800
+JWT_REFRESH_TOKEN_TTL_SECONDS=604800
 ```
 
-私钥/公钥默认位于 `apps/api/.keys/`，也可用 `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH` 覆盖。
+私钥/公钥的相对路径以 `apps/api` 为基准，也可填绝对路径。
 
-无状态 JWT 下，禁用用户或重置密码不会立即吊销已签发的 access token；最长在 `ACCESS_TOKEN_TTL_SECONDS` 后失效，refresh 时会重新检查账号状态。
+无状态 JWT 下，禁用用户或重置密码不会立即吊销已签发的 access token；最长在 `JWT_ACCESS_TOKEN_TTL_SECONDS` 后失效，refresh 时会重新检查账号状态。
 
-Agent 默认从 `http://127.0.0.1:8000/.well-known/jwks.json` 拉公钥。部署到容器时通过进程环境变量设置 `JWKS_URL`。
+Agent 通过 `apps/.env` 中的 `JWT_JWKS_URL` 拉取公钥验签。
 
 ## 测试
 

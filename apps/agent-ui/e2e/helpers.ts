@@ -1,9 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 
-export const STUDENT_USERNAME = process.env.E2E_STUDENT_USERNAME ?? "e2e_student";
-export const STUDENT_PASSWORD = process.env.E2E_STUDENT_PASSWORD ?? "e2e-password-123";
-export const OTHER_USERNAME = process.env.E2E_OTHER_USERNAME ?? "e2e_other";
-export const OTHER_PASSWORD = process.env.E2E_OTHER_PASSWORD ?? "e2e-password-456";
+import { requireEnv } from "../env.ts";
+
+export const STUDENT_USERNAME = requireEnv("E2E_STUDENT_USERNAME");
+export const STUDENT_PASSWORD = requireEnv("E2E_STUDENT_PASSWORD");
+export const OTHER_USERNAME = requireEnv("E2E_OTHER_USERNAME");
+export const OTHER_PASSWORD = requireEnv("E2E_OTHER_PASSWORD");
 
 export async function login(
   page: Page,

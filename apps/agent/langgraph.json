@@ -1,11 +1,11 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "agent": "./main.py:build_agent"
+    "agent": "./agent/main.py:build_agent"
   },
   "env": "../.env",
   "auth": {
-    "path": "./core/auth.py:auth"
+    "path": "./agent/core/auth.py:auth"
   },
   "python_version": "3.14"
 }

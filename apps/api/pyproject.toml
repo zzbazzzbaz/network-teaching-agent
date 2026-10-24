@@ -15,20 +15,7 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = [
-    "api",
-    "api.*",
-    "core",
-    "core.*",
-    "models",
-    "models.*",
-    "repositories",
-    "repositories.*",
-    "services",
-    "services.*",
-    "gateway",
-    "gateway.*",
-]
+include = ["app", "app.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

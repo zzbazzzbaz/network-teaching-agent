@@ -52,7 +52,7 @@ agent: ## 启动 agent（LangGraph dev server）
 	cd $(AGENT_DIR) && uv run langgraph dev --port $(AGENT_PORT) --no-browser
 
 api: ## 启动 api（FastAPI dev server）
-	cd $(API_DIR) && uv run fastapi dev main.py --port $(API_PORT)
+	cd $(API_DIR) && uv run fastapi dev app/main.py --port $(API_PORT)
 
 ui: ## 启动 agent-ui（Vite dev server）
 	cd $(UI_DIR) && npm run dev
@@ -67,6 +67,6 @@ dev: up ## 一键启动全部服务（Ctrl-C 同时退出）
 	trap cleanup INT TERM EXIT; \
 	echo "启动 agent (:$(AGENT_PORT)) / api (:$(API_PORT)) / agent-ui (:5173)，Ctrl-C 退出"; \
 	( cd $(AGENT_DIR) && exec uv run langgraph dev --port $(AGENT_PORT) --no-browser ) & pids="$$pids $$!"; \
-	( cd $(API_DIR) && exec uv run fastapi dev main.py --port $(API_PORT) ) & pids="$$pids $$!"; \
+	( cd $(API_DIR) && exec uv run fastapi dev app/main.py --port $(API_PORT) ) & pids="$$pids $$!"; \
 	( cd $(UI_DIR) && exec npm run dev ) & pids="$$pids $$!"; \
 	wait

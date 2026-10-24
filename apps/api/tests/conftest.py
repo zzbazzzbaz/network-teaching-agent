@@ -8,9 +8,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from core.config import get_settings
-from core.security import hash_password
-from models.user import Users
+from app.core.config import get_settings
+from app.core.security import hash_password
+from app.models.user import Users
 
 
 @pytest.fixture(scope="session")
@@ -49,7 +49,7 @@ def client(
     monkeypatch.setenv("JWT_AUDIENCE", "test-audience")
     get_settings.cache_clear()
 
-    from main import create_app
+    from app.main import create_app
 
     application = create_app()
     with TestClient(application) as test_client:

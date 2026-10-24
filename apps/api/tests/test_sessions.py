@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from models.user import Users
+from app.models.user import Users
 
 SESSIONS = "/api/v1/sessions"
 

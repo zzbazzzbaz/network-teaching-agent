@@ -4,7 +4,7 @@ from typing import Any, cast
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from models.user import Users
+from app.models.user import Users
 
 LOGIN = "/api/v1/auth/login"
 REFRESH = "/api/v1/auth/refresh"
