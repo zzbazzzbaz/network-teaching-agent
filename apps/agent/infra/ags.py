@@ -1,6 +1,6 @@
 from e2b import Sandbox
 
-from config import get_settings
+from core.config import get_settings
 
 
 def connect_sandbox(sandbox_id: str) -> Sandbox:

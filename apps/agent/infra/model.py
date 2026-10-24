@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from langchain.chat_models import BaseChatModel, init_chat_model
 
-from config import get_settings
+from core.config import get_settings
 
 
 @lru_cache
