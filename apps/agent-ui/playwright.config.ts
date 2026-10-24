@@ -1,8 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const APP_URL = "http://localhost:5174";
-const AGENT_URL = "http://127.0.0.1:2025";
-const API_URL = "http://127.0.0.1:8001";
+// 前端 E2E 对接真实后端：API 与 Agent 需要提前启动，本配置只负责拉起前端 dev server。
+const APP_URL = process.env.E2E_APP_URL ?? "http://localhost:5174";
+const APP_PORT = new URL(APP_URL).port || "5174";
+const AGENT_URL = process.env.E2E_AGENT_URL ?? "http://127.0.0.1:2024";
+const API_URL = process.env.E2E_API_URL ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -22,26 +24,10 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: "cd ../api && E2E_API_PORT=8001 uv run python scripts/e2e_server.py",
-      url: `${API_URL}/health`,
-      reuseExistingServer: true,
-      timeout: 180_000,
-      stdout: "ignore",
-      stderr: "pipe",
-    },
-    {
-      command:
-        "cd ../agent && JWKS_URL_OVERRIDE=http://127.0.0.1:8001/.well-known/jwks.json uv run langgraph dev --port 2025 --no-browser",
-      url: `${AGENT_URL}/ok`,
-      reuseExistingServer: true,
-      timeout: 180_000,
-      stdout: "ignore",
-      stderr: "pipe",
-    },
-    {
-      command: "PORT=5174 AGENT_URL=http://127.0.0.1:2025 API_URL=http://127.0.0.1:8001 npm run dev",
+      // 只启动前端；代理目标指向已经运行的真实 API / Agent。
+      command: `PORT=${APP_PORT} AGENT_URL=${AGENT_URL} API_URL=${API_URL} npm run dev`,
       url: APP_URL,
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 120_000,
     },
   ],

@@ -1,10 +1,10 @@
 """账号管理命令：注册接口不对外暴露，由管理员在服务器上建号。
 
 用法（在 apps/api 下）：
-    uv run python cli.py create-user --username student
-    uv run python cli.py reset-password --username student
-    uv run python cli.py disable-user --username student
-    uv run python cli.py list-users
+    uv run python -m scripts.cli create-user --username student
+    uv run python -m scripts.cli reset-password --username student
+    uv run python -m scripts.cli disable-user --username student
+    uv run python -m scripts.cli list-users
 """
 
 import argparse

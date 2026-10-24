@@ -47,7 +47,7 @@ npm run dev
 
 ```bash
 cd ../api
-uv run python cli.py create-user --username student
+uv run python -m scripts.cli create-user --username student
 ```
 
 ## E2E
@@ -57,13 +57,36 @@ npx playwright install chromium   # 首次
 npm run test:e2e
 ```
 
-E2E 使用独立端口，避免和本地 dev server 冲突：
+E2E 对接**真实启动的后端**，测试脚本不负责启动 API 和 Agent。
 
-- API：`127.0.0.1:8001`（SQLite，自动建测试账号）
-- Agent：`127.0.0.1:2025`
-- 前端：`localhost:5174`
+### 前置
 
-测试覆盖登录、会话列表、跨用户会话拒绝、LangGraph thread 隔离，以及原有的聊天/中断用例。
+- API 已启动（默认 `http://127.0.0.1:8000`）
+- Agent 已启动（默认 `http://127.0.0.1:2024`）
+- 真实后端数据库中已有测试账号（默认 `e2e_student` / `e2e_other`）：
+
+```bash
+cd ../api
+uv run python -m scripts.cli create-user --username e2e_student --password e2e-password-123
+uv run python -m scripts.cli create-user --username e2e_other --password e2e-password-456
+```
+
+E2E 只负责启动前端 dev server（默认 `localhost:5174`），并把 Vite 的 `/api`、`/agent` 代理指向上述真实后端。
+
+可用环境变量覆盖：
+
+```bash
+E2E_API_URL=http://127.0.0.1:8000 \
+E2E_AGENT_URL=http://127.0.0.1:2024 \
+E2E_APP_URL=http://localhost:5174 \
+E2E_STUDENT_USERNAME=e2e_student \
+E2E_STUDENT_PASSWORD=e2e-password-123 \
+E2E_OTHER_USERNAME=e2e_other \
+E2E_OTHER_PASSWORD=e2e-password-456 \
+npm run test:e2e
+```
+
+测试覆盖登录、会话列表、跨用户会话拒绝、LangGraph thread 隔离，以及原有的聊天/中断用例。API 自身由 `pytest` 覆盖，不单独跑 E2E。
 
 - `npm run test:e2e:ui` 调试模式
 - `npm run test:e2e:report` 查看报告

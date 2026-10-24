@@ -22,7 +22,7 @@ auth = Auth()
 @lru_cache
 def _jwks_client() -> PyJWKClient:
     settings = get_settings()
-    return PyJWKClient(settings.resolved_jwks_url, cache_keys=True, lifespan=300)
+    return PyJWKClient(settings.jwks_url, cache_keys=True, lifespan=300)
 
 
 def _verify(token: str) -> dict[str, Any]:

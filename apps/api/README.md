@@ -36,13 +36,13 @@ uv run fastapi dev main.py --port 8000
 cd apps/api
 
 # 创建（交互式输入密码）
-uv run python cli.py create-user --username student
+uv run python -m scripts.cli create-user --username student
 
 # 重置密码 / 禁用 / 启用 / 列表
-uv run python cli.py reset-password --username student
-uv run python cli.py disable-user --username student
-uv run python cli.py enable-user --username student
-uv run python cli.py list-users
+uv run python -m scripts.cli reset-password --username student
+uv run python -m scripts.cli disable-user --username student
+uv run python -m scripts.cli enable-user --username student
+uv run python -m scripts.cli list-users
 ```
 
 自动化场景可加 `--password`，但注意它会进入 shell history。
@@ -80,7 +80,7 @@ REFRESH_TOKEN_TTL_SECONDS=604800
 
 无状态 JWT 下，禁用用户或重置密码不会立即吊销已签发的 access token；最长在 `ACCESS_TOKEN_TTL_SECONDS` 后失效，refresh 时会重新检查账号状态。
 
-Agent 默认从 `http://127.0.0.1:8000/.well-known/jwks.json` 拉公钥。部署到容器时通过进程环境变量设置 `JWKS_URL`；本地 E2E 用 `JWKS_URL_OVERRIDE` 指向测试 API（`langgraph dev` 会用 `apps/.env` 覆盖同名进程变量，因此 E2E 使用 override 字段）。
+Agent 默认从 `http://127.0.0.1:8000/.well-known/jwks.json` 拉公钥。部署到容器时通过进程环境变量设置 `JWKS_URL`。
 
 ## 测试
 
