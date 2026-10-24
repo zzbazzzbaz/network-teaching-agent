@@ -23,7 +23,8 @@
 
 ### GitHub Actions（推荐）
 
-推送到 `main` 且改动 `apps/sandbox/**` 时，仓库根目录的
+推送到 `main` 且改动 `apps/sandbox/` 下的构建文件（`Dockerfile`、
+`nginx.conf`、`start.sh`、`fetch-vendor.sh`）时，仓库根目录的
 `.github/workflows/sandbox-image.yml` 会自动：
 
 1. 下载 code-server / ttyd 到 `vendor/`
@@ -47,8 +48,16 @@ gh workflow run sandbox-image.yml
 gh run watch
 ```
 
-镜像构建完成后，工作流 Summary 会输出镜像 digest。AGS 拉取时使用 `latest`
-或固定的 `sha-<commit>` 标签。
+镜像构建完成后，工作流 Summary 会输出镜像 digest。AGS 使用腾讯云内网镜像源拉取：
+
+```text
+mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:latest
+mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:sha-<commit>
+```
+
+生产环境建议固定 `sha-<commit>`，避免 `latest` 被后续构建覆盖。AGS 创建工具时
+会把 tag 解析成 `ImageDigest` 并固定，后续 Docker Hub 的 `latest` 更新不会影响
+已创建的 Sandbox Tool。
 
 ### 本地构建（可选）
 
@@ -68,21 +77,21 @@ docker push ccr.ccs.tencentyun.com/aigame/dev-sandbox:v2
 
 ```bash
 tccli ags CreateSandboxTool --region ap-shanghai \
-  --ToolName dev-sandbox-2c4g \
+  --ToolName dev-sandbox-dockerhub \
   --ToolType custom \
-  --Description "VSCode + Web Shell 沙盒（Docker Hub）" \
+  --Description "VSCode + Web Shell 沙盒（Docker Hub，1C2G）" \
   --NetworkConfiguration '{"NetworkMode":"PUBLIC"}' \
   --DefaultTimeout 30m \
   --RoleArn 'qcs::cam::uin/100037354656:roleName/ai-game-platform-test-role' \
   --CustomConfiguration '{
-    "Image":"docker.io/15688463267/network-teaching-agent-sandbox:latest",
+    "Image":"mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:latest",
     "ImageRegistryType":"custom",
     "Command":["/opt/start.sh"],
     "Ports":[
       {"Name":"web","Port":9000,"Protocol":"TCP"},
       {"Name":"envd","Port":49983,"Protocol":"TCP"}
     ],
-    "Resources":{"CPU":"2000m","Memory":"4Gi","Storage":"10Gi"},
+    "Resources":{"CPU":"1000m","Memory":"2Gi","Storage":"10Gi"},
     "Probe":{
       "HttpGet":{"Path":"/health","Port":49983,"Scheme":"HTTP"},
       "ReadyTimeoutMs":30000,
@@ -94,9 +103,16 @@ tccli ags CreateSandboxTool --region ap-shanghai \
   }'
 ```
 
-`ImageRegistryType` 使用 `custom` 表示第三方公开镜像仓库。Docker Hub 仓库必须
-是 **Public**；AGS 会通过腾讯云的公开镜像源拉取，不需要在工具里配置 Docker Hub
-用户名和密码。
+`ImageRegistryType` 使用 `custom`，镜像地址必须走腾讯云内网 Docker Hub 镜像源：
+
+```text
+mirror.ccs.tencentyun.com/<dockerhub-namespace>/<repo>:<tag>
+```
+
+不要直接写 `docker.io/...`。AGS 的 `custom` 类型在 `PUBLIC` 网络下直接访问
+Docker Hub 会失败（`FailedOperation.DependencyUnavailable`）；`personal` 类型
+只接受 `ccr.ccs.tencentyun.com` 域名。首次创建工具需要 3–5 分钟拉取镜像，之后
+会命中 AGS 镜像缓存。
 
 如果仍使用腾讯云 CCR 个人版，把 `Image` 改回
 `ccr.ccs.tencentyun.com/aigame/dev-sandbox:v2`，并把 `ImageRegistryType` 改成
@@ -117,16 +133,16 @@ tccli ags StartSandboxInstance --region ap-shanghai \
   --AuthMode PUBLIC
 ```
 
-### 1C2G 实例级覆盖
+### 实例级规格覆盖
 
-`custom` 类型支持按实例覆盖资源，同一个工具可以启动 1C2G 沙盒：
+工具默认 1C2G；`custom` 类型支持按实例覆盖资源，同一个工具可以启动 2C4G 沙盒：
 
 ```bash
 tccli ags StartSandboxInstance --region ap-shanghai \
   --ToolId <tool-id> \
   --Timeout 2h \
   --AuthMode PUBLIC \
-  --CustomConfiguration '{"Resources":{"CPU":"1000m","Memory":"2Gi","Storage":"10Gi"}}'
+  --CustomConfiguration '{"Resources":{"CPU":"2000m","Memory":"4Gi","Storage":"10Gi"}}'
 ```
 
 该方式对 `aio` 类型无效，AIO 始终是 4C8G。
@@ -214,6 +230,12 @@ tccli ags DeleteSandboxTool --region ap-shanghai \
 4. 健康检查是否配置为 `49983/health`；
 5. `start.sh` 是否正常启动了 nginx、code-server、ttyd。
 
-### 1C2G 覆盖不生效
+### 工具一直 CREATING / 镜像拉取失败
+
+- 确认 `Image` 使用 `mirror.ccs.tencentyun.com/...`，不要用 `docker.io/...`。
+- Docker Hub 仓库必须是 Public，namespace / repo / tag 必须存在。
+- 首次拉取 3–5 分钟属正常；超过 10 分钟仍未 `ACTIVE`，检查镜像地址和网络。
+
+### 规格覆盖不生效
 
 确认工具类型是 `custom`。`aio` 类型会忽略资源覆盖，始终使用 4C8G。

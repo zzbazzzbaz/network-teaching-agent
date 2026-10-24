@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "apps/sandbox/**"
+      - "apps/sandbox/Dockerfile"
+      - "apps/sandbox/nginx.conf"
+      - "apps/sandbox/start.sh"
+      - "apps/sandbox/fetch-vendor.sh"
       - ".github/workflows/sandbox-image.yml"
   workflow_dispatch:
 
@@ -76,7 +79,9 @@ jobs:
             echo "### Sandbox image pushed"
             echo ""
             echo '```'
-            echo "${{ env.IMAGE_NAME }}:latest"
+            echo "Docker Hub: ${{ env.IMAGE_NAME }}:latest"
+            echo "AGS: mirror.ccs.tencentyun.com/${IMAGE_NAME}:latest"
+            echo "AGS (sha): mirror.ccs.tencentyun.com/${IMAGE_NAME}:sha-${GITHUB_SHA::7}"
             echo "${{ steps.meta.outputs.tags }}"
             echo "digest: ${{ steps.build.outputs.digest }}"
             echo '```'
