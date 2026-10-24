@@ -97,6 +97,52 @@ button:disabled {
   color: var(--muted);
 }
 
+.sandbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sandbox-label {
+  color: var(--muted);
+}
+
+.sandbox-muted {
+  color: var(--muted);
+}
+
+.sandbox-action,
+.sandbox-link {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.sandbox-action:hover,
+.sandbox-link:hover {
+  background: var(--bg);
+}
+
+.sandbox-link {
+  color: var(--accent);
+}
+
+.sandbox-error {
+  max-width: 160px;
+  overflow: hidden;
+  color: var(--danger);
+  text-overflow: ellipsis;
+}
+
 .ghost-button {
   border: 1px solid var(--border);
   background: transparent;
@@ -901,5 +947,18 @@ button:disabled {
 
   .current-user {
     display: none;
+  }
+
+  .sandbox-bar {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .sandbox-label {
+    display: none;
+  }
+
+  .sandbox-error {
+    max-width: 100px;
   }
 }

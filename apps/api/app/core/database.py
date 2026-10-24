@@ -19,7 +19,3 @@ def create_db_engine(url: str) -> Engine:
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, expire_on_commit=False)
-
-
-def create_all(engine: Engine) -> None:
-    Base.metadata.create_all(engine)

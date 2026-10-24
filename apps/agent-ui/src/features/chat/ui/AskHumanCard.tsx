@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { useSandbox } from "@/features/sandbox";
+
 import { useChatStream } from "../model/chat-stream-context";
 
 type AskHumanPayload = {
@@ -31,6 +33,7 @@ function optionLetter(option: string): string {
 
 export function AskHumanCard() {
   const stream = useChatStream();
+  const sandbox = useSandbox();
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,9 +58,15 @@ export function AskHumanCard() {
     setSubmitting(letter);
     setError(null);
     try {
+      const sandboxInfo = await sandbox.ensure();
       await stream.respond(
         { answer: letter },
-        interrupt.id ? { interruptId: interrupt.id } : undefined,
+        {
+          ...(interrupt.id ? { interruptId: interrupt.id } : {}),
+          config: {
+            configurable: { sandbox_id: sandboxInfo.sandbox_id },
+          },
+        },
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

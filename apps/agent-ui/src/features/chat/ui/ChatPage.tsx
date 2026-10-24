@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ComposerPrimitive, ThreadPrimitive } from "@assistant-ui/react";
 
 import { useAuth } from "@/features/auth";
+import { SandboxBar } from "@/features/sandbox";
 import { SessionSidebar } from "@/features/sessions";
 
 import { useChatStream } from "../model/chat-stream-context";
@@ -114,6 +115,7 @@ export function ChatPage({
           </div>
         </div>
         <div className="header-right">
+          <SandboxBar />
           <span className="thread-id" data-testid="thread-id">
             {threadId ? threadId.slice(0, 8) : "新会话"}
           </span>

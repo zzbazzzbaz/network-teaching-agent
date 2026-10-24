@@ -1,8 +1,11 @@
 import uuid
 from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import cast
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
@@ -14,6 +17,8 @@ from app.core.config import get_settings
 from app.core.database import create_db_engine
 from app.core.security import hash_password
 from app.models.user import Users
+
+API_DIR = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(scope="session")
@@ -57,6 +62,11 @@ def database_url() -> Iterator[str]:
         admin_engine.dispose()
 
 
+def _run_migrations() -> None:
+    config = Config(str(API_DIR / "alembic.ini"))
+    command.upgrade(config, "head")
+
+
 @pytest.fixture
 def client(
     monkeypatch: pytest.MonkeyPatch,
@@ -68,6 +78,7 @@ def client(
     monkeypatch.setenv("JWT_PRIVATE_KEY_PATH", private_path)
     monkeypatch.setenv("JWT_PUBLIC_KEY_PATH", public_path)
     get_settings.cache_clear()
+    _run_migrations()
 
     from app.main import create_app
 

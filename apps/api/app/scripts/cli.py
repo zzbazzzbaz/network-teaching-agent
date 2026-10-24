@@ -21,7 +21,7 @@ from app.core.constants import (
     MIN_PASSWORD_LENGTH,
     MIN_USERNAME_LENGTH,
 )
-from app.core.database import create_all, create_db_engine, create_session_factory
+from app.core.database import create_db_engine, create_session_factory
 from app.core.security import hash_password
 from app.models.user import Users
 from app.repositories.user_repository import user_repository
@@ -47,7 +47,6 @@ def _validate_password(password: str) -> None:
 def _build_session_factory() -> sessionmaker[Session]:
     settings = get_settings()
     engine = create_db_engine(settings.db.database_url)
-    create_all(engine)
     return create_session_factory(engine)
 
 

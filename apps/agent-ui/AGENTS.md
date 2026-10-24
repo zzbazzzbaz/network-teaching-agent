@@ -9,7 +9,7 @@ apps/agent-ui/
 ├── src/
 │   ├── app/          入口、router、全局样式
 │   ├── routes/       TanStack Router 路由
-│   ├── features/     auth、chat、sessions
+│   ├── features/     auth、chat、sandbox、sessions
 │   └── shared/       请求、登录态、LangGraph Client
 ├── e2e/              Playwright 用例与账号
 ├── env.ts            读取 apps/.env
@@ -36,6 +36,8 @@ npm run test:e2e
 ```
 
 `/api` 代理到 `API_URL`，`/agent` 代理到 `AGENT_URL`。
+
+沙箱入口在全局 `SandboxProvider` 中：进入页面调用 `GET /api/v1/sandbox`，启动或首次发送消息时调用 `POST`，发送消息和恢复中断时把 `sandbox_id` 写入 LangGraph 的 `configurable`。
 
 ## E2E
 

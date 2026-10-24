@@ -15,6 +15,8 @@ apps/api/
 │   ├── repositories/             数据访问
 │   ├── services/                 业务逻辑
 │   └── scripts/cli.py            账号管理命令
+├── migrations/                   Alembic 迁移
+├── alembic.ini
 ├── tests/                        pytest
 ├── .keys/                        JWT 私钥/公钥
 └── pyproject.toml
@@ -33,7 +35,16 @@ cd apps && docker compose -f docker-compose.dev.yml up -d --wait
 cd api
 cp ../.env.example ../.env
 uv sync
+uv run alembic upgrade head
 uv run fastapi dev app/main.py --port 8000
+```
+
+已有库如果此前由 `create_all` 建过表：
+
+```bash
+cd apps/api
+uv run alembic stamp 0001_initial
+uv run alembic upgrade head
 ```
 
 首次生成密钥：`mkdir -p .keys && openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out .keys/jwt_private.pem && openssl rsa -pubout -in .keys/jwt_private.pem -out .keys/jwt_public.pem`

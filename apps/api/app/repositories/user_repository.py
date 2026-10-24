@@ -10,6 +10,11 @@ class UserRepository:
     def get(self, session: Session, user_id: uuid.UUID) -> Users | None:
         return session.get(Users, user_id)
 
+    def get_for_update(self, session: Session, user_id: uuid.UUID) -> Users | None:
+        return session.scalar(
+            select(Users).where(Users.user_id == user_id).with_for_update()
+        )
+
     def get_by_username(self, session: Session, username: str) -> Users | None:
         return session.scalar(select(Users).where(Users.username == username))
 

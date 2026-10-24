@@ -1,8 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-import { createNewSession, login } from "./helpers";
+import { createNewSession, login, stopSandbox } from "./helpers";
 
 test.describe("基础聊天", () => {
+  test.afterEach(async ({ page }) => {
+    await stopSandbox(page);
+  });
+
   test.beforeEach(async ({ page }) => {
     await login(page);
     await createNewSession(page);

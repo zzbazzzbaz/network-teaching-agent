@@ -23,6 +23,19 @@ export async function logout(page: Page): Promise<void> {
   await expect(page.getByTestId("login-page")).toBeVisible();
 }
 
+export async function stopSandbox(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const raw = window.localStorage.getItem("computer-network-agent.auth");
+    if (!raw) return;
+    const token = (JSON.parse(raw) as { accessToken?: string }).accessToken;
+    if (!token) return;
+    await fetch("/api/v1/sandbox", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  });
+}
+
 export async function createNewSession(page: Page): Promise<void> {
   const before = new URL(page.url()).searchParams.get("threadId");
   await page.getByTestId("session-new").click();

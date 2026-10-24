@@ -10,6 +10,8 @@ import { convertLangChainBaseMessage } from "@assistant-ui/react-langchain";
 import { ensureFreshToken } from "@/shared/http";
 import { getSession } from "@/shared/session";
 
+import { useSandbox } from "@/features/sandbox";
+
 import { useChatSession } from "../api/useChatSession";
 import { ChatStreamContext } from "./chat-stream-context";
 
@@ -37,6 +39,7 @@ export function ChatRuntimeProvider({
   children: ReactNode;
 }) {
   const stream = useChatSession({ threadId, onThreadIdChange });
+  const sandbox = useSandbox();
 
   const messages = useExternalMessageConverter({
     callback: convertLangChainBaseMessage,
@@ -52,9 +55,17 @@ export function ChatRuntimeProvider({
       if (!text) return;
       await ensureFreshToken();
       if (getSession() === null) return;
-      await stream.submit({
-        messages: [{ type: "human", content: text }],
-      });
+      const sandboxInfo = await sandbox.ensure();
+      await stream.submit(
+        {
+          messages: [{ type: "human", content: text }],
+        },
+        {
+          config: {
+            configurable: { sandbox_id: sandboxInfo.sandbox_id },
+          },
+        },
+      );
     },
     onCancel: async () => {
       await stream.stop();

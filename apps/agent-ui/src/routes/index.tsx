@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ChatPage } from "@/features/chat";
+import { SandboxProvider } from "@/features/sandbox";
 import {
   createChatSession,
   deleteChatSession,
@@ -128,12 +129,14 @@ function ChatRoute() {
   }, [loadThread, threadId]);
 
   return (
-    <ChatPage
-      threadId={threadId}
-      threadReady={threadId !== undefined && threadReady}
-      threadError={threadError}
-      onThreadIdChange={handleThreadIdChange}
-      onRetry={handleRetry}
-    />
+    <SandboxProvider>
+      <ChatPage
+        threadId={threadId}
+        threadReady={threadId !== undefined && threadReady}
+        threadError={threadError}
+        onThreadIdChange={handleThreadIdChange}
+        onRetry={handleRetry}
+      />
+    </SandboxProvider>
   );
 }

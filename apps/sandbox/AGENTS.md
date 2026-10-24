@@ -48,3 +48,4 @@ tccli ags StopSandboxInstance --region ap-shanghai --InstanceId <instance-id>
 ## 约束
 
 - 镜像必须使用 `mirror.ccs.tencentyun.com`；`AuthMode PUBLIC` 下 `9000` 无鉴权；生产固定 `sha-<commit>`；修改 ToolName 需新建 Tool。
+- 使用 E2B `Sandbox.create` 时必须显式传 `network={"allow_public_traffic": True}`；否则 AGS 公网链接返回 `401`。

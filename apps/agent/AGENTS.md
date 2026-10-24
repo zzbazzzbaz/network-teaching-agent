@@ -21,6 +21,8 @@ apps/agent/
 
 只读取 `apps/.env`：`DEEPSEEK_*`、`LANGFUSE_*`、`E2B_*`、`JWT_JWKS_URL`。
 
+Agent 运行时必须从 `config.configurable.sandbox_id` 获取账户沙箱；`AgsBackend` 按需连接，不创建或停止沙箱。
+
 ## 可观测性
 
 Langfuse 通过 LangChain `CallbackHandler` 自动生成 trace / generation / tool observation：
