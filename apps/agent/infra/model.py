@@ -9,8 +9,8 @@ from core.config import get_settings
 def get_llm() -> BaseChatModel:
     settings = get_settings()
     return init_chat_model(
-        model=settings.deepseek_model,
+        model=settings.deepseek.model,
         model_provider="deepseek",
-        api_key=settings.deepseek_api_key,
-        base_url=settings.deepseek_base_url,
+        api_key=settings.deepseek.api_key,
+        base_url=settings.deepseek.base_url,
     )
