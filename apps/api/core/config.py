@@ -25,7 +25,7 @@ class E2BSettings(_Base):
 class AGSSettings(_Base):
     model_config = SettingsConfigDict(env_prefix="AGS_")
 
-    image_id: str
+    tool_name: str
     sandbox_timeout_seconds: int
 
 
