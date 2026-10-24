@@ -12,10 +12,10 @@ from e2b import (
 class AgsBackend(BaseSandbox):
     enable_capture_offload = True
 
-    def __init__(self, *, sandbox: Sandbox, work_dir: str = "/root") -> None:
+    def __init__(self, *, sandbox: Sandbox, work_dir: str = "/home/user") -> None:
         self._sandbox = sandbox
         self._default_timeout = 300
-        self._user = "root"
+        self._user = "user"
         self._work_dir = work_dir
 
     @property
