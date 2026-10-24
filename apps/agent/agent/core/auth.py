@@ -69,10 +69,6 @@ async def stamp_run_owner(
         raise Auth.exceptions.HTTPException(
             status_code=403, detail="禁止通过 run 创建临时会话，请先创建会话"
         )
-    if value.get("if_not_exists") == "create":
-        raise Auth.exceptions.HTTPException(
-            status_code=403, detail="禁止通过 run 隐式创建会话，请先创建会话"
-        )
 
     filters = {"owner": ctx.user.identity}
     metadata = value.setdefault("metadata", {})
