@@ -1,72 +1,31 @@
-# 计算机网络教学智能体 —— 本地开发入口
-#
-# 常用：
-#   make dev      # 一键启动 Postgres + agent + api + agent-ui
-#   make up       # 仅启动 apps/docker-compose.dev.yml
-#   make agent    # 启动 LangGraph agent（:2024）
-#   make api      # 启动 FastAPI（:8000）
-#   make ui       # 启动 agent-ui（:5173）
-#   make down     # 停止 Postgres
+.PHONY: up down install jwt-keys run-api run-agent run-ui test
 
-SHELL := /bin/bash
+ENV_FILE := $(CURDIR)/apps/.env
 
-APPS_DIR    := apps
-COMPOSE     := docker compose -f $(APPS_DIR)/docker-compose.dev.yml
-AGENT_DIR   := $(APPS_DIR)/agent
-API_DIR     := $(APPS_DIR)/api
-UI_DIR      := $(APPS_DIR)/agent-ui
+up:
+	cd apps && docker compose -f docker-compose.dev.yml up -d --wait
 
-AGENT_PORT  ?= 2024
-API_PORT    ?= 8000
+down:
+	cd apps && docker compose -f docker-compose.dev.yml down
 
-.DEFAULT_GOAL := help
+install:
+	cd apps/api && uv sync
+	cd apps/agent && uv sync
 
-.PHONY: help install up down logs ps agent api ui dev
+jwt-keys:
+	cd apps/api && mkdir -p .keys \
+		&& openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits=2048 -out .keys/jwt_private.pem \
+		&& openssl rsa -pubout -in .keys/jwt_private.pem -out .keys/jwt_public.pem \
+		&& echo "已生成 apps/api/.keys/jwt_{private,public}.pem"
 
-help: ## 显示帮助
-	@echo "计算机网络教学智能体 —— 本地开发"
-	@echo
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
-	@echo
-	@echo "端口：agent $(AGENT_PORT) | api $(API_PORT) | agent-ui 5173"
+run-api:
+	cd apps/api && uv run --env-file $(ENV_FILE) fastapi run --no-reload --port 8000
 
-install: ## 安装三个应用的依赖
-	cd $(AGENT_DIR) && uv sync
-	cd $(API_DIR) && uv sync
-	cd $(UI_DIR) && npm ci
+run-agent:
+	cd apps/agent && uv run --env-file $(ENV_FILE) langgraph dev --no-reload --n-jobs-per-worker 4
 
-up: ## 启动 docker-compose.dev.yml（Postgres，等待 healthy）
-	$(COMPOSE) up -d --wait
+run-ui:
+	cd apps/agent-ui && npm run dev
 
-down: ## 停止并移除 docker-compose 服务（保留数据卷）
-	$(COMPOSE) down
-
-logs: ## 跟随 docker-compose 日志
-	$(COMPOSE) logs -f
-
-ps: ## 查看 docker-compose 服务状态
-	$(COMPOSE) ps
-
-agent: ## 启动 agent（LangGraph dev server）
-	cd $(AGENT_DIR) && uv run langgraph dev --port $(AGENT_PORT) --no-browser
-
-api: ## 启动 api（FastAPI dev server）
-	cd $(API_DIR) && uv run fastapi dev app/main.py --port $(API_PORT)
-
-ui: ## 启动 agent-ui（Vite dev server）
-	cd $(UI_DIR) && npm run dev
-
-dev: up ## 一键启动全部服务（Ctrl-C 同时退出）
-	@set -euo pipefail; \
-	pids=""; \
-	cleanup() { \
-		trap - INT TERM EXIT; \
-		[ -z "$$pids" ] || kill $$pids 2>/dev/null || true; \
-	}; \
-	trap cleanup INT TERM EXIT; \
-	echo "启动 agent (:$(AGENT_PORT)) / api (:$(API_PORT)) / agent-ui (:5173)，Ctrl-C 退出"; \
-	( cd $(AGENT_DIR) && exec uv run langgraph dev --port $(AGENT_PORT) --no-browser ) & pids="$$pids $$!"; \
-	( cd $(API_DIR) && exec uv run fastapi dev app/main.py --port $(API_PORT) ) & pids="$$pids $$!"; \
-	( cd $(UI_DIR) && exec npm run dev ) & pids="$$pids $$!"; \
-	wait
+test:
+	cd apps/api && uv run pytest
