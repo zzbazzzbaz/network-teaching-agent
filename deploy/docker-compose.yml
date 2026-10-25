@@ -15,7 +15,6 @@ services:
     image: "15688463267/network-teaching-agent-web:${TAG}"
     restart: unless-stopped
     ports: ["127.0.0.1:8081:80"]
-    networks: [app]
     mem_limit: 96m
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
@@ -33,7 +32,6 @@ services:
     volumes:
       - ./secrets/jwt:/app/.keys:ro
     ports: ["127.0.0.1:8082:8000"]
-    networks: [app, data]
     mem_limit: 512m
     depends_on:
       postgres: { condition: service_healthy }
@@ -54,7 +52,6 @@ services:
       <<: *api-env
     volumes:
       - ./secrets/jwt:/app/.keys:ro
-    networks: [data]
     mem_limit: 192m
     depends_on:
       postgres: { condition: service_healthy }
@@ -74,7 +71,6 @@ services:
       LANGFUSE_RELEASE: "${TAG}"
       LANGSMITH_TRACING: "false"
     ports: ["127.0.0.1:8083:8000"]
-    networks: [app, data]
     mem_limit: 1280m
     depends_on:
       api: { condition: service_healthy }
@@ -96,7 +92,6 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: agent
     volumes: ["pg-data:/var/lib/postgresql/data"]
-    networks: [data]
     mem_limit: 384m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d agent"]
@@ -112,7 +107,6 @@ services:
     environment:
       POSTGRES_PASSWORD: postgres
     volumes: ["langgraph-pg-data:/var/lib/postgresql/data"]
-    networks: [data]
     mem_limit: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -125,7 +119,6 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--save", ""]
-    networks: [data]
     mem_limit: 128m
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -136,7 +129,3 @@ services:
 volumes:
   pg-data:
   langgraph-pg-data:
-
-networks:
-  app:
-  data:
