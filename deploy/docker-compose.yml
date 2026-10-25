@@ -1,7 +1,3 @@
-# 网络教学智能体 · 服务器部署栈
-# 在 /srv/network-teaching-agent 下执行：
-#   TAG=sha-xxxx docker compose --env-file .env up -d --remove-orphans
-# 镜像由 CI 构建并推到 GHCR；服务器只拉取，不构建。
 name: network-teaching-agent
 
 x-log: &log
@@ -112,7 +108,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # LangGraph Server 专用库（pgvector），与业务库隔离
   langgraph-pg:
     <<: *log
     image: pgvector/pgvector:pg17
