@@ -15,10 +15,10 @@ WORKDIR /app
 
 RUN mkdir -p /run/secrets
 
-COPY pyproject.toml uv.lock ./
+COPY apps/api/pyproject.toml apps/api/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY app ./app
+COPY apps/api/app ./app
 COPY deploy/sandbox-reaper/crontab /etc/cron.d/sandbox-reaper
 COPY deploy/sandbox-reaper/entrypoint.sh /usr/local/bin/reaper-entrypoint
 RUN chmod 0644 /etc/cron.d/sandbox-reaper \

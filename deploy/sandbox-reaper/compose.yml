@@ -5,4 +5,4 @@ services:
       dockerfile: deploy/sandbox-reaper/Dockerfile
     restart: unless-stopped
     volumes:
-      - ../../../.env:/run/secrets/app.env:ro
+      - ../../apps/.env:/run/secrets/app.env:ro

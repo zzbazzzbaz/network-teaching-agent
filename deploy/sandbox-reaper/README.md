@@ -11,7 +11,7 @@ python -m app.job.sandbox_reaper
 ## 构建与启动
 
 ```bash
-cd apps/api/deploy/sandbox-reaper
+cd deploy/sandbox-reaper
 docker compose up -d --build
 ```
 

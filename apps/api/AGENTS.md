@@ -16,7 +16,6 @@ apps/api/
 │   ├── repositories/             数据访问
 │   ├── services/                 业务逻辑
 │   └── scripts/cli.py            账号管理命令
-├── deploy/sandbox-reaper/        cron reaper 容器
 ├── migrations/                   Alembic 迁移
 ├── alembic.ini
 ├── tests/                        pytest
@@ -61,10 +60,10 @@ uv run ruff check . && uv run ty check . && uv run pytest -q
 
 ## 沙箱回收
 
-`user_sandboxes` 的生命周期由 API 维护，回收任务由独立的 cron 容器触发：
+`user_sandboxes` 的生命周期由 API 维护，回收任务由根目录 `deploy/sandbox-reaper` 的独立 cron 容器触发：
 
 ```bash
-cd apps/api/deploy/sandbox-reaper
+cd deploy/sandbox-reaper
 docker compose up -d --build
 ```
 
