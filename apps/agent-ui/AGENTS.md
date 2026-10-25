@@ -23,6 +23,7 @@ apps/agent-ui/
 运行时只读取 `apps/.env`：`AGENT_URL=http://127.0.0.1:2024`、`API_URL=http://127.0.0.1:8000`。
 
 缺少变量时 Vite 报错。开发端口 `5173`，E2E 端口 `5174`。
+CI 构建镜像时没有 `apps/.env`，`env.ts` 会优先读取同名 `process.env`（由 Dockerfile 注入占位值）。
 
 ## 启动与命令
 

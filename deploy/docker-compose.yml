@@ -1,0 +1,146 @@
+# 网络教学智能体 · 服务器部署栈
+# 在 /srv/network-teaching-agent 下执行：
+#   TAG=sha-xxxx docker compose --env-file .env up -d --remove-orphans
+# 镜像由 CI 构建并推到 GHCR；服务器只拉取，不构建。
+name: network-teaching-agent
+
+x-log: &log
+  logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+x-api-env: &api-env
+  DB_DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+  JWT_PRIVATE_KEY_PATH: /app/.keys/jwt_private.pem
+  JWT_PUBLIC_KEY_PATH: /app/.keys/jwt_public.pem
+
+services:
+  web:
+    <<: *log
+    image: "${WEB_IMAGE}:${TAG:?TAG 必须显式指定（main 或 sha-<40 位 commit>）}"
+    restart: unless-stopped
+    ports: ["127.0.0.1:8081:80"]
+    networks: [app]
+    mem_limit: 96m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  api:
+    <<: *log
+    image: "${API_IMAGE}:${TAG:?TAG 必须显式指定（main 或 sha-<40 位 commit>）}"
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      <<: *api-env
+    volumes:
+      - ./secrets/jwt:/app/.keys:ro
+    ports: ["127.0.0.1:8082:8000"]
+    networks: [app, data]
+    mem_limit: 512m
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # 沙箱生命周期回收：每 5 分钟跑一轮（脚本本身只执行一轮后退出）。
+  reaper:
+    <<: *log
+    image: "${API_IMAGE}:${TAG:?TAG 必须显式指定（main 或 sha-<40 位 commit>）}"
+    restart: unless-stopped
+    command: ["sh", "-c", "while true; do python -m app.job.sandbox_reaper; sleep 300; done"]
+    env_file: [.env]
+    environment:
+      <<: *api-env
+    volumes:
+      - ./secrets/jwt:/app/.keys:ro
+    networks: [data]
+    mem_limit: 192m
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  agent:
+    <<: *log
+    image: "${AGENT_IMAGE}:${TAG:?TAG 必须显式指定（main 或 sha-<40 位 commit>）}"
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      # LangGraph Server：线程状态/队列持久化 + 实时流式
+      POSTGRES_URI: "postgres://postgres:${LANGGRAPH_PG_PASSWORD}@langgraph-pg:5432/postgres?sslmode=disable"
+      DATABASE_URI: "postgres://postgres:${LANGGRAPH_PG_PASSWORD}@langgraph-pg:5432/postgres?sslmode=disable"
+      REDIS_URI: "redis://langgraph-redis:6379"
+      # Agent 通过内网从 API 取 JWKS
+      JWT_JWKS_URL: "http://api:8000/.well-known/jwks.json"
+      PORT: "8000"
+    ports: ["127.0.0.1:8083:8000"]
+    networks: [app, data]
+    mem_limit: 1280m
+    depends_on:
+      api: { condition: service_healthy }
+      langgraph-pg: { condition: service_healthy }
+      langgraph-redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/ok')"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  postgres:
+    <<: *log
+    image: postgres:17.11
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER 未配置}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 未配置}"
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB 未配置}"
+    volumes: ["pg-data:/var/lib/postgresql/data"]
+    networks: [data]
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # LangGraph Server 专用库（pgvector），与业务库隔离
+  langgraph-pg:
+    <<: *log
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=100"]
+    environment:
+      POSTGRES_PASSWORD: "${LANGGRAPH_PG_PASSWORD:?LANGGRAPH_PG_PASSWORD 未配置}"
+    volumes: ["langgraph-pg-data:/var/lib/postgresql/data"]
+    networks: [data]
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  langgraph-redis:
+    <<: *log
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--save", ""]
+    networks: [data]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pg-data:
+  langgraph-pg-data:
+
+networks:
+  app:
+  data:

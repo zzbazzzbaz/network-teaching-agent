@@ -69,12 +69,12 @@ cd apps/api
 uv run python -m app.job.sandbox_reaper
 ```
 
-生产环境在宿主机配置 cron，每 5 分钟执行一次：
+生产环境由 `deploy/docker-compose.yml` 里的 `reaper` 服务每 5 分钟执行一轮（与 API 共用镜像和 `.env`）。裸机手工部署也可以改用宿主机 cron：
 
 ```cron
 */5 * * * * cd /srv/network-teaching-agent/apps/api && flock -n /tmp/sandbox-reaper.lock .venv/bin/python -m app.job.sandbox_reaper >> /var/log/sandbox-reaper.log 2>&1
 ```
 
-脚本只执行一轮并退出；`flock` 防止上一轮未结束时重复启动。cron 只配置一个入口。脚本本身没有 `while/sleep`，也不会在 import 时启动调度器；如果宿主机未配置 crontab，回收任务不会自动执行。
+脚本只执行一轮并退出；`flock` 防止上一轮未结束时重复启动。cron 只配置一个入口。脚本本身没有 `while/sleep`，也不会在 import 时启动调度器；如果没有配置 reaper/cron，回收任务不会自动执行。
 
 每个用例在 `DB_DATABASE_URL` 指向的 Postgres 中创建独立 schema。

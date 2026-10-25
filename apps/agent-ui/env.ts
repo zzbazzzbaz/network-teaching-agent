@@ -33,10 +33,20 @@ function parseEnvFile(file: string): Record<string, string> {
   return values;
 }
 
-const fileEnv = parseEnvFile(ENV_FILE);
+let fileEnv: Record<string, string> | null = null;
+
+function loadFileEnv(): Record<string, string> {
+  fileEnv ??= parseEnvFile(ENV_FILE);
+  return fileEnv;
+}
 
 export function requireEnv(key: string): string {
-  const value = fileEnv[key];
+  // 容器镜像构建时没有 apps/.env，CI 通过 process.env 注入占位值；
+  // 本地开发仍然从 apps/.env 读取。
+  const processValue = process.env[key];
+  if (processValue !== undefined && processValue !== "") return processValue;
+
+  const value = loadFileEnv()[key];
   if (value === undefined || value === "") {
     throw new Error(`缺少环境变量 ${key}，请在 ${ENV_FILE} 中配置`);
   }
