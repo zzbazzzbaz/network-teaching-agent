@@ -1,4 +1,5 @@
-# CI：push main 自动构建三个镜像并推到 GHCR（不在 CI 里跑测试；测试本地 `make test` / lint / build）
+# CI：push main 自动构建三个镜像并推到 GHCR（私有归档）+ Docker Hub（服务器部署源）
+# 不在 CI 里跑测试；测试本地 `make test` / lint / build。
 # 镜像 tag：sha-<40 位 commit>（回滚用）+ main（main 分支最新一次构建）；部署见 cd.yml（手动触发）
 name: ci
 
@@ -16,7 +17,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+  GHCR_PREFIX: ghcr.io/${{ github.repository }}
+  # 服务器在腾讯云，拉 GHCR 只有几十 KB/s；部署从 Docker Hub 拉（实测 ~5 MB/s）
+  DOCKERHUB_PREFIX: ${{ secrets.DOCKERHUB_USERNAME }}/network-teaching-agent
 
 jobs:
   build:
@@ -43,6 +46,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
@@ -50,7 +58,9 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.app }}:sha-${{ github.sha }}
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.app }}:main
+            ${{ env.GHCR_PREFIX }}/${{ matrix.app }}:sha-${{ github.sha }}
+            ${{ env.GHCR_PREFIX }}/${{ matrix.app }}:main
+            ${{ env.DOCKERHUB_PREFIX }}-${{ matrix.app }}:sha-${{ github.sha }}
+            ${{ env.DOCKERHUB_PREFIX }}-${{ matrix.app }}:main
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,scope=${{ matrix.app }},mode=max
