@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,6 +9,11 @@ from app.api.v1.endpoints.wellknown import router as wellknown_router
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
 from app.lifespan import build_lifespan
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
