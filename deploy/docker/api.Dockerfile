@@ -22,4 +22,5 @@ RUN groupadd -g 10001 app \
  && chown -R 10001:10001 /app
 USER 10001:10001
 EXPOSE 8000
-CMD ["sh", "-c", "alembic upgrade head && exec fastapi run app/main.py --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'"]
+CMD ["fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]

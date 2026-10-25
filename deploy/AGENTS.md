@@ -18,22 +18,14 @@ nginx 由 `bootstrap.sh` 一次性安装，CD 不改 nginx。不要动同机 doc
 ## 配置
 
 - 唯一配置源 `apps/.env`（样板 `.env.example`），服务器 `.env` 直接复制并 `chmod 600`。
-- 镜像 tag 只允许 `sha-<40 位 commit>`，写在 `.env` 的 `TAG`；CD 不传其他变量。
-- 镜像推 GHCR + Docker Hub，服务器从 Docker Hub 拉；三个仓库必须 public。
-- 缺少 `.env` 或 `TAG` 格式不对，CD 直接失败。
+- compose 能硬编码的直接硬编码；镜像仓库写死，tag 由 CD 动态传入，只允许 `sha-<40 位 commit>`。
+- 缺少 `.env` 或 tag 格式不对，直接失败；不设默认值、不回退、不兜底、不要隐形行为。
 
 ## 部署 / 回滚
 
 ```bash
-ssh ubuntu@101.35.223.219 "sed -i 's/^TAG=.*/TAG=sha-<40位commit>/' /srv/network-teaching-agent/.env"
-gh workflow run cd.yml
+gh workflow run cd.yml -f tag=sha-<40位commit>
 ```
 
-回滚把 `TAG` 改成旧 commit 再执行。首次部署：同步 `deploy/` 后 `sudo bash bootstrap.sh`。
-
-## 约束
-
-1. CD 只同步 `docker-compose.yml`，不改 nginx，不执行 bootstrap。
-2. 改 `.env` 后跑 CD；`up --force-recreate` 会重建全部容器。
-3. 迁移由 api 容器启动时执行；远端脚本走 stdin，`docker compose run/exec` 必须加 `</dev/null>`。
-4. agent 官方镜像需要 `LANGSMITH_API_KEY` 许可校验。
+回滚传旧 commit。首次部署：同步 `deploy/` 后 `sudo bash bootstrap.sh`。
+CD 分 `validate` → `deploy` → `verify`；只同步 `docker-compose.yml`。

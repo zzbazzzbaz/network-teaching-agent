@@ -4,15 +4,15 @@ x-log: &log
   logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
 
 x-api-env: &api-env
-  DB_DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+  DB_DATABASE_URL: "postgresql+psycopg://postgres:postgres@postgres:5432/agent?sslmode=disable"
   JWT_PRIVATE_KEY_PATH: /app/.keys/jwt_private.pem
   JWT_PUBLIC_KEY_PATH: /app/.keys/jwt_public.pem
-  CORS_ORIGINS: "https://${SITE_DOMAIN}"
+  CORS_ORIGINS: "https://network-agent.test.chatgqt.top"
 
 services:
   web:
     <<: *log
-    image: "${WEB_IMAGE}:${TAG}"
+    image: "15688463267/network-teaching-agent-web:${TAG}"
     restart: unless-stopped
     ports: ["127.0.0.1:8081:80"]
     networks: [app]
@@ -25,7 +25,7 @@ services:
 
   api:
     <<: *log
-    image: "${API_IMAGE}:${TAG}"
+    image: "15688463267/network-teaching-agent-api:${TAG}"
     restart: unless-stopped
     env_file: [.env]
     environment:
@@ -46,7 +46,7 @@ services:
 
   reaper:
     <<: *log
-    image: "${API_IMAGE}:${TAG}"
+    image: "15688463267/network-teaching-agent-api:${TAG}"
     restart: unless-stopped
     command: ["sh", "-c", "while true; do python -m app.job.sandbox_reaper; sleep 300; done"]
     env_file: [.env]
@@ -57,16 +57,16 @@ services:
     networks: [data]
     mem_limit: 192m
     depends_on:
-      api: { condition: service_healthy }
+      postgres: { condition: service_healthy }
 
   agent:
     <<: *log
-    image: "${AGENT_IMAGE}:${TAG}"
+    image: "15688463267/network-teaching-agent-agent:${TAG}"
     restart: unless-stopped
     env_file: [.env]
     environment:
-      POSTGRES_URI: "postgres://postgres:${LANGGRAPH_PG_PASSWORD}@langgraph-pg:5432/postgres?sslmode=disable"
-      DATABASE_URI: "postgres://postgres:${LANGGRAPH_PG_PASSWORD}@langgraph-pg:5432/postgres?sslmode=disable"
+      POSTGRES_URI: "postgres://postgres:postgres@langgraph-pg:5432/postgres?sslmode=disable"
+      DATABASE_URI: "postgres://postgres:postgres@langgraph-pg:5432/postgres?sslmode=disable"
       REDIS_URI: "redis://langgraph-redis:6379"
       JWT_JWKS_URL: "http://api:8000/.well-known/jwks.json"
       PORT: "8000"
@@ -92,14 +92,14 @@ services:
     image: postgres:17.11
     restart: unless-stopped
     environment:
-      POSTGRES_USER: "${POSTGRES_USER}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agent
     volumes: ["pg-data:/var/lib/postgresql/data"]
     networks: [data]
     mem_limit: 384m
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agent"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -110,7 +110,7 @@ services:
     restart: unless-stopped
     command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=100"]
     environment:
-      POSTGRES_PASSWORD: "${LANGGRAPH_PG_PASSWORD}"
+      POSTGRES_PASSWORD: postgres
     volumes: ["langgraph-pg-data:/var/lib/postgresql/data"]
     networks: [data]
     mem_limit: 256m

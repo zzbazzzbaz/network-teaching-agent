@@ -2,6 +2,11 @@ name: cd
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "sha-<40 位 commit>"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,13 +22,27 @@ env:
   DEPLOY_ROOT: /srv/network-teaching-agent
 
 jobs:
+  validate:
+    name: 校验 tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "invalid tag: $TAG"; exit 1; }
+
   deploy:
+    name: 同步并部署
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Deploy
+      - name: Setup SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
@@ -33,20 +52,35 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
+      - name: Sync compose
+        run: |
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             deploy/docker-compose.yml "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/"
 
+      - name: Check server .env
+        run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_ROOT='$DEPLOY_ROOT' bash -s" <<'REMOTE'
-          set -euo pipefail
-          cd "$DEPLOY_ROOT"
-          [ -s .env ] || { echo "missing .env"; exit 1; }
-          grep -Eq '^TAG=sha-[0-9a-f]{40}$' .env || { echo "invalid TAG in .env"; exit 1; }
-          docker compose --env-file .env pull </dev/null
-          docker compose --env-file .env up -d --remove-orphans --wait --force-recreate </dev/null
-          REMOTE
+            "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_ROOT' && [ -s .env ]" \
+            || { echo "missing $DEPLOY_ROOT/.env"; exit 1; }
 
-      - name: Verify
+      - name: Pull images
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_ROOT' && TAG='$TAG' docker compose --env-file .env pull </dev/null"
+
+      - name: Recreate containers
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_ROOT' && TAG='$TAG' docker compose --env-file .env up -d --remove-orphans --wait --force-recreate </dev/null"
+
+  verify:
+    name: 公网验证
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Public checks
         run: |
           set -e
           for i in $(seq 1 30); do
