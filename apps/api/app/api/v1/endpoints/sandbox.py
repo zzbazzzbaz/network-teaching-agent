@@ -90,4 +90,5 @@ def _to_response(info: sandbox_service.SandboxInfo) -> SandboxResponse:
         last_active_at=info.last_active_at,
         paused_at=info.paused_at,
         hard_destroy_at=info.hard_destroy_at,
+        heartbeat_seconds=info.heartbeat_seconds,
     )

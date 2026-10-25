@@ -165,6 +165,7 @@ def test_sandbox_lifecycle(
     assert payload["ttyd_url"] == f"https://{_host(client, 'sbx-1')}/ttyd/"
     assert payload["paused_at"] is None
     assert payload["hard_destroy_at"] > payload["last_active_at"]
+    assert payload["heartbeat_seconds"] == _settings(client).ags.sandbox_heartbeat_seconds
 
     reused = client.post(SANDBOX, headers=headers)
     assert reused.status_code == 200

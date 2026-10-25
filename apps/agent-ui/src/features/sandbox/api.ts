@@ -11,6 +11,7 @@ export interface SandboxInfo {
   last_active_at: string;
   paused_at: string | null;
   hard_destroy_at: string;
+  heartbeat_seconds: number;
 }
 
 export function getSandbox(): Promise<SandboxInfo> {

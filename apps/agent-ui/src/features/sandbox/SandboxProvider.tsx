@@ -31,7 +31,7 @@ interface SandboxContextValue {
 
 const SandboxContext = React.createContext<SandboxContextValue | null>(null);
 
-const HEARTBEAT_MS = 5 * 60 * 1000;
+const DEFAULT_HEARTBEAT_SECONDS = 5 * 60;
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -78,6 +78,8 @@ export function SandboxProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (status !== "running") return;
 
+    const heartbeatMs =
+      Math.max(30, sandbox?.heartbeat_seconds ?? DEFAULT_HEARTBEAT_SECONDS) * 1000;
     const timer = window.setInterval(() => {
       const seq = requestSeq.current;
       void heartbeatSandbox()
@@ -96,10 +98,10 @@ export function SandboxProvider({ children }: { children: React.ReactNode }) {
             setStatus("stopping");
           }
         });
-    }, HEARTBEAT_MS);
+    }, heartbeatMs);
 
     return () => window.clearInterval(timer);
-  }, [status]);
+  }, [status, sandbox?.heartbeat_seconds]);
 
   React.useEffect(() => {
     if (status !== "stopping") return;

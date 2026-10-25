@@ -32,6 +32,7 @@ class SandboxInfo:
     last_active_at: datetime
     paused_at: datetime | None
     hard_destroy_at: datetime
+    heartbeat_seconds: int
 
 
 @dataclass(slots=True)
@@ -489,4 +490,5 @@ def _build_info(settings: Settings, record: UserSandbox) -> SandboxInfo:
         last_active_at=record.last_active_at,
         paused_at=record.paused_at,
         hard_destroy_at=record.hard_destroy_at,
+        heartbeat_seconds=settings.ags.sandbox_heartbeat_seconds,
     )

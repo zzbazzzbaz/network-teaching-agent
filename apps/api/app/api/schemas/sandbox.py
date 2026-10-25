@@ -13,3 +13,4 @@ class SandboxResponse(BaseModel):
     last_active_at: datetime
     paused_at: datetime | None
     hard_destroy_at: datetime
+    heartbeat_seconds: int
