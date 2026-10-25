@@ -22,5 +22,14 @@ def connect_sandbox(settings: Settings, sandbox_id: str) -> Sandbox:
     )
 
 
-def sandbox_host(sandbox: Sandbox) -> str:
-    return sandbox.get_host(9000)
+def kill_sandbox(settings: Settings, sandbox_id: str) -> bool:
+    return Sandbox.kill(
+        sandbox_id,
+        api_key=settings.e2b.api_key,
+        domain=settings.e2b.domain,
+    )
+
+
+def sandbox_host(settings: Settings, sandbox_id: str) -> str:
+    """AGS 公网链接格式与 E2B Sandbox.get_host 保持一致。"""
+    return f"9000-{sandbox_id}.{settings.e2b.domain}"

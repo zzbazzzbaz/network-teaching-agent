@@ -5,25 +5,41 @@ import { ApiError } from "@/shared/http";
 import {
   ensureSandbox,
   getSandbox,
+  heartbeatSandbox,
+  pauseSandbox,
   stopSandbox,
   type SandboxInfo,
+  type SandboxLifecycleStatus,
 } from "./api";
 
-export type SandboxStatus = "idle" | "starting" | "stopping" | "running" | "error";
+export type SandboxStatus =
+  | "idle"
+  | "starting"
+  | "running"
+  | "paused"
+  | "stopping"
+  | "error";
 
 interface SandboxContextValue {
   status: SandboxStatus;
   sandbox: SandboxInfo | null;
   error: string | null;
   ensure: () => Promise<SandboxInfo>;
+  pause: () => Promise<void>;
   stop: () => Promise<void>;
 }
 
 const SandboxContext = React.createContext<SandboxContextValue | null>(null);
 
+const HEARTBEAT_MS = 5 * 60 * 1000;
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function toUiStatus(status: SandboxLifecycleStatus): SandboxStatus {
+  return status;
 }
 
 export function SandboxProvider({ children }: { children: React.ReactNode }) {
@@ -40,7 +56,7 @@ export function SandboxProvider({ children }: { children: React.ReactNode }) {
       const info = await getSandbox();
       if (seq !== requestSeq.current) return;
       setSandbox(info);
-      setStatus("running");
+      setStatus(toUiStatus(info.status));
     } catch (err) {
       if (seq !== requestSeq.current) return;
       if (err instanceof ApiError && err.status === 404) {
@@ -59,6 +75,42 @@ export function SandboxProvider({ children }: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  React.useEffect(() => {
+    if (status !== "running") return;
+
+    const timer = window.setInterval(() => {
+      const seq = requestSeq.current;
+      void heartbeatSandbox()
+        .then((info) => {
+          if (seq !== requestSeq.current) return;
+          setSandbox(info);
+          setStatus(toUiStatus(info.status));
+        })
+        .catch((err: unknown) => {
+          if (seq !== requestSeq.current) return;
+          if (!(err instanceof ApiError)) return;
+          if (err.status === 404) {
+            setSandbox(null);
+            setStatus("idle");
+          } else if (err.status === 409) {
+            setStatus("stopping");
+          }
+        });
+    }, HEARTBEAT_MS);
+
+    return () => window.clearInterval(timer);
+  }, [status]);
+
+  React.useEffect(() => {
+    if (status !== "stopping") return;
+
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 10_000);
+
+    return () => window.clearInterval(timer);
+  }, [status, refresh]);
+
   const ensure = React.useCallback(async () => {
     if (inFlight.current) return inFlight.current;
 
@@ -69,14 +121,16 @@ export function SandboxProvider({ children }: { children: React.ReactNode }) {
       .then((info) => {
         if (seq === requestSeq.current) {
           setSandbox(info);
-          setStatus("running");
+          setStatus(toUiStatus(info.status));
         }
         return info;
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (seq === requestSeq.current) {
           setError(errorMessage(err));
-          setStatus("error");
+          setStatus(
+            err instanceof ApiError && err.status === 409 ? "stopping" : "error",
+          );
         }
         throw err;
       })
@@ -87,6 +141,21 @@ export function SandboxProvider({ children }: { children: React.ReactNode }) {
     return promise;
   }, []);
 
+  const pause = React.useCallback(async () => {
+    const seq = ++requestSeq.current;
+    setError(null);
+    try {
+      const info = await pauseSandbox();
+      if (seq !== requestSeq.current) return;
+      setSandbox(info);
+      setStatus(toUiStatus(info.status));
+    } catch (err) {
+      if (seq !== requestSeq.current) return;
+      setError(errorMessage(err));
+      setStatus(err instanceof ApiError && err.status === 409 ? "stopping" : "error");
+    }
+  }, []);
+
   const stop = React.useCallback(async () => {
     const seq = ++requestSeq.current;
     setStatus("stopping");
@@ -94,18 +163,17 @@ export function SandboxProvider({ children }: { children: React.ReactNode }) {
     try {
       await stopSandbox();
       if (seq !== requestSeq.current) return;
-      setSandbox(null);
-      setStatus("idle");
+      await refresh();
     } catch (err) {
       if (seq !== requestSeq.current) return;
       setError(errorMessage(err));
-      setStatus("error");
+      setStatus(err instanceof ApiError && err.status === 503 ? "stopping" : "error");
     }
-  }, []);
+  }, [refresh]);
 
   const value = React.useMemo(
-    () => ({ status, sandbox, error, ensure, stop }),
-    [status, sandbox, error, ensure, stop],
+    () => ({ status, sandbox, error, ensure, pause, stop }),
+    [status, sandbox, error, ensure, pause, stop],
   );
 
   return <SandboxContext.Provider value={value}>{children}</SandboxContext.Provider>;

@@ -13,7 +13,8 @@
 
 - `nginx`：PID 1，`0.0.0.0:9000`；`envd`：`0.0.0.0:49983`
 - `code-server`：`127.0.0.1:8080`；`ttyd`：`127.0.0.1:7681`
-- 工作目录 `/home/user/workspace`，日志 `/logs/`
+- 全部以 `root` 运行，工作目录 `/root/workspace`，日志 `/logs/`
+- 镜像内不再保留 `user` 用户；AGS CLI 执行时必须显式 `--user root`
 
 ## 构建
 

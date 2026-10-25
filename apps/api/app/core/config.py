@@ -1,7 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
@@ -28,6 +29,21 @@ class AGSSettings(_Base):
 
     tool_name: str
     sandbox_timeout_seconds: int
+    sandbox_idle_seconds: int = 1800
+    sandbox_paused_retention_seconds: int = 86400
+    sandbox_max_lifetime_seconds: int = 604800
+    sandbox_heartbeat_seconds: int = 300
+    sandbox_reaper_interval_seconds: int = 300
+
+    @model_validator(mode="after")
+    def _validate_lifecycle_windows(self) -> Self:
+        if self.sandbox_idle_seconds >= self.sandbox_timeout_seconds:
+            raise ValueError("AGS_SANDBOX_IDLE_SECONDS 必须小于 AGS_SANDBOX_TIMEOUT_SECONDS")
+        if self.sandbox_reaper_interval_seconds >= self.sandbox_idle_seconds:
+            raise ValueError(
+                "AGS_SANDBOX_REAPER_INTERVAL_SECONDS 必须小于 AGS_SANDBOX_IDLE_SECONDS"
+            )
+        return self
 
 
 class DBSettings(_Base):

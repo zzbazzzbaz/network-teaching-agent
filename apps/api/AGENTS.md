@@ -24,7 +24,7 @@ apps/api/
 
 ## 配置
 
-只读取 `apps/.env`：`DB_DATABASE_URL`、`JWT_PRIVATE_KEY_PATH`、`JWT_PUBLIC_KEY_PATH`、`E2B_DOMAIN`、`E2B_API_KEY`、`AGS_TOOL_NAME`、`AGS_SANDBOX_TIMEOUT_SECONDS`、`CORS_ORIGINS`。
+只读取 `apps/.env`：`DB_DATABASE_URL`、`JWT_PRIVATE_KEY_PATH`、`JWT_PUBLIC_KEY_PATH`、`E2B_DOMAIN`、`E2B_API_KEY`、`AGS_TOOL_NAME`、`AGS_SANDBOX_TIMEOUT_SECONDS`、`AGS_SANDBOX_IDLE_SECONDS`、`AGS_SANDBOX_PAUSED_RETENTION_SECONDS`、`AGS_SANDBOX_MAX_LIFETIME_SECONDS`、`AGS_SANDBOX_HEARTBEAT_SECONDS`、`AGS_SANDBOX_REAPER_INTERVAL_SECONDS`、`CORS_ORIGINS`。
 
 密钥路径相对 `apps/api`。JWT 签发方、受众、有效期定义在 `app/core/constants.py`。
 
@@ -56,5 +56,16 @@ cd apps/api
 uv run python -m app.scripts.cli create-user --username student
 uv run ruff check . && uv run ty check . && uv run pytest -q
 ```
+
+## 沙箱回收
+
+`user_sandboxes` 的生命周期由 API 维护；独立 cron/worker 每 5 分钟执行一次：
+
+```bash
+cd apps/api
+uv run python -m app.scripts.sandbox_reaper --once
+```
+
+不带 `--once` 时按 `AGS_SANDBOX_REAPER_INTERVAL_SECONDS` 循环执行。
 
 每个用例在 `DB_DATABASE_URL` 指向的 Postgres 中创建独立 schema。

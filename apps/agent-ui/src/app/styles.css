@@ -136,6 +136,10 @@ button:disabled {
   color: var(--accent);
 }
 
+.sandbox-action-danger {
+  color: var(--danger);
+}
+
 .sandbox-error {
   max-width: 160px;
   overflow: hidden;

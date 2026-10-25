@@ -13,6 +13,9 @@ from langgraph.config import get_config
 
 from agent.core.config import get_settings
 
+DEFAULT_WORK_DIR = "/root/workspace"
+DEFAULT_USER = "root"
+
 
 def _connect_sandbox(sandbox_id: str) -> Sandbox:
     settings = get_settings()
@@ -28,9 +31,14 @@ def _sandbox_id() -> str | None:
 class AgsBackend(BaseSandbox):
     enable_capture_offload = True
 
-    def __init__(self, *, work_dir: str = "/home/user/workspace") -> None:
+    def __init__(
+        self,
+        *,
+        work_dir: str = DEFAULT_WORK_DIR,
+        user: str = DEFAULT_USER,
+    ) -> None:
         self._default_timeout = 300
-        self._user = "user"
+        self._user = user
         self._work_dir = work_dir
         self._sandboxes: dict[str, Sandbox] = {}
         self._lock = threading.Lock()

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WORKSPACE_DIR=/home/user/workspace
+WORKSPACE_DIR=/root/workspace
 
-mkdir -p /logs "$WORKSPACE_DIR" /home/user/.config /home/user/.local/share
-chown -R user:user /home/user /logs
+mkdir -p /logs "$WORKSPACE_DIR" /root/.config /root/.local/share
 
 # envd: AGS management daemon on 49983
 (
@@ -18,7 +17,7 @@ chown -R user:user /home/user /logs
 # code-server: browser VSCode on 127.0.0.1:8080
 (
   while true; do
-    runuser -u user -- env HOME=/home/user \
+    env HOME=/root \
       code-server \
         --bind-addr 127.0.0.1:8080 \
         --auth none \
@@ -34,7 +33,7 @@ chown -R user:user /home/user /logs
 # ttyd: web shell on 127.0.0.1:7681, starting in the shared workspace
 (
   while true; do
-    runuser -u user -- env HOME=/home/user \
+    env HOME=/root \
       ttyd \
         --port 7681 \
         --interface 127.0.0.1 \

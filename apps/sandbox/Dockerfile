@@ -31,7 +31,7 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       coreutils ca-certificates curl git jq procps iproute2 less vim-tiny nano \
-      sudo util-linux python3 python3-pip python3-venv \
+      util-linux python3 python3-pip python3-venv \
       nginx openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
@@ -59,13 +59,8 @@ RUN chmod 755 /usr/local/bin/ttyd && ttyd --version
 COPY --from=ccr.ccs.tencentyun.com/ags-image/envd:v0.5.14 \
      --chmod=755 /usr/bin/envd /usr/bin/envd
 
-# Non-root user (AGS exec defaults to "user")
-RUN usermod -l user -d /home/user -m -s /bin/bash node \
-    && groupmod -n user node \
-    && echo 'user ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/user \
-    && chmod 0440 /etc/sudoers.d/user \
-    && mkdir -p /home/user/workspace /logs \
-    && chown -R user:user /home/user /logs
+# Run everything as root; no dedicated user is kept in the image.
+RUN mkdir -p /root/workspace /logs
 
 COPY nginx.conf /etc/nginx/conf.d/sandbox.conf
 COPY start.sh /opt/start.sh
@@ -75,7 +70,10 @@ RUN chmod 755 /opt/start.sh \
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
+    HOME=/root \
     PIP_BREAK_SYSTEM_PACKAGES=1
+
+WORKDIR /root/workspace
 
 EXPOSE 9000 49983
 CMD ["/opt/start.sh"]
