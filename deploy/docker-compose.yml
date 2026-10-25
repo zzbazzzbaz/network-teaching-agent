@@ -14,7 +14,7 @@ x-api-env: &api-env
 services:
   web:
     <<: *log
-    image: "${WEB_IMAGE}:${TAG:?TAG 必须显式指定（main 或 sha-<40 位 commit>）}"
+    image: "${WEB_IMAGE}:${TAG}"
     restart: unless-stopped
     ports: ["127.0.0.1:8081:80"]
     networks: [app]
@@ -27,7 +27,7 @@ services:
 
   api:
     <<: *log
-    image: "${API_IMAGE}:${TAG:?TAG 必须显式指定（main 或 sha-<40 位 commit>）}"
+    image: "${API_IMAGE}:${TAG}"
     restart: unless-stopped
     env_file: [.env]
     environment:
@@ -46,10 +46,9 @@ services:
       retries: 5
       start_period: 20s
 
-  # 沙箱生命周期回收：每 5 分钟跑一轮（脚本本身只执行一轮后退出）。
   reaper:
     <<: *log
-    image: "${API_IMAGE}:${TAG:?TAG 必须显式指定（main 或 sha-<40 位 commit>）}"
+    image: "${API_IMAGE}:${TAG}"
     restart: unless-stopped
     command: ["sh", "-c", "while true; do python -m app.job.sandbox_reaper; sleep 300; done"]
     env_file: [.env]
@@ -64,20 +63,17 @@ services:
 
   agent:
     <<: *log
-    image: "${AGENT_IMAGE}:${TAG:?TAG 必须显式指定（main 或 sha-<40 位 commit>）}"
+    image: "${AGENT_IMAGE}:${TAG}"
     restart: unless-stopped
     env_file: [.env]
     environment:
-      # LangGraph Server：线程状态/队列持久化 + 实时流式
       POSTGRES_URI: "postgres://postgres:${LANGGRAPH_PG_PASSWORD}@langgraph-pg:5432/postgres?sslmode=disable"
       DATABASE_URI: "postgres://postgres:${LANGGRAPH_PG_PASSWORD}@langgraph-pg:5432/postgres?sslmode=disable"
       REDIS_URI: "redis://langgraph-redis:6379"
-      # Agent 通过内网从 API 取 JWKS
       JWT_JWKS_URL: "http://api:8000/.well-known/jwks.json"
       PORT: "8000"
       LANGFUSE_TRACING_ENVIRONMENT: production
       LANGFUSE_RELEASE: "${TAG}"
-      # 本项目只接 Langfuse；LangSmith 仅用于自托管 Server 的许可校验
       LANGSMITH_TRACING: "false"
     ports: ["127.0.0.1:8083:8000"]
     networks: [app, data]

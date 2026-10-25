@@ -1,13 +1,10 @@
-# CD：只能手动触发（gh workflow run cd.yml -f tag=main），push 不自动上生产
-# tag 取 CI 推过的镜像：main = main 分支最新构建；sha-<commit> = 任意历史构建（回滚）
-#   回滚示例：gh workflow run cd.yml -f tag=sha-<上一个 commit 的 40 位 sha>
 name: cd
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "要部署的镜像 tag（main 或 sha-<40 位 commit>）"
+        description: "main 或 sha-<40 位 commit>"
         required: true
         default: main
         type: string
@@ -27,111 +24,63 @@ env:
 
 jobs:
   deploy:
-    name: 部署（SSH 拉镜像重建容器）
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
-      - name: 校验 tag
-        env:
-          TAG: ${{ inputs.tag }}
-        run: |
-          if ! printf '%s' "$TAG" | grep -Eq '^(main|sha-[0-9a-f]{40})$'; then
-            echo "tag 只能是 main 或 sha-<40 位 commit>，收到：$TAG"
-            exit 1
-          fi
-
-      - name: 安装部署私钥
+      - name: Deploy
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          TAG: ${{ inputs.tag }}
         run: |
-          if [ -z "$SSH_KEY" ]; then
-            echo "缺少 secrets.DEPLOY_SSH_KEY（见 deploy/AGENTS.md）" >&2
-            exit 1
-          fi
+          [[ "$TAG" =~ ^(main|sha-[0-9a-f]{40})$ ]] || { echo "invalid tag: $TAG"; exit 1; }
+          [ -n "$SSH_KEY" ] || { echo "missing DEPLOY_SSH_KEY"; exit 1; }
+
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: 同步部署文件（compose / nginx / scripts）
-        run: |
-          # 先清空这几处再上传：scp 只覆盖不删除，仓库里删掉的文件会一直残留在服务器上。
-          # .env / secrets / .env 不动。
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+          SCP="scp -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
             "rm -rf '$DEPLOY_ROOT/nginx' '$DEPLOY_ROOT/scripts' '$DEPLOY_ROOT/docker-compose.yml'"
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -r \
-            deploy/nginx deploy/scripts deploy/docker-compose.yml \
+          $SCP -r deploy/nginx deploy/scripts deploy/docker-compose.yml \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/"
 
-      - name: 服务器上部署（校验 nginx → 拉镜像 → 迁移 → 重建容器 → reload）
-        env:
-          TAG: ${{ inputs.tag }}
-        run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "DEPLOY_ROOT='$DEPLOY_ROOT' TAG='$TAG' bash -s" <<'REMOTE'
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_ROOT='$DEPLOY_ROOT' TAG='$TAG' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$DEPLOY_ROOT"
+          chmod 755 scripts/*.sh
+          chmod 644 nginx/*.conf docker-compose.yml
+          [ -s .env ] || { echo "missing .env"; exit 1; }
+          [ -f secrets/jwt/jwt_private.pem ] || { echo "missing secrets/jwt"; exit 1; }
+          trap 'docker compose --env-file .env ps; docker compose --env-file .env logs --tail=80' ERR
 
-          echo "==> 权限兜底（.env 保持 600）"
-          chmod 755 scripts/*.sh 2>/dev/null || true
-          chmod 644 nginx/*.conf docker-compose.yml 2>/dev/null || true
-
-          fail() {
-            echo "==> 部署失败，输出最近日志" >&2
-            docker compose --env-file .env ps || true
-            docker compose --env-file .env logs --tail=100 || true
-            exit 1
-          }
-          trap fail ERR
-
-          [ -s .env ] || { echo "缺少 .env：先按 deploy/AGENTS.md 配置" >&2; exit 1; }
-          [ -f secrets/jwt/jwt_private.pem ] || { echo "缺少 secrets/jwt：先跑 scripts/bootstrap.sh" >&2; exit 1; }
-
-          echo "==> 校验 nginx 配置"
           sudo -n "$(command -v nginx)" -t
-
-          echo "==> 拉取镜像（TAG=$TAG）"
-          docker compose --env-file .env pull
-
-          echo "==> 启动基础服务（postgres / langgraph-pg / redis）"
-          docker compose --env-file .env up -d --wait postgres langgraph-pg langgraph-redis
-
-          echo "==> 执行数据库迁移"
-          # 远端脚本本身走 stdin；run/exec 不加 </dev/null 会吞掉后面的脚本行
+          docker compose --env-file .env pull </dev/null
+          docker compose --env-file .env up -d --wait postgres langgraph-pg langgraph-redis </dev/null
           docker compose --env-file .env run --rm --no-deps api alembic upgrade head </dev/null
-
-          echo "==> 重建业务容器（env_file 变化不会自动触发 recreate，显式强制）"
           docker compose --env-file .env up -d --force-recreate --wait --no-deps web api reaper agent </dev/null
           docker compose --env-file .env up -d --remove-orphans --wait </dev/null
-          docker compose --env-file .env ps </dev/null
-
-          echo "==> reload nginx"
           sudo -n /usr/bin/systemctl reload nginx
-
-          docker image prune -f
+          docker image prune -f >/dev/null
           docker compose --env-file .env ps
           REMOTE
 
-      - name: 公网健康检查（HTTPS）
+      - name: Verify
         run: |
           set -e
-          # 首次签发证书要现签，必须带超时重试；端口被丢弃时 curl 会挂死
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -m 8 --connect-timeout 5 -w '%{http_code}' "https://$SITE_DOMAIN/health" || true)
-            echo "第 $i 次探测 /health：HTTP $code"
-            [ "$code" = "200" ] && break
+            code=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "https://$SITE_DOMAIN/health" || true)
+            [ "$code" = 200 ] && break
             sleep 5
           done
+          test "$code" = 200
           curl -fsS -m 15 "https://$SITE_DOMAIN/health"
-          echo
-          curl -fsS -m 15 -o /dev/null -w '首页：HTTP %{http_code}\n' "https://$SITE_DOMAIN/"
-          curl -fsS -m 30 -o /dev/null -w 'Agent /ok：HTTP %{http_code}\n' "https://$SITE_DOMAIN/agent/ok"
-
-      - name: 校验证书与 HTTP 跳转
-        run: |
-          openssl s_client -connect "$SITE_DOMAIN:443" -servername "$SITE_DOMAIN" </dev/null 2>/dev/null \
-            | openssl x509 -noout -subject -issuer -dates
-          curl -fsS -o /dev/null -w '证书校验：ssl_verify_result=%{ssl_verify_result}（0 = 通过）\n' "https://$SITE_DOMAIN/health"
-          curl -s -o /dev/null -m 15 -w 'HTTP 跳转：%{http_code} -> %{redirect_url}\n' "http://$SITE_DOMAIN/health"
+          curl -fsS -o /dev/null -m 15 -w 'web %{http_code}\n' "https://$SITE_DOMAIN/"
+          curl -fsS -o /dev/null -m 30 -w 'agent %{http_code}\n' "https://$SITE_DOMAIN/agent/ok"
+          curl -fsS -o /dev/null -w 'ssl %{ssl_verify_result}\n' "https://$SITE_DOMAIN/health"
+          curl -s -o /dev/null -m 15 -w 'http %{http_code}\n' "http://$SITE_DOMAIN/health"
