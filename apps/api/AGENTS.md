@@ -60,19 +60,21 @@ uv run ruff check . && uv run ty check . && uv run pytest -q
 
 ## 沙箱回收
 
-`user_sandboxes` 的生命周期由 API 维护，回收任务由根目录 `deploy/sandbox-reaper` 的独立 cron 容器触发：
+`user_sandboxes` 的生命周期由 API 维护，回收任务脚本位于 `app/job/sandbox_reaper.py`。
+
+开发阶段手动执行：
 
 ```bash
-cd deploy/sandbox-reaper
-docker compose up -d --build
+cd apps/api
+uv run python -m app.job.sandbox_reaper
 ```
 
-容器内每 5 分钟执行一次：
+生产环境在宿主机配置 cron，每 5 分钟执行一次：
 
-```bash
-python -m app.job.sandbox_reaper
+```cron
+*/5 * * * * cd /srv/network-teaching-agent/apps/api && flock -n /tmp/sandbox-reaper.lock .venv/bin/python -m app.job.sandbox_reaper >> /var/log/sandbox-reaper.log 2>&1
 ```
 
-脚本只执行一轮并退出，`flock` 防止上一轮未结束时重复启动。cron 容器只应保持一个副本。
+脚本只执行一轮并退出；`flock` 防止上一轮未结束时重复启动。cron 只配置一个入口。
 
 每个用例在 `DB_DATABASE_URL` 指向的 Postgres 中创建独立 schema。

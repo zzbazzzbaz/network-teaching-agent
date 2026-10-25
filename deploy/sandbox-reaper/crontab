@@ -1,6 +1,0 @@
-SHELL=/bin/sh
-PATH=/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
-
-# 每 5 分钟执行一次；flock 防止上一轮未结束时重复启动。
-# 环境变量由 /etc/reaper.env 提供（Compose 将 apps/.env 只读挂载到该路径）。
-*/5 * * * * root set -eu; set -a; . /etc/reaper.env; set +a; cd /app && flock -n /tmp/sandbox-reaper.lock /app/.venv/bin/python -m app.job.sandbox_reaper >> /proc/1/fd/1 2>&1

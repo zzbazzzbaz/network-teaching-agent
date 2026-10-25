@@ -1,8 +1,0 @@
-services:
-  sandbox-reaper:
-    build:
-      context: ../..
-      dockerfile: deploy/sandbox-reaper/Dockerfile
-    restart: unless-stopped
-    volumes:
-      - ../../apps/.env:/run/secrets/app.env:ro

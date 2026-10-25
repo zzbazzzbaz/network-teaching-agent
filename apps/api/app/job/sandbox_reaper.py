@@ -1,8 +1,11 @@
 """沙箱生命周期回收任务。
 
-由独立 cron 容器每 5 分钟执行一次：
+开发阶段手动执行：
 
-    python -m app.job.sandbox_reaper
+    cd apps/api
+    uv run python -m app.job.sandbox_reaper
+
+生产环境由宿主机 cron 每 5 分钟执行一次。
 """
 
 import logging
