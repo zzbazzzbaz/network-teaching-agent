@@ -77,6 +77,7 @@ def client(
     monkeypatch.setenv("DB_DATABASE_URL", database_url)
     monkeypatch.setenv("JWT_PRIVATE_KEY_PATH", private_path)
     monkeypatch.setenv("JWT_PUBLIC_KEY_PATH", public_path)
+    monkeypatch.setenv("SCHEDULER_ENABLED", "false")
     get_settings.cache_clear()
     _run_migrations()
 

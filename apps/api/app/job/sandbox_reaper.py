@@ -1,42 +1,28 @@
 """沙箱生命周期回收任务。
 
-本模块不包含调度器，只执行一轮并退出。定时由宿主机 cron 负责：
-
-开发阶段手动执行：
-
-    cd apps/api
-    uv run python -m app.job.sandbox_reaper
-
-生产环境由宿主机 cron 每 5 分钟执行一次。
+仅由 API 进程内的 APScheduler 触发，每轮执行一次回收。
 """
 
 import logging
 
-from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.config import Settings, get_settings
-from app.core.database import create_db_engine, create_session_factory
+from app.core.config import Settings
 from app.services import sandbox_reaper
 
 logger = logging.getLogger(__name__)
 
 
-def run_reaper(
+def run_reaper_job(
     *,
     settings: Settings,
     session_factory: sessionmaker[Session],
 ) -> sandbox_reaper.ReaperStats:
     with session_factory() as session:
-        return sandbox_reaper.reap_sandboxes(
+        stats = sandbox_reaper.reap_sandboxes(
             session=session,
             settings=settings,
         )
-
-
-def _run_once(settings: Settings, engine: Engine) -> int:
-    session_factory = create_session_factory(engine)
-    stats = run_reaper(settings=settings, session_factory=session_factory)
     logger.info(
         "sandbox reaper: paused=%s destroyed=%s cleared=%s failed=%s",
         stats.paused,
@@ -44,25 +30,4 @@ def _run_once(settings: Settings, engine: Engine) -> int:
         stats.cleared,
         stats.failed,
     )
-    return 1 if stats.failed else 0
-
-
-def main() -> int:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-
-    settings = get_settings()
-    engine = create_db_engine(settings.db.database_url)
-    try:
-        return _run_once(settings, engine)
-    except Exception:
-        logger.exception("sandbox reaper 执行失败")
-        return 1
-    finally:
-        engine.dispose()
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    return stats

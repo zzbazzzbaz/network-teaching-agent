@@ -8,7 +8,7 @@ nginx 由 `bootstrap.sh` 一次性安装，CD 不改 nginx。不要动同机 doc
 
 | 路径 | 作用 |
 |---|---|
-| `docker-compose.yml` | web/api/reaper/agent + postgres/langgraph-pg/redis |
+| `docker-compose.yml` | web/api/agent + postgres/langgraph-pg/redis |
 | `nginx.conf` | 系统 nginx 站点配置 |
 | `bootstrap.sh` | 一次性初始化，sudo 幂等 |
 | `docker/{api,agent,web}.Dockerfile` | CI 构建，服务器不构建 |

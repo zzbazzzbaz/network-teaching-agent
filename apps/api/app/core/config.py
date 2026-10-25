@@ -41,6 +41,13 @@ class AGSSettings(_Base):
         return self
 
 
+class SchedulerSettings(_Base):
+    model_config = SettingsConfigDict(env_prefix="SCHEDULER_")
+
+    enabled: bool
+    reaper_interval_seconds: int
+
+
 class DBSettings(_Base):
     model_config = SettingsConfigDict(env_prefix="DB_")
 
@@ -63,6 +70,7 @@ class JWTSettings(_Base):
 class Settings(_Base):
     e2b: E2BSettings = Field(default_factory=E2BSettings)
     ags: AGSSettings = Field(default_factory=AGSSettings)
+    scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
     db: DBSettings = Field(default_factory=DBSettings)
     jwt: JWTSettings = Field(default_factory=JWTSettings)
 
