@@ -65,15 +65,6 @@ jobs:
             deploy/nginx deploy/scripts deploy/docker-compose.yml \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/"
 
-      - name: 在服务器登录 Docker Hub（部署镜像源；登录后避免匿名拉取限流）
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          printf '%s' "$DOCKERHUB_TOKEN" | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "docker login -u '$DOCKERHUB_USERNAME' --password-stdin"
-
       - name: 服务器上部署（校验 nginx → 拉镜像 → 迁移 → 重建容器 → reload）
         env:
           TAG: ${{ inputs.tag }}

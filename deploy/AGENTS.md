@@ -127,6 +127,7 @@ rm -f /tmp/network-agent-deploy /tmp/network-agent-deploy.pub
 `.env` 里的 `SITE_DOMAIN`、`WEB_IMAGE`、`API_IMAGE`、`AGENT_IMAGE` 部署时也会用到。
 镜像名必须与 `ci.yml` 的 `${{ secrets.DOCKERHUB_USERNAME }}/network-teaching-agent-<app>` 一致
 （CI 同时推一份 GHCR 作为私有归档；服务器部署只从 Docker Hub 拉，因为腾讯云到 GHCR 的 blob CDN 只有几十 KB/s）。
+服务器 `/etc/docker/daemon.json` 已配置腾讯云镜像加速 `mirror.ccs.tencentyun.com`，所以三个 Docker Hub 仓库必须是 **public**。
 
 更新配置时只改本地 `apps/.env`，再 `scp` 到服务器并 `chmod 600`，然后跑一次 CD（或只重启相关容器）。
 
@@ -168,7 +169,7 @@ sudo systemctl list-timers certbot.timer
 
 | 症状 | 原因 | 处置 |
 |---|---|---|
-| `docker compose pull` 报 unauthorized / rate limit | 服务器未登录 Docker Hub | `cd.yml` 已用 `DOCKERHUB_*` 登录；手工部署则先 `docker login` |
+| `docker compose pull` 报 unauthorized / rate limit | Docker Hub 仓库被设为 private，或镜像名写错 | 服务器通过腾讯云 `mirror.ccs.tencentyun.com` 拉公开镜像；把三个仓库设为 public，不要依赖 `docker login`（服务器到 registry-1.docker.io 的链路不稳） |
 | 拉取镜像极慢（几十 KB/s） | 误用了 GHCR 地址 | `apps/.env` 的 `*_IMAGE` 必须是 Docker Hub 的 `15688463267/network-teaching-agent-*` |
 | GHCR 归档 push 失败 | `GITHUB_TOKEN` 没有 packages 写权限 | 检查 `ci.yml` 的 `permissions.packages: write` |
 | `TAG 必须显式指定` | 手工执行时没带 TAG | `TAG=main docker compose --env-file .env ...` |
@@ -187,4 +188,4 @@ sudo systemctl list-timers certbot.timer
 - 前端只发相对路径（`/api/v1`、`/agent`），靠宿主机 nginx 同源反代；换正式前端只需改 `WEB_IMAGE`。
 - 三个 Dockerfile 的构建上下文是各工程根目录：工程内新增「运行期需要」的文件必须同步 Dockerfile。
 - `deploy/` 的改动要生效必须提交并走 CD —— push 只构建镜像，**部署是手动的**（`cd.yml` 的 `workflow_dispatch`）。
-- CI/CD 的 GitHub 配置：`DEPLOY_SSH_KEY`（ed25519 私钥）与已有的 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`；GHCR 归档读写用 `GITHUB_TOKEN`。
+- CI/CD 的 GitHub 配置：`DEPLOY_SSH_KEY`（ed25519 私钥）与已有的 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`（CI 推送用）；CD 服务器只拉公开镜像，不需要登录凭据。GHCR 归档读写用 `GITHUB_TOKEN`。
