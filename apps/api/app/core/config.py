@@ -29,11 +29,11 @@ class AGSSettings(_Base):
 
     tool_name: str
     sandbox_timeout_seconds: int
-    sandbox_idle_seconds: int = 1800
-    sandbox_paused_retention_seconds: int = 86400
-    sandbox_max_lifetime_seconds: int = 604800
-    sandbox_heartbeat_seconds: int = 300
-    sandbox_reaper_interval_seconds: int = 300
+    sandbox_idle_seconds: int
+    sandbox_paused_retention_seconds: int
+    sandbox_max_lifetime_seconds: int
+    sandbox_heartbeat_seconds: int
+    sandbox_reaper_interval_seconds: int
 
     @model_validator(mode="after")
     def _validate_lifecycle_windows(self) -> Self:
