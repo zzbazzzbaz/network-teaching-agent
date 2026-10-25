@@ -7,6 +7,8 @@ ACME_EMAIL="${ACME_EMAIL:-admin@chatgqt.top}"
 DEPLOY_USER="${DEPLOY_USER:-ubuntu}"
 ROOT="${DEPLOY_ROOT:-/srv/network-teaching-agent}"
 API_UID=10001
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NGINX_CONF="$SCRIPT_DIR/nginx.conf"
 
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
@@ -32,7 +34,7 @@ install -d -m 755 /var/www/certbot
 
 log "目录"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 755 "$ROOT"
-install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 755 "$ROOT"/{nginx,secrets,secrets/jwt}
+install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 755 "$ROOT"/{secrets,secrets/jwt}
 
 log "JWT 密钥"
 if [ ! -f "$ROOT/secrets/jwt/jwt_private.pem" ]; then
@@ -46,8 +48,8 @@ chmod 600 "$ROOT/secrets/jwt/jwt_private.pem"
 chmod 644 "$ROOT/secrets/jwt/jwt_public.pem"
 
 log "nginx 站点 / 证书"
-[ -f "$ROOT/nginx/network-agent.conf" ] || {
-	echo "缺少 $ROOT/nginx/network-agent.conf" >&2
+[ -f "$NGINX_CONF" ] || {
+	echo "缺少 $NGINX_CONF" >&2
 	exit 1
 }
 
@@ -55,7 +57,16 @@ CERT="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 if [ ! -f "$CERT" ]; then
 	BOOTSTRAP_CONF=/etc/nginx/sites-available/network-agent-bootstrap
 	rm -f /etc/nginx/sites-enabled/network-agent
-	sed "s/__DOMAIN__/$DOMAIN/g" "$ROOT/nginx/http-only.conf" >"$BOOTSTRAP_CONF"
+	cat >"$BOOTSTRAP_CONF" <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+
+    location ^~ /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 404; }
+}
+EOF
 	ln -sfn "$BOOTSTRAP_CONF" /etc/nginx/sites-enabled/network-agent
 	nginx -t
 	systemctl reload nginx
@@ -64,9 +75,8 @@ if [ ! -f "$CERT" ]; then
 	rm -f /etc/nginx/sites-enabled/network-agent "$BOOTSTRAP_CONF"
 fi
 
-ln -sfn "$ROOT/nginx/network-agent.conf" /etc/nginx/sites-available/network-agent
+install -m 644 "$NGINX_CONF" /etc/nginx/sites-available/network-agent
 ln -sfn /etc/nginx/sites-available/network-agent /etc/nginx/sites-enabled/network-agent
-chmod 644 "$ROOT/nginx/network-agent.conf" "$ROOT/nginx/http-only.conf"
 nginx -t
 systemctl reload nginx
 systemctl enable --now certbot.timer >/dev/null 2>&1 || true
@@ -80,13 +90,7 @@ systemctl reload nginx
 EOF
 chmod 755 /etc/letsencrypt/renewal-hooks/deploy/reload-nginx
 
-log "sudoers"
-NGINX_BIN="$(command -v nginx)"
-cat >/etc/sudoers.d/network-agent-deploy <<EOF
-$DEPLOY_USER ALL=(root) NOPASSWD: $NGINX_BIN -t, /usr/bin/systemctl reload nginx
-EOF
-chmod 440 /etc/sudoers.d/network-agent-deploy
-visudo -c -f /etc/sudoers.d/network-agent-deploy >/dev/null
+rm -f /etc/sudoers.d/network-agent-deploy
 
 [ -s "$ROOT/.env" ] || echo "缺少 $ROOT/.env（从 apps/.env 复制并 chmod 600）" >&2
 log "完成：$ROOT"

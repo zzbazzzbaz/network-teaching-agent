@@ -8,8 +8,6 @@ x-api-env: &api-env
   JWT_PRIVATE_KEY_PATH: /app/.keys/jwt_private.pem
   JWT_PUBLIC_KEY_PATH: /app/.keys/jwt_public.pem
   CORS_ORIGINS: "https://${SITE_DOMAIN}"
-  LANGFUSE_TRACING_ENVIRONMENT: production
-  LANGFUSE_RELEASE: "${TAG}"
 
 services:
   web:
@@ -59,7 +57,7 @@ services:
     networks: [data]
     mem_limit: 192m
     depends_on:
-      postgres: { condition: service_healthy }
+      api: { condition: service_healthy }
 
   agent:
     <<: *log

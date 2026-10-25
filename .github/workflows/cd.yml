@@ -2,12 +2,6 @@ name: cd
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "main 或 sha-<40 位 commit>"
-        required: true
-        default: main
-        type: string
 
 permissions:
   contents: read
@@ -32,42 +26,24 @@ jobs:
       - name: Deploy
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          TAG: ${{ inputs.tag }}
         run: |
-          [[ "$TAG" =~ ^(main|sha-[0-9a-f]{40})$ ]] || { echo "invalid tag: $TAG"; exit 1; }
           [ -n "$SSH_KEY" ] || { echo "missing DEPLOY_SSH_KEY"; exit 1; }
-
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-          SSH="ssh -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
-          SCP="scp -i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            deploy/docker-compose.yml "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/"
 
-          $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
-            "rm -rf '$DEPLOY_ROOT/nginx' '$DEPLOY_ROOT/scripts' '$DEPLOY_ROOT/docker-compose.yml'"
-          $SCP -r deploy/nginx deploy/scripts deploy/docker-compose.yml \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/"
-
-          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_ROOT='$DEPLOY_ROOT' TAG='$TAG' bash -s" <<'REMOTE'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_ROOT='$DEPLOY_ROOT' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$DEPLOY_ROOT"
-          chmod 755 scripts/*.sh
-          chmod 644 nginx/*.conf docker-compose.yml
           [ -s .env ] || { echo "missing .env"; exit 1; }
-          [ -f secrets/jwt/jwt_private.pem ] || { echo "missing secrets/jwt"; exit 1; }
-          trap 'docker compose --env-file .env ps; docker compose --env-file .env logs --tail=80' ERR
-
-          sudo -n "$(command -v nginx)" -t
+          grep -Eq '^TAG=sha-[0-9a-f]{40}$' .env || { echo "invalid TAG in .env"; exit 1; }
           docker compose --env-file .env pull </dev/null
-          docker compose --env-file .env up -d --wait postgres langgraph-pg langgraph-redis </dev/null
-          docker compose --env-file .env run --rm --no-deps api alembic upgrade head </dev/null
-          docker compose --env-file .env up -d --force-recreate --wait --no-deps web api reaper agent </dev/null
-          docker compose --env-file .env up -d --remove-orphans --wait </dev/null
-          sudo -n /usr/bin/systemctl reload nginx
-          docker image prune -f >/dev/null
-          docker compose --env-file .env ps
+          docker compose --env-file .env up -d --remove-orphans --wait --force-recreate </dev/null
           REMOTE
 
       - name: Verify

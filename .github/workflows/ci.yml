@@ -55,8 +55,6 @@ jobs:
           push: true
           tags: |
             ${{ env.GHCR_PREFIX }}/${{ matrix.app }}:sha-${{ github.sha }}
-            ${{ env.GHCR_PREFIX }}/${{ matrix.app }}:main
             ${{ env.DOCKERHUB_PREFIX }}-${{ matrix.app }}:sha-${{ github.sha }}
-            ${{ env.DOCKERHUB_PREFIX }}-${{ matrix.app }}:main
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,scope=${{ matrix.app }},mode=max
