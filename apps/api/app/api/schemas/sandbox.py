@@ -1,12 +1,13 @@
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel
+
+from app.models.user_sandbox import SandboxStatus
 
 
 class SandboxResponse(BaseModel):
     sandbox_id: str
-    status: Literal["running", "paused", "stopping"]
+    status: SandboxStatus
     vscode_url: str | None
     ttyd_url: str | None
     expires_at: datetime

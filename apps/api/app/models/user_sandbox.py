@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+
+class SandboxStatus(StrEnum):
+    RUNNING = "running"
+    PAUSED = "paused"
+    STOPPING = "stopping"
 
 
 class UserSandbox(Base):
@@ -25,8 +32,12 @@ class UserSandbox(Base):
         primary_key=True,
     )
     sandbox_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    status: Mapped[str] = mapped_column(String(16), default="running")
+    status: Mapped[str] = mapped_column(String(16), default=SandboxStatus.RUNNING.value)
     last_active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     hard_destroy_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def state(self) -> SandboxStatus:
+        return SandboxStatus(self.status)

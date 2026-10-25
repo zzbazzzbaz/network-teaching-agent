@@ -1,5 +1,7 @@
 """沙箱生命周期回收任务。
 
+本模块不包含调度器，只执行一轮并退出。定时由宿主机 cron 负责：
+
 开发阶段手动执行：
 
     cd apps/api
@@ -15,7 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings, get_settings
 from app.core.database import create_db_engine, create_session_factory
-from app.services import sandbox_service
+from app.services import sandbox_reaper
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +26,9 @@ def run_reaper(
     *,
     settings: Settings,
     session_factory: sessionmaker[Session],
-) -> sandbox_service.ReaperStats:
+) -> sandbox_reaper.ReaperStats:
     with session_factory() as session:
-        return sandbox_service.reap_sandboxes(
+        return sandbox_reaper.reap_sandboxes(
             session=session,
             settings=settings,
         )

@@ -17,8 +17,22 @@ def create_sandbox(settings: Settings, *, user_id: str) -> Sandbox:
     )
 
 
-def connect_sandbox(settings: Settings, sandbox_id: str) -> Sandbox:
+def connect_sandbox(
+    settings: Settings,
+    sandbox_id: str,
+    *,
+    timeout: int | None = None,
+) -> Sandbox:
     return Sandbox.connect(
+        sandbox_id,
+        timeout=timeout,
+        api_key=settings.e2b.api_key,
+        domain=settings.e2b.domain,
+    )
+
+
+def pause_sandbox(settings: Settings, sandbox_id: str) -> bool:
+    return Sandbox.pause(
         sandbox_id,
         api_key=settings.e2b.api_key,
         domain=settings.e2b.domain,

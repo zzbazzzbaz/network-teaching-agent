@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.config import Settings
 from app.models.user import Users
 from app.models.user_sandbox import UserSandbox
-from app.services import sandbox_service
+from app.services import sandbox_reaper, sandbox_service
 
 SANDBOX = "/api/v1/sandbox"
 
@@ -22,10 +22,10 @@ class FakeSandbox:
         self.sandbox_id = sandbox_id
         self.killed = False
         self.paused = False
+        self.already_paused = False
         self.timeout: int | None = None
         self.pause_calls = 0
         self.fail_pause = False
-        self.fail_timeout = False
 
     def get_host(self, port: int) -> str:
         assert port == 9000
@@ -34,15 +34,12 @@ class FakeSandbox:
     def is_running(self) -> bool:
         return not self.killed
 
-    def set_timeout(self, timeout: int) -> None:
-        if self.fail_timeout:
-            raise SandboxException("set_timeout failed")
-        self.timeout = timeout
-
     def pause(self) -> bool:
         if self.fail_pause:
             raise SandboxException("pause failed")
         self.pause_calls += 1
+        if self.already_paused:
+            return False
         self.paused = True
         return True
 
@@ -54,6 +51,7 @@ class FakeSandbox:
 class FakeWorld:
     def __init__(self) -> None:
         self.sandboxes: list[FakeSandbox] = []
+        self.missing: set[str] = set()
         self.connect_calls = 0
         self.kill_fail = False
         self.create_fail = False
@@ -62,6 +60,7 @@ class FakeWorld:
     def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(sandbox_service, "create_sandbox", self.create)
         monkeypatch.setattr(sandbox_service, "connect_sandbox", self.connect)
+        monkeypatch.setattr(sandbox_service, "pause_sandbox", self.pause)
         monkeypatch.setattr(sandbox_service, "kill_sandbox", self.kill)
 
     def create(self, _settings: object, *, user_id: str) -> FakeSandbox:
@@ -72,11 +71,23 @@ class FakeWorld:
         self.sandboxes.append(sandbox)
         return sandbox
 
-    def connect(self, _settings: object, sandbox_id: str) -> FakeSandbox:
+    def connect(
+        self,
+        _settings: object,
+        sandbox_id: str,
+        *,
+        timeout: int | None = None,
+    ) -> FakeSandbox:
         self.connect_calls += 1
         if self.connect_fail:
             raise SandboxException("connect failed")
-        return self.find(sandbox_id)
+        sandbox = self.find(sandbox_id)
+        if timeout is not None:
+            sandbox.timeout = timeout
+        return sandbox
+
+    def pause(self, _settings: object, sandbox_id: str) -> bool:
+        return self.find(sandbox_id).pause()
 
     def kill(self, _settings: object, sandbox_id: str) -> bool:
         if self.kill_fail:
@@ -86,6 +97,8 @@ class FakeWorld:
         return True
 
     def find(self, sandbox_id: str) -> FakeSandbox:
+        if sandbox_id in self.missing:
+            raise SandboxNotFoundException("sandbox not found")
         for sandbox in self.sandboxes:
             if sandbox.sandbox_id == sandbox_id:
                 return sandbox
@@ -192,6 +205,28 @@ def test_sandbox_lifecycle(
     assert client.delete(SANDBOX, headers=headers).status_code == 204
 
 
+def test_post_when_sandbox_missing_recreates(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    user = create_user()
+    headers = _login(client)
+    created = client.post(SANDBOX, headers=headers)
+    assert created.status_code == 200
+    assert created.json()["sandbox_id"] == "sbx-1"
+
+    world.missing.add("sbx-1")
+
+    recreated = client.post(SANDBOX, headers=headers)
+    assert recreated.status_code == 200, recreated.text
+    assert recreated.json()["sandbox_id"] == "sbx-2"
+
+    record = _get_record(client, user.user_id)
+    assert record is not None
+    assert record.sandbox_id == "sbx-2"
+
+
 def test_sandbox_create_failure_returns_503(
     client: TestClient,
     create_user: Callable[..., Users],
@@ -217,6 +252,23 @@ def test_heartbeat_and_pause_without_sandbox_return_404(
     assert client.post(f"{SANDBOX}/pause", headers=headers).status_code == 404
 
 
+def test_heartbeat_missing_sandbox_clears_record(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    user = create_user()
+    headers = _login(client)
+    assert client.post(SANDBOX, headers=headers).status_code == 200
+
+    world.sandboxes.clear()
+
+    response = client.post(f"{SANDBOX}/heartbeat", headers=headers)
+    assert response.status_code == 404
+    assert _get_record(client, user.user_id) is None
+    assert client.get(SANDBOX, headers=headers).status_code == 404
+
+
 def test_pause_failure_keeps_running(
     client: TestClient,
     create_user: Callable[..., Users],
@@ -237,6 +289,22 @@ def test_pause_failure_keeps_running(
     assert fetched.status_code == 200
     assert fetched.json()["status"] == "running"
     assert fetched.json()["vscode_url"] is not None
+
+
+def test_pause_when_ags_already_paused_is_idempotent(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    create_user()
+    headers = _login(client)
+    assert client.post(SANDBOX, headers=headers).status_code == 200
+
+    world.sandboxes[0].already_paused = True
+    response = client.post(f"{SANDBOX}/pause", headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "paused"
+    assert world.sandboxes[0].pause_calls == 1
 
 
 def test_stopping_sandbox_returns_conflicts(
@@ -335,7 +403,7 @@ def test_delete_failure_keeps_stopping_and_reaper_retries(
 
     world.kill_fail = False
     with _session_factory(client)() as session:
-        stats = sandbox_service.reap_sandboxes(
+        stats = sandbox_reaper.reap_sandboxes(
             session=session,
             settings=_settings(client),
             now=datetime.now(UTC),
@@ -364,7 +432,7 @@ def test_reaper_pauses_idle_sandbox(
     )
 
     with _session_factory(client)() as session:
-        stats = sandbox_service.reap_sandboxes(
+        stats = sandbox_reaper.reap_sandboxes(
             session=session,
             settings=settings,
             now=now,
@@ -378,6 +446,70 @@ def test_reaper_pauses_idle_sandbox(
     assert record is not None
     assert record.status == "paused"
     assert record.paused_at is not None
+
+
+def test_reaper_pause_failure_keeps_running(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    user = create_user()
+    headers = _login(client)
+    assert client.post(SANDBOX, headers=headers).status_code == 200
+
+    now = datetime.now(UTC)
+    settings = _settings(client)
+    _update_record(
+        client,
+        user.user_id,
+        last_active_at=now - timedelta(seconds=settings.ags.sandbox_idle_seconds + 60),
+    )
+    world.sandboxes[0].fail_pause = True
+
+    with _session_factory(client)() as session:
+        stats = sandbox_reaper.reap_sandboxes(
+            session=session,
+            settings=settings,
+            now=now,
+        )
+        session.commit()
+
+    assert stats.paused == 0
+    assert stats.failed == 1
+    record = _get_record(client, user.user_id)
+    assert record is not None
+    assert record.status == "running"
+
+
+def test_reaper_clears_gone_sandbox(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    user = create_user()
+    headers = _login(client)
+    assert client.post(SANDBOX, headers=headers).status_code == 200
+
+    now = datetime.now(UTC)
+    settings = _settings(client)
+    _update_record(
+        client,
+        user.user_id,
+        last_active_at=now - timedelta(seconds=settings.ags.sandbox_idle_seconds + 60),
+    )
+    world.sandboxes.clear()
+
+    with _session_factory(client)() as session:
+        stats = sandbox_reaper.reap_sandboxes(
+            session=session,
+            settings=settings,
+            now=now,
+        )
+        session.commit()
+
+    assert stats.cleared == 1
+    assert stats.failed == 0
+    assert _get_record(client, user.user_id) is None
 
 
 def test_reaper_destroys_expired_paused_sandbox(
@@ -400,7 +532,7 @@ def test_reaper_destroys_expired_paused_sandbox(
     )
 
     with _session_factory(client)() as session:
-        stats = sandbox_service.reap_sandboxes(
+        stats = sandbox_reaper.reap_sandboxes(
             session=session,
             settings=settings,
             now=now,
@@ -426,7 +558,7 @@ def test_reaper_destroys_sandbox_over_max_lifetime(
     _update_record(client, user.user_id, hard_destroy_at=now - timedelta(seconds=1))
 
     with _session_factory(client)() as session:
-        stats = sandbox_service.reap_sandboxes(
+        stats = sandbox_reaper.reap_sandboxes(
             session=session,
             settings=settings,
             now=now,
@@ -458,7 +590,7 @@ def test_reaper_destroys_paused_sandbox_over_max_lifetime(
     )
 
     with _session_factory(client)() as session:
-        stats = sandbox_service.reap_sandboxes(
+        stats = sandbox_reaper.reap_sandboxes(
             session=session,
             settings=settings,
             now=now,

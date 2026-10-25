@@ -75,7 +75,7 @@ def delete_sandbox(
         session=session,
         settings=settings,
     )
-    if not deleted:
+    if deleted is sandbox_service.DeleteResult.STOPPING:
         return JSONResponse(status_code=202, content={"status": "stopping"})
     return Response(status_code=204)
 
