@@ -39,6 +39,9 @@
 - `api` 的 `DB_DATABASE_URL` 由 compose 用 `POSTGRES_*` 拼出来，`.env` 里不用重复维护。
 - `agent` 使用 `POSTGRES_URI` + `DATABASE_URI` + `REDIS_URI` 持久化线程状态与流式队列；
   `JWT_JWKS_URL` 指向内网 `http://api:8000/.well-known/jwks.json`。
+  官方 `langgraph-api` Server 启动时会校验 `LANGSMITH_API_KEY`（来自 `apps/.env`，
+  只用于许可校验；`LANGSMITH_TRACING=false`，trace 仍走 Langfuse）。缺失会报
+  `License verification failed` 并退出。
 - `reaper` 每 5 分钟执行一轮 `python -m app.job.sandbox_reaper`，替代原先的宿主机 cron。
 - 所有业务端口只绑 `127.0.0.1`，公网唯一入口是系统级 nginx。
 
@@ -77,6 +80,8 @@
    `/etc/nginx/sites-available/network-agent`（软链到部署根），只操作它。
 8. **迁移在 CD 中执行**：`docker compose run --rm --no-deps api alembic upgrade head`，
    在基础库启动后、业务容器重建前。迁移失败会终止部署并打印日志。
+   业务容器用 `up -d --force-recreate --no-deps` 显式重建：Compose 不会因为 `env_file` 内容变化自动 recreate，
+   只改 `.env` 也必须让 api/agent 拿到新变量。
 9. **前端构建只依赖相对路径**：`apps/agent-ui` 浏览器侧请求 `/api/v1` 与 `/agent`，
    容器内 nginx 只做 SPA 静态托管，反代全部在宿主机 nginx。
 10. **`apps/agent/langgraph.json` 变更后必须重新生成 `deploy/docker/agent.Dockerfile`**：
@@ -179,6 +184,7 @@ sudo systemctl list-timers certbot.timer
 | 证书签发失败 | 80 端口不可达 / DNS 未解析到本机 | 控制台放行 80/443；`dig +short network-agent.test.chatgqt.top` |
 | 续期后浏览器仍是旧证书 | nginx 未 reload | 检查 `/etc/letsencrypt/renewal-hooks/deploy/reload-nginx` 可执行 |
 | 容器起来就 unhealthy | `.env` 缺变量（配置 fail-fast） | `docker compose --env-file .env logs <svc>` 找缺失项，补 `.env` 后 `up -d` |
+| agent 报 `License verification failed` | `apps/.env` 缺 `LANGSMITH_API_KEY` | 补齐 key（复制到服务器 `.env`）后 `docker compose up -d agent` |
 | 沙箱不回收 | reaper 容器未运行 / AGS 凭证失效 | `docker compose logs reaper`；确认 `E2B_*`、`AGS_*` |
 | `role "agent" does not exist` | 改过 `POSTGRES_USER` 但卷是旧的 | 改回原值，或备份后重建卷（**删卷即删库**） |
 

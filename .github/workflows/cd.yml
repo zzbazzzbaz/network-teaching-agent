@@ -101,7 +101,8 @@ jobs:
           echo "==> 执行数据库迁移"
           docker compose --env-file .env run --rm --no-deps api alembic upgrade head
 
-          echo "==> 重建业务容器"
+          echo "==> 重建业务容器（env_file 变化不会自动触发 recreate，显式强制）"
+          docker compose --env-file .env up -d --force-recreate --no-deps web api reaper agent
           docker compose --env-file .env up -d --remove-orphans --wait
 
           echo "==> reload nginx"

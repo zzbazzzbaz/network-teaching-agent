@@ -77,6 +77,8 @@ services:
       PORT: "8000"
       LANGFUSE_TRACING_ENVIRONMENT: production
       LANGFUSE_RELEASE: "${TAG}"
+      # 本项目只接 Langfuse；LangSmith 仅用于自托管 Server 的许可校验
+      LANGSMITH_TRACING: "false"
     ports: ["127.0.0.1:8083:8000"]
     networks: [app, data]
     mem_limit: 1280m

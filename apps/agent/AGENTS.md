@@ -20,6 +20,8 @@ apps/agent/
 ## 配置
 
 只读取 `apps/.env`：`DEEPSEEK_*`、`LANGFUSE_*`、`E2B_*`、`JWT_JWKS_URL`。
+自托管生产 Server（官方 `langgraph-api` 镜像）还需要 `LANGSMITH_API_KEY` 做启动许可校验；
+它不用于 trace（生产 `LANGSMITH_TRACING=false`，trace 走 Langfuse）。
 
 Agent 运行时必须从 `config.configurable.sandbox_id` 获取账户沙箱；`AgsBackend` 按需连接，不创建、暂停、销毁或续期沙箱。沙箱运行用户和工作目录固定为 `root` / `/root/workspace`，所有命令和文件操作显式使用 root。
 
