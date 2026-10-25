@@ -33,16 +33,11 @@ class AGSSettings(_Base):
     sandbox_paused_retention_seconds: int
     sandbox_max_lifetime_seconds: int
     sandbox_heartbeat_seconds: int
-    sandbox_reaper_interval_seconds: int
 
     @model_validator(mode="after")
     def _validate_lifecycle_windows(self) -> Self:
         if self.sandbox_idle_seconds >= self.sandbox_timeout_seconds:
             raise ValueError("AGS_SANDBOX_IDLE_SECONDS 必须小于 AGS_SANDBOX_TIMEOUT_SECONDS")
-        if self.sandbox_reaper_interval_seconds >= self.sandbox_idle_seconds:
-            raise ValueError(
-                "AGS_SANDBOX_REAPER_INTERVAL_SECONDS 必须小于 AGS_SANDBOX_IDLE_SECONDS"
-            )
         return self
 
 
