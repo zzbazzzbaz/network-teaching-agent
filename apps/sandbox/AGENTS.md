@@ -7,7 +7,7 @@
 - ToolName：`network-teaching-agent-sandbox`
 - ToolId：`sdt-rynngtwo`
 - 镜像：`mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:sha-<commit>`
-- 端口 `9000` Web、`49983` envd；资源 `1C2G / 10GiB`；AuthMode `PUBLIC`
+- 端口 `9000` Web、`49983` envd；资源 `1C1G / 10GiB`；AuthMode `PUBLIC`
 
 ## 进程
 
@@ -29,7 +29,7 @@ gh workflow run sandbox-image.yml && gh run watch
 
 ```bash
 tccli ags UpdateSandboxTool --region ap-shanghai --ToolId sdt-rynngtwo \
-  --CustomConfiguration '{"Image":"mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:sha-<commit>","ImageRegistryType":"custom","Command":["/opt/start.sh"],"Ports":[{"Name":"web","Port":9000,"Protocol":"TCP"},{"Name":"envd","Port":49983,"Protocol":"TCP"}],"Resources":{"CPU":"1000m","Memory":"2Gi","Storage":"10Gi"}}'
+  --CustomConfiguration '{"Image":"mirror.ccs.tencentyun.com/15688463267/network-teaching-agent-sandbox:sha-<commit>","ImageRegistryType":"custom","Command":["/opt/start.sh"],"Ports":[{"Name":"web","Port":9000,"Protocol":"TCP"},{"Name":"envd","Port":49983,"Protocol":"TCP"}],"Resources":{"CPU":"1000m","Memory":"1Gi","Storage":"10Gi"}}'
 ```
 
 `CustomConfiguration` 必须包含 `Image`、`ImageRegistryType`、`Command`、`Ports`、`Resources`；`ImageRegistryType` 固定为 `custom`。

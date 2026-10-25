@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import threading
 
 from deepagents.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse
@@ -13,16 +11,24 @@ from e2b import (
 )
 from langgraph.config import get_config
 
-from agent.infra.ags import connect_sandbox
+from agent.core.config import get_settings
 
-DEFAULT_WORK_DIR = "/home/user/workspace"
-MISSING_SANDBOX_ID = "sandbox_id 未传入，请先启动沙箱"
+
+def _connect_sandbox(sandbox_id: str) -> Sandbox:
+    settings = get_settings()
+    return Sandbox.connect(
+        sandbox_id=sandbox_id, api_key=settings.e2b.api_key, domain=settings.e2b.domain
+    )
+
+
+def _sandbox_id() -> str | None:
+    return get_config()["configurable"].get("sandbox_id")
 
 
 class AgsBackend(BaseSandbox):
     enable_capture_offload = True
 
-    def __init__(self, *, work_dir: str = DEFAULT_WORK_DIR) -> None:
+    def __init__(self, *, work_dir: str = "/home/user/workspace") -> None:
         self._default_timeout = 300
         self._user = "user"
         self._work_dir = work_dir
@@ -31,37 +37,22 @@ class AgsBackend(BaseSandbox):
 
     @property
     def id(self) -> str:
-        return self._sandbox_id() or "sandbox"
-
-    def _sandbox_id(self) -> str | None:
-        try:
-            config = get_config()
-        except RuntimeError:
-            return None
-
-        configurable = config.get("configurable")
-        if not isinstance(configurable, dict):
-            return None
-
-        sandbox_id = configurable.get("sandbox_id")
-        if isinstance(sandbox_id, str) and sandbox_id:
-            return sandbox_id
-        return None
+        return _sandbox_id() or "sandbox"
 
     def _get_sandbox(self) -> Sandbox:
-        sandbox_id = self._sandbox_id()
+        sandbox_id = _sandbox_id()
         if sandbox_id is None:
-            raise RuntimeError(MISSING_SANDBOX_ID)
+            raise RuntimeError("sandbox_id 未传入，请先启动沙箱")
 
-        with self._lock:
-            sandbox = self._sandboxes.get(sandbox_id)
-            if sandbox is None:
-                sandbox = connect_sandbox(sandbox_id)
-                self._sandboxes[sandbox_id] = sandbox
+        sandbox = self._sandboxes.get(sandbox_id)
+        if sandbox is not None:
             return sandbox
+        sandbox = _connect_sandbox(sandbox_id)
+        with self._lock:
+            return self._sandboxes.setdefault(sandbox_id, sandbox)
 
     def _drop_sandbox(self) -> None:
-        sandbox_id = self._sandbox_id()
+        sandbox_id = _sandbox_id()
         if sandbox_id is None:
             return
         with self._lock:
