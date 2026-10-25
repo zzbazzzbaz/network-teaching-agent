@@ -6,9 +6,14 @@ FROM langchain/langgraph-api:0.16.5-py3.14
 
 ADD . /deps/agent
 
+# langgraph-api 0.16.5 的 constraints 把 OTel 锁在 1.42.1，与 langfuse 5.x 冲突。
+# 过滤掉 opentelemetry-* 行，其余依赖仍按基础镜像的约束安装；OTel 版本由
+# apps/agent/pyproject.toml 的 override-dependencies（与 uv.lock 一致）决定。
+RUN grep -v -E '^opentelemetry-' /api/constraints.txt > /tmp/constraints.txt
+
 RUN for dep in /deps/*; do \
         if [ -d "$dep" ]; then \
-            (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e .); \
+            (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /tmp/constraints.txt -e .); \
         fi; \
     done
 

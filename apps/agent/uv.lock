@@ -3,7 +3,17 @@ revision = 5
 requires-python = "==3.14.*"
 
 [manifest]
-overrides = [{ name = "opentelemetry-exporter-prometheus", specifier = ">=0.66b1" }]
+overrides = [
+    { name = "opentelemetry-api", specifier = ">=1.45.1" },
+    { name = "opentelemetry-exporter-http-transport", specifier = ">=0.66b1" },
+    { name = "opentelemetry-exporter-otlp-common", specifier = ">=0.66b1" },
+    { name = "opentelemetry-exporter-otlp-proto-common", specifier = ">=1.45.1" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.45.1" },
+    { name = "opentelemetry-exporter-prometheus", specifier = ">=0.66b1" },
+    { name = "opentelemetry-proto", specifier = ">=1.45.1" },
+    { name = "opentelemetry-sdk", specifier = ">=1.45.1" },
+    { name = "opentelemetry-semantic-conventions", specifier = ">=0.66b1" },
+]
 
 [[package]]
 name = "agent"
@@ -17,6 +27,7 @@ dependencies = [
     { name = "langchain-openai" },
     { name = "langfuse" },
     { name = "langgraph" },
+    { name = "opentelemetry-exporter-prometheus" },
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
 ]
@@ -37,6 +48,7 @@ requires-dist = [
     { name = "langchain-openai" },
     { name = "langfuse", specifier = ">=5.0.4" },
     { name = "langgraph" },
+    { name = "opentelemetry-exporter-prometheus", specifier = ">=0.66b1" },
     { name = "pydantic-settings" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.1" },
 ]
@@ -1118,11 +1130,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/04/69/6af86ff66492b481c6a4c05dcfd68beb47ed8ba046440a26a2aac76b95c7/opentelemetry_exporter_http_transport-0.66b1-py3-none-any.whl", hash = "sha256:2f95404bdee7f9d2d529c7de56c7bd86d014d774d8fbf137810e0167f8a492bf", size = 12155, upload-time = "2026-10-06T17:32:35.454Z" },
 ]
 
-[package.optional-dependencies]
-requests = [
-    { name = "requests" },
-]
-
 [[package]]
 name = "opentelemetry-exporter-otlp-common"
 version = "0.66b1"
@@ -1154,7 +1161,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "googleapis-common-protos" },
     { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-http-transport", extra = ["requests"] },
+    { name = "opentelemetry-exporter-http-transport" },
     { name = "opentelemetry-exporter-otlp-common" },
     { name = "opentelemetry-exporter-otlp-proto-common" },
     { name = "opentelemetry-proto" },

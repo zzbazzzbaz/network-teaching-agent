@@ -11,7 +11,9 @@ dependencies = [
     "pydantic-settings",
     "e2b>=2.59.0",
     "langfuse>=5.0.4",
-    "pyjwt[crypto]>=2.10.1"
+    "pyjwt[crypto]>=2.10.1",
+    # 与 langfuse 5.x 的 OTel SDK 1.45 对齐；同时覆盖 langgraph-api 镜像自带的 0.63b1
+    "opentelemetry-exporter-prometheus>=0.66b1",
 ]
 
 [tool.setuptools.packages.find]
@@ -25,10 +27,21 @@ lint.select = ["E", "F", "I", "UP", "B", "ANN", "PYI", "PGH003"]
 lint.ignore = ["E501"]
 
 [tool.uv]
-# langgraph-api 0.16.x pins opentelemetry-exporter-prometheus<0.64 (OTel SDK ~1.42),
-# while langfuse 5.x requires opentelemetry-sdk>=1.45.0. Override to the exporter
-# release that matches SDK 1.45 so both can coexist.
-override-dependencies = ["opentelemetry-exporter-prometheus>=0.66b1"]
+# langgraph-api 0.16.5 的 `/api/constraints.txt` 把 OTel 锁在 1.42.1，
+# 而 langfuse 5.x 要求 opentelemetry-sdk / otlp-proto-http >= 1.45。
+# Dockerfile 会过滤掉 constraints 里的 opentelemetry-* 行，这里把整条 OTel 栈
+# 对齐到本地 uv.lock 已验证的版本，避免基础镜像与业务依赖互相打架。
+override-dependencies = [
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
+    "opentelemetry-semantic-conventions>=0.66b1",
+    "opentelemetry-proto>=1.45.1",
+    "opentelemetry-exporter-otlp-proto-common>=1.45.1",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.1",
+    "opentelemetry-exporter-otlp-common>=0.66b1",
+    "opentelemetry-exporter-http-transport>=0.66b1",
+    "opentelemetry-exporter-prometheus>=0.66b1",
+]
 
 [dependency-groups]
 dev = [

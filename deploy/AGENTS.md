@@ -95,9 +95,9 @@ ssh ubuntu@101.35.223.219
 sudo DOMAIN=network-agent.test.chatgqt.top ACME_EMAIL=admin@chatgqt.top \
   bash /srv/network-teaching-agent/scripts/bootstrap.sh
 
-# 3) 放业务配置（从本地 apps/.env 复制后改下面这些）
-#    见下一节“服务器 .env”
-chmod 600 /srv/network-teaching-agent/.env
+# 3) 放业务配置：生产 .env 就是本地 apps/.env（唯一配置源，密钥复用，不再生成第二套）
+scp apps/.env ubuntu@101.35.223.219:/srv/network-teaching-agent/.env
+ssh ubuntu@101.35.223.219 'chmod 600 /srv/network-teaching-agent/.env'
 
 # 4) 本地生成部署密钥，把公钥装到服务器，把私钥写进 GitHub secret
 ssh-keygen -t ed25519 -N '' -C 'gha-network-agent-deploy' -f /tmp/network-agent-deploy
@@ -111,38 +111,23 @@ rm -f /tmp/network-agent-deploy /tmp/network-agent-deploy.pub
 
 ## 服务器 `.env`
 
-以 `apps/.env.example` 为底，至少修改/补充以下项：
+**唯一配置源是 `apps/.env`**（样板 `apps/.env.example`）：生产服务器直接复制这一份文件，
+`DEEPSEEK_*`、`LANGFUSE_*`、`E2B_*`、`AGS_*`、`POSTGRES_*` 全部复用本地密钥，不再另生成一套。
 
-```dotenv
-# 镜像（与 ci.yml 的 ghcr.io/<owner>/<repo>/<app> 保持一致）
-WEB_IMAGE=ghcr.io/zzbazzzbaz/network-teaching-agent/web
-API_IMAGE=ghcr.io/zzbazzzbaz/network-teaching-agent/api
-AGENT_IMAGE=ghcr.io/zzbazzzbaz/network-teaching-agent/agent
+只有以下容器内差异由 `deploy/docker-compose.yml` 覆盖，`.env` 本身不用改：
 
-# 业务库（compose 会用它拼 DB_DATABASE_URL）
-POSTGRES_USER=agent
-POSTGRES_PASSWORD=<随机强口令>
-POSTGRES_DB=agent
+| 变量 | `.env`（本地/共用） | compose 覆盖（容器内） |
+|---|---|---|
+| `DB_DATABASE_URL` | `...@localhost:5432/...` | `...@postgres:5432/...` |
+| `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH` | `.keys/...` | `/app/.keys/...` |
+| `JWT_JWKS_URL` | `http://127.0.0.1:8000/...` | `http://api:8000/...` |
+| `CORS_ORIGINS` | 空（本地同源） | `https://${SITE_DOMAIN}` |
+| `LANGFUSE_TRACING_ENVIRONMENT` / `LANGFUSE_RELEASE` | `development` / `local-dev` | `production` / `${TAG}` |
 
-# LangGraph 专用库
-LANGGRAPH_PG_PASSWORD=<随机强口令>
+`.env` 里的 `SITE_DOMAIN`、`WEB_IMAGE`、`API_IMAGE`、`AGENT_IMAGE` 部署时也会用到；
+镜像名必须与 `ci.yml` 的 `ghcr.io/<owner>/<repo>/<app>` 一致。
 
-# API JWT密钥（容器内绝对路径）
-JWT_PRIVATE_KEY_PATH=/app/.keys/jwt_private.pem
-JWT_PUBLIC_KEY_PATH=/app/.keys/jwt_public.pem
-
-# Agent 从内网 API 取 JWKS（compose 也会覆盖）
-JWT_JWKS_URL=http://api:8000/.well-known/jwks.json
-
-# 同源前端，CORS 可留空；填也只填正式域名
-CORS_ORIGINS=https://network-agent.test.chatgqt.top
-
-# 可观测性环境标识
-LANGFUSE_TRACING_ENVIRONMENT=production
-```
-
-其余 `DEEPSEEK_*`、`LANGFUSE_*`、`E2B_*`、`AGS_*` 原样保留。
-`POSTGRES_*`、`LANGGRAPH_PG_PASSWORD` 只用于 compose 插值，不会被 API 读取。
+更新配置时只改本地 `apps/.env`，再 `scp` 到服务器并 `chmod 600`，然后跑一次 CD（或只重启相关容器）。
 
 ## 日常操作
 
@@ -195,7 +180,7 @@ sudo systemctl list-timers certbot.timer
 
 ## 与仓库其余部分的契约
 
-- **唯一配置样板是 `apps/.env.example`**；服务器 `.env` = 照抄后按上节修改。`deploy/` 下不保留第二份样板。
+- **唯一配置源是 `apps/.env`（样板 `apps/.env.example`）**；服务器 `.env` 直接复制它，密钥不另生成。compose 只覆盖主机名/容器路径/环境标识。
 - 前端只发相对路径（`/api/v1`、`/agent`），靠宿主机 nginx 同源反代；换正式前端只需改 `WEB_IMAGE`。
 - 三个 Dockerfile 的构建上下文是各工程根目录：工程内新增「运行期需要」的文件必须同步 Dockerfile。
 - `deploy/` 的改动要生效必须提交并走 CD —— push 只构建镜像，**部署是手动的**（`cd.yml` 的 `workflow_dispatch`）。

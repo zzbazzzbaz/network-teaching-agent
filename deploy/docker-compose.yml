@@ -11,6 +11,9 @@ x-api-env: &api-env
   DB_DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
   JWT_PRIVATE_KEY_PATH: /app/.keys/jwt_private.pem
   JWT_PUBLIC_KEY_PATH: /app/.keys/jwt_public.pem
+  CORS_ORIGINS: "https://${SITE_DOMAIN}"
+  LANGFUSE_TRACING_ENVIRONMENT: production
+  LANGFUSE_RELEASE: "${TAG}"
 
 services:
   web:
@@ -76,6 +79,8 @@ services:
       # Agent 通过内网从 API 取 JWKS
       JWT_JWKS_URL: "http://api:8000/.well-known/jwks.json"
       PORT: "8000"
+      LANGFUSE_TRACING_ENVIRONMENT: production
+      LANGFUSE_RELEASE: "${TAG}"
     ports: ["127.0.0.1:8083:8000"]
     networks: [app, data]
     mem_limit: 1280m
