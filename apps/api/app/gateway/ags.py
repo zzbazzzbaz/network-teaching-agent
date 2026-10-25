@@ -11,6 +11,9 @@ def create_sandbox(settings: Settings, *, user_id: str) -> Sandbox:
         domain=settings.e2b.domain,
         metadata={"user_id": user_id},
         network={"allow_public_traffic": True},
+        # AGS timeout 作为最后兜底：暂停而不是 kill，避免 workspace 丢失。
+        # 正常情况下 reaper 会先按 30 分钟空闲主动 pause。
+        lifecycle={"on_timeout": "pause", "auto_resume": False},
     )
 
 
