@@ -99,12 +99,13 @@ jobs:
           docker compose --env-file .env up -d --wait postgres langgraph-pg langgraph-redis
 
           echo "==> 执行数据库迁移"
-          docker compose --env-file .env run --rm --no-deps api alembic upgrade head
+          # 远端脚本本身走 stdin；run/exec 不加 </dev/null 会吞掉后面的脚本行
+          docker compose --env-file .env run --rm --no-deps api alembic upgrade head </dev/null
 
           echo "==> 重建业务容器（env_file 变化不会自动触发 recreate，显式强制）"
-          docker compose --env-file .env up -d --force-recreate --wait --no-deps web api reaper agent
-          docker compose --env-file .env up -d --remove-orphans --wait
-          docker compose --env-file .env ps
+          docker compose --env-file .env up -d --force-recreate --wait --no-deps web api reaper agent </dev/null
+          docker compose --env-file .env up -d --remove-orphans --wait </dev/null
+          docker compose --env-file .env ps </dev/null
 
           echo "==> reload nginx"
           sudo -n /usr/bin/systemctl reload nginx

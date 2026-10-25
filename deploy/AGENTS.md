@@ -82,6 +82,8 @@
    在基础库启动后、业务容器重建前。迁移失败会终止部署并打印日志。
    业务容器用 `up -d --force-recreate --no-deps` 显式重建：Compose 不会因为 `env_file` 内容变化自动 recreate，
    只改 `.env` 也必须让 api/agent 拿到新变量。
+   **CD 的远端脚本通过 stdin 传给 `bash -s`**：任何 `docker compose run/exec` 必须加 `</dev/null`，
+   否则会吞掉后续脚本行（迁移后直接结束，重建/reload 都不执行）。
 9. **前端构建只依赖相对路径**：`apps/agent-ui` 浏览器侧请求 `/api/v1` 与 `/agent`，
    容器内 nginx 只做 SPA 静态托管，反代全部在宿主机 nginx。
 10. **`apps/agent/langgraph.json` 变更后必须重新生成 `deploy/docker/agent.Dockerfile`**：
