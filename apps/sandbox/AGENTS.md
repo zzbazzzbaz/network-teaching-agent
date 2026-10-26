@@ -15,6 +15,8 @@
 - `code-server`：`127.0.0.1:8080`；`ttyd`：`127.0.0.1:7681`
 - 全部以 `root` 运行，工作目录 `/root/workspace`，日志 `/logs/`
 - 镜像内不再保留 `user` 用户；AGS CLI 执行时必须显式 `--user root`
+- 系统 Python：`python3` / `python` 指向 `/usr/local/bin/python3.14`（3.14.x），pip/venv 由基础镜像提供
+- 默认工作区：`/root/workspace` 内置 CS168 starter（`traceroute.py`、`util.py`、`zh/`）
 
 ## 网络工具
 

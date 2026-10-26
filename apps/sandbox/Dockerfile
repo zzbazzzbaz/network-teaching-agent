@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22-bookworm-slim
+FROM python:3.14-slim-bookworm
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -13,7 +13,7 @@ ARG RUNTIME_APT_MIRROR=mirrors.cloud.tencent.com
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Bootstrap CA certificates from the default mirror first.
-# The Node base image has no ca-certificates, so HTTPS mirrors cannot be used yet.
+# The slim base image may not include ca-certificates yet.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -31,11 +31,18 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       coreutils ca-certificates curl git jq procps iproute2 less vim-tiny nano \
-      util-linux python3 python3-pip python3-venv \
-      nginx openssh-client \
+      util-linux nginx openssh-client libatomic1 \
       busybox traceroute iputils-ping xxd bsdextrautils \
       tcpdump bind9-dnsutils bind9-host netcat-openbsd mtr-tiny \
     && rm -rf /var/lib/apt/lists/*
+
+# The base image ships Python 3.14 under /usr/local; make python3/python
+# explicitly resolve to it as the system interpreter.
+RUN ln -sf /usr/local/bin/python3.14 /usr/local/bin/python3 \
+    && ln -sf /usr/local/bin/python3.14 /usr/local/bin/python \
+    && python3 --version \
+    && python --version \
+    && pip --version
 
 # AGS PUBLIC 出网 NAT 会改写 ICMP 错误包的内层源地址，标准 traceroute
 # 依赖 IP_RECVERR 匹配不到，会全部显示 *；BusyBox 用 raw socket 按内层
@@ -72,6 +79,9 @@ COPY --from=ccr.ccs.tencentyun.com/ags-image/envd:v0.5.14 \
 
 # Run everything as root; no dedicated user is kept in the image.
 RUN mkdir -p /root/workspace /logs
+
+# Course starter files baked into the default workspace.
+COPY workspace/ /root/workspace/
 
 COPY nginx.conf /etc/nginx/conf.d/sandbox.conf
 COPY start.sh /opt/start.sh
