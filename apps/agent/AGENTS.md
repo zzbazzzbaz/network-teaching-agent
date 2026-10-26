@@ -10,7 +10,7 @@ apps/agent/
 │   ├── main.py          build_agent / graph 入口
 │   ├── core/            auth（JWKS、资源隔离）、config
 │   ├── infra/           LLM、E2B 沙盒、DeepAgents 后端
-│   ├── prompt/          系统提示词
+│   ├── resources/       系统提示词、课程资料与 DeepAgents skill（只读）
 │   └── tools/           ask_human 等工具
 ├── langgraph.json       graph 与 auth 入口
 ├── pyproject.toml
@@ -24,6 +24,27 @@ apps/agent/
 它不用于 trace（生产 `LANGSMITH_TRACING=false`，trace 走 Langfuse）。
 
 Agent 运行时必须从 `config.configurable.sandbox_id` 获取账户沙箱；`AgsBackend` 按需连接，不创建、暂停、销毁或续期沙箱。沙箱运行用户和工作目录固定为 `root` / `/root/workspace`，所有命令和文件操作显式使用 root。
+
+## 系统提示词、课程资料与 Skill
+
+固定系统提示词在 `agent/resources/prompt/system.md`，`agent/main.py` 启动时读入并传给 `create_deep_agent(system_prompt=...)`。它不属于 DeepAgents 的 memory，不会自动加载，也不允许 agent 修改。
+
+`agent/resources/skills/traceroute-lab/SKILL.md` 以 CS168 Project 1: Traceroute 的核心 8 章（对应 1A）为范围。修改课程结构时，同步更新系统提示词、skill 和 `materials/traceroute/`。
+
+`agent/main.py` 用 `CompositeBackend` 把两个只读路径挂到 agent 侧：
+
+- `/skills/` → `agent/resources/skills/`
+- `/materials/` → `agent/resources/materials/`
+
+`create_deep_agent(skills=["/skills/"])` 自动发现各技能目录下的 `SKILL.md`；`permissions` 禁止 agent 写入这两个路径。资料不写入沙箱，因此不随沙箱镜像发布，也不会因暂停/销毁丢失。
+
+`agent/resources/materials/traceroute/` 是 `docs/chat/10.26/教程/成品/` 的副本。更新教程后重新同步：
+
+```bash
+rsync -a --delete docs/chat/10.26/教程/成品/ apps/agent/agent/resources/materials/traceroute/
+```
+
+Skill 元数据按 thread 缓存在 state；新增或重命名 skill 后，已有 thread 需要新开对话，或把 `skills_metadata` 置为 `None` 触发重新加载。
 
 ## 可观测性
 
