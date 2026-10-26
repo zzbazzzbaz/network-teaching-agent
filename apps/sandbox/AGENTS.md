@@ -16,6 +16,12 @@
 - 全部以 `root` 运行，工作目录 `/root/workspace`，日志 `/logs/`
 - 镜像内不再保留 `user` 用户；AGS CLI 执行时必须显式 `--user root`
 
+## 网络工具
+
+镜像内置：`busybox`、`traceroute`、`iputils-ping`、`tcpdump`、`bind9-dnsutils`/`bind9-host`、`netcat-openbsd`、`xxd`/`hexdump`、`mtr`。
+
+`/usr/local/bin/traceroute` 是 BusyBox wrapper，默认参数 `-n -q 1 -w 1`。AGS `PUBLIC` 出网 NAT 会把 ICMP 错误包的内层源地址改写成 `192.168.0.80`，标准 `traceroute` 依赖 `IP_RECVERR` 匹配不到，会全部显示 `*`；BusyBox 用 raw socket 按内层 UDP 端口匹配，能正常显示路径。标准工具保留在 `/usr/sbin/traceroute`，用于对比 NAT 行为。
+
 ## 构建
 
 改动 `Dockerfile`、`nginx.conf`、`start.sh`、`fetch-vendor.sh` 或 `.github/workflows/sandbox-image.yml` 后 push 到 `main` 触发构建。

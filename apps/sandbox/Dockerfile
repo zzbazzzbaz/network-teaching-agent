@@ -33,7 +33,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       coreutils ca-certificates curl git jq procps iproute2 less vim-tiny nano \
       util-linux python3 python3-pip python3-venv \
       nginx openssh-client \
+      busybox traceroute iputils-ping xxd bsdextrautils \
+      tcpdump bind9-dnsutils bind9-host netcat-openbsd mtr-tiny \
     && rm -rf /var/lib/apt/lists/*
+
+# AGS PUBLIC 出网 NAT 会改写 ICMP 错误包的内层源地址，标准 traceroute
+# 依赖 IP_RECVERR 匹配不到，会全部显示 *；BusyBox 用 raw socket 按内层
+# UDP 端口匹配，能正常显示路径。标准 /usr/sbin/traceroute 仍然保留，
+# 方便对比 NAT 行为。
+RUN rm -f /usr/local/bin/traceroute \
+    && printf '#!/bin/sh\nexec /usr/bin/busybox traceroute -n -q 1 -w 1 "$@"\n' \
+         > /usr/local/bin/traceroute \
+    && chmod 755 /usr/local/bin/traceroute
 
 # Point runtime apt sources at the Tencent Cloud mirror, even when the image
 # was built with a different mirror (for example on GitHub Actions).
