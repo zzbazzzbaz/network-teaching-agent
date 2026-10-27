@@ -1,3 +1,5 @@
+import threading
+
 from deepagents.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse
 from deepagents.backends.sandbox import BaseSandbox
 from e2b import (
@@ -9,7 +11,8 @@ from e2b import (
 )
 from langgraph.config import get_config
 
-from agent.infra.sandbox_api import SandboxManager
+from agent.core.config import get_settings
+from agent.infra.sandbox_api import ensure_sandbox_id
 
 DEFAULT_WORK_DIR = "/root/workspace"
 DEFAULT_USER = "root"
@@ -23,23 +26,29 @@ class AgsBackend(BaseSandbox):
         *,
         work_dir: str = DEFAULT_WORK_DIR,
         user: str = DEFAULT_USER,
-        sandbox_manager: SandboxManager | None = None,
     ) -> None:
         self._default_timeout = 300
         self._user = user
         self._work_dir = work_dir
-        self._sandbox_manager = sandbox_manager or SandboxManager()
+        self._sandboxes: dict[str, Sandbox] = {}
+        self._lock = threading.Lock()
 
     @property
     def id(self) -> str:
-        """返回当前认证用户 ID；真实 sandbox_id 由 SandboxManager 解析。"""
-        return str(get_config()["configurable"]["langgraph_auth_user_id"])
+        user_id = str(get_config()["configurable"]["langgraph_auth_user_id"])
+        return ensure_sandbox_id(user_id)
 
     def _get_sandbox(self) -> Sandbox:
-        return self._sandbox_manager.get_sandbox(self.id)
+        sandbox = self._sandboxes.get(self.id)
+        if sandbox is not None:
+            return sandbox
+        sandbox = _connect_sandbox(self.id)
+        with self._lock:
+            return self._sandboxes.setdefault(self.id, sandbox)
 
     def _drop_sandbox(self) -> None:
-        self._sandbox_manager.invalidate(self.id)
+        with self._lock:
+            self._sandboxes.pop(self.id, None)
 
     def execute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
         timeout = self._default_timeout if timeout is None else timeout
@@ -94,6 +103,13 @@ class AgsBackend(BaseSandbox):
             except SandboxException as e:
                 responses.append(FileDownloadResponse(path=path, error=_file_error(e)))
         return responses
+
+
+def _connect_sandbox(sandbox_id: str) -> Sandbox:
+    settings = get_settings()
+    return Sandbox.connect(
+        sandbox_id=sandbox_id, api_key=settings.e2b.api_key, domain=settings.e2b.domain
+    )
 
 
 def _file_error(e: Exception) -> str:
