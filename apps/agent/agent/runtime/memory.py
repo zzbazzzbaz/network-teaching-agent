@@ -21,6 +21,7 @@ def memory_namespace(rt: Runtime[Any]) -> tuple[str, ...]:
 
 def memory_permissions(agent: AgentName) -> list[FilesystemPermission]:
     own = "/memory/lab/**" if agent == "exp" else "/memory/teaching/**"
+
     rules = [
         FilesystemPermission(
             operations=["write"],
@@ -32,23 +33,22 @@ def memory_permissions(agent: AgentName) -> list[FilesystemPermission]:
             paths=["/memory/AGENTS.md", "/memory/profile.md"],
             mode="allow",
         ),
-        FilesystemPermission(
-            operations=["write"],
-            paths=["/memory/**"],
-            mode="deny",
-        ),
-        FilesystemPermission(
-            operations=["write"],
-            paths=["/skills/**"],
-            mode="deny",
-        ),
     ]
-    if agent == "teach":
+
+    if agent == "exp":
         rules.append(
             FilesystemPermission(
                 operations=["write"],
-                paths=["/**"],
-                mode="deny",
+                paths=["/root/workspace/**"],
+                mode="allow",
             )
         )
+
+    rules.append(
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/**"],
+            mode="deny",
+        )
+    )
     return rules

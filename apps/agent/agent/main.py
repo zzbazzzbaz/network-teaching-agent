@@ -1,7 +1,7 @@
 from typing import Any
 
 from deepagents import create_deep_agent
-from deepagents.middleware.filesystem import FilesystemMiddleware, FsToolName
+from deepagents.middleware.filesystem import FsToolName
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
@@ -31,24 +31,14 @@ def build_exp_agent(config: RunnableConfig) -> CompiledStateGraph[Any]:
 
 
 def build_teach_agent(config: RunnableConfig) -> CompiledStateGraph[Any]:
-    backend = build_teaching_backend()
-    permissions = memory_permissions("teach")
-
     graph = create_deep_agent(
         model=get_llm(),
         system_prompt=load_prompt("base", "teaching"),
         tools=[make_ask_student()],
-        backend=backend,
-        middleware=[
-            FilesystemMiddleware(
-                backend=backend,
-                tools=TEACH_FS_TOOLS,
-                _permissions=permissions,
-            )
-        ],
+        backend=build_teaching_backend(),
         skills=skill_paths("teach"),
         memory=memory_paths("teach"),
-        permissions=permissions,
+        permissions=memory_permissions("teach"),
         name="teach_agent",
     )
     return graph.with_config({"callbacks": [get_langfuse_handler()]})
