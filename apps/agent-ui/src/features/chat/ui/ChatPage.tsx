@@ -8,7 +8,7 @@ import { SessionSidebar } from "@/features/sessions";
 import { useChatStream } from "../model/chat-stream-context";
 import { ChatRuntimeProvider } from "../model/ChatRuntimeProvider";
 import { usePendingInterrupt } from "../model/usePendingInterrupt";
-import { AskHumanCard } from "./AskHumanCard";
+import { AskStudentCard } from "./AskStudentCard";
 import { AssistantMessage, UserMessage } from "./MessageParts";
 import { TodoPanel } from "./TodoPanel";
 
@@ -75,7 +75,11 @@ function ThreadView() {
       </ThreadPrimitive.If>
 
       <div className="footer">
-        {pending !== undefined ? <AskHumanCard /> : <Composer />}
+        {pending !== undefined ? (
+          <AskStudentCard key={pending.id ?? "ask-student"} />
+        ) : (
+          <Composer />
+        )}
       </div>
     </ThreadPrimitive.Root>
   );

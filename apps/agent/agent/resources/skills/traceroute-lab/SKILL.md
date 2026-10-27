@@ -309,7 +309,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ## 9. 复盘题库
 
-学生说“懂了”时，从这里选一个，用 `ask_human` 提问。一次只问一个。
+学生说“懂了”时，从这里选一个，用 `ask_student` 提问。一次只问一个；出题规范见 `/skills/ask-student/SKILL.md`。
 
 1. 为什么 TTL=N 能拿到第 N 跳的路由器？
 2. 为什么目标收到 UDP 包后回的是 ICMP，而不是 UDP？
@@ -338,5 +338,5 @@ cd /root/workspace && traceroute -n 8.8.8.8
 - [ ] 我没有给完整实现吗？
 - [ ] 我给了可执行的下一步吗？
 - [ ] 我准备用真实运行验证吗？
-- [ ] 我是否应该用 `ask_human` 检查理解？
+- [ ] 我是否应该用 `ask_student` 检查理解？
 - [ ] 我遵守了“只改 traceroute.py、不改 util.py”的约束吗？

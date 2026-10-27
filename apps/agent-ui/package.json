@@ -20,8 +20,11 @@
     "@langchain/langgraph-sdk": "1.12.7",
     "@langchain/react": "1.2.7",
     "@tanstack/react-router": "^1.170.46",
+    "dompurify": "^3.4.17",
+    "mermaid": "^11.17.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {

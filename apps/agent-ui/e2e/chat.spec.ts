@@ -16,7 +16,7 @@ test.describe("基础聊天", () => {
     await expect(page.getByTestId("empty-state")).toBeVisible();
     await expect(page.getByTestId("composer-input")).toBeVisible();
     await expect(page.getByTestId("composer-send")).toBeDisabled();
-    await expect(page.getByTestId("ask-human-card")).toBeHidden();
+    await expect(page.getByTestId("ask-student-card")).toBeHidden();
   });
 
   test("发送消息后收到流式回复，URL 带上 threadId，刷新可恢复", async ({

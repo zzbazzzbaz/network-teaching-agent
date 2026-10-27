@@ -26,10 +26,10 @@ export const ToolCallCard: ToolCallMessagePartComponent = ({
   status,
   isError,
 }) => {
-  if (toolName === "ask_human") {
+  if (toolName === "ask_student") {
     return (
-      <div className="tool-pending" data-testid="tool-ask-human-pending">
-        等待学生作答…
+      <div className="tool-pending" data-testid="tool-ask-student-pending">
+        {status.type === "running" ? "等待学生作答…" : "学生已作答"}
       </div>
     );
   }

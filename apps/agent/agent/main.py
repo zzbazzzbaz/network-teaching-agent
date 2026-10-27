@@ -11,7 +11,7 @@ from langgraph.runtime import Runtime
 from agent.core.observability import get_langfuse_handler
 from agent.infra.ags_backend import AgsBackend
 from agent.infra.model import get_llm
-from agent.tools.demo1_tool import make_ask_human
+from agent.tools.ask_student import make_ask_student
 
 RESOURCE_DIR = Path(__file__).resolve().parent / "resources"
 SYSTEM_PROMPT_PATH = RESOURCE_DIR / "prompt" / "system.md"
@@ -50,7 +50,7 @@ def build_exp_agent(config: RunnableConfig) -> CompiledStateGraph[Any]:
     graph = create_deep_agent(
         model=get_llm(),
         system_prompt=_load_system_prompt(),
-        tools=[make_ask_human()],
+        tools=[make_ask_student()],
         backend=_build_backend(),
         skills=["/skills/"],
         memory=["/memory/AGENTS.md"],

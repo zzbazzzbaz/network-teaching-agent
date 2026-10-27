@@ -6,7 +6,13 @@ import {
 import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { safeUrlTransform } from "./MarkdownContent";
+import { MermaidDiagram } from "./MermaidDiagram";
 import { ToolCallCard } from "./ToolCallCard";
+
+const mermaidComponents = {
+  mermaid: { SyntaxHighlighter: MermaidDiagram },
+};
 
 const PlainText: TextMessagePartComponent = ({ text }) => (
   <div className="text-part">{text}</div>
@@ -16,6 +22,8 @@ const MarkdownText: TextMessagePartComponent = () => (
   <MarkdownTextPrimitive
     className="text-part markdown"
     remarkPlugins={[remarkGfm]}
+    componentsByLanguage={mermaidComponents}
+    urlTransform={safeUrlTransform}
     defer
   />
 );

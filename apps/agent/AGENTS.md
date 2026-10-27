@@ -11,7 +11,7 @@ apps/agent/
 │   ├── core/            auth（JWKS、资源隔离）、config
 │   ├── infra/           LLM、E2B 沙盒、DeepAgents 后端
 │   ├── resources/       系统提示词、课程资料与 DeepAgents skill（只读）
-│   └── tools/           ask_human 等工具
+│   └── tools/           ask_student 等工具
 ├── langgraph.json       graph 与 auth 入口
 ├── pyproject.toml
 └── uv.lock
@@ -44,6 +44,8 @@ Agent 运行时从 LangGraph auth 注入的 `user_id` 调 API 内部接口 `POST
 `create_deep_agent(skills=["/skills/"])` 自动发现各技能目录下的 `SKILL.md`；`permissions` 禁止 agent 写入 `/skills`、`/materials`，允许写 `/memory`。资料不写入沙箱，因此不随沙箱镜像发布，也不会因暂停/销毁丢失。
 
 `agent/resources/skills/memory-maintenance/SKILL.md` 定义学生记忆的文件模板和更新规则。首次创建或重建记忆时，agent 必须先读它。
+
+`agent/resources/skills/ask-student/SKILL.md` 定义 `ask_student` 的出题规范：单选/简答选择、题干和选项设计、难度控制、Markdown/Mermaid 图表、答后反馈和反模式。设计检查题前先读它。
 
 `agent/resources/materials/traceroute/` 是 `docs/chat/10.26/教程/成品/` 的副本。更新教程后重新同步：
 
