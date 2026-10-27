@@ -48,7 +48,7 @@ apps/agent/
 agent/resources/prompt/
 ├── base.md          # 通用：角色、语言、记忆、教学原则、ask_student、格式、安全
 ├── lab.md           # 实验：AGS 沙盒、execute、学生文件、traceroute-lab
-└── teaching.md      # 教学：无沙盒、无 execute、三种模式、资料使用
+└── teaching.md      # 教学：无沙盒、三种模式、资料使用
 ```
 
 `agent/runtime/prompts.py` 的 `load_prompt` 负责拼接：
@@ -112,8 +112,7 @@ Skill 元数据按 thread 缓存在 state；新增或重命名 skill 后，已�
 
 - 无沙盒，`CompositeBackend(default=StateBackend(), routes=skills/memory)`；
 - 系统提示词 `base.md` + `teaching.md`；
-- 工具：`ask_student` + 文件工具（`ls`、`read_file`、`write_file`、`edit_file`、`glob`、`grep`）；
-- 主 agent 不暴露 `execute`；默认 `task` 子智能体同样使用 `StateBackend`，不会连接 AGS 沙盒；
+- 工具：`ask_student` + 默认文件工具 + `task`；默认文件工具中的 `execute` 使用 `StateBackend`，不会连接 AGS，调用会报错，提示词要求不要使用；
 - 记忆：`["/memory/AGENTS.md", "/memory/teaching/AGENTS.md"]`；
 - 写权限：`/memory/teaching/**`、`/memory/AGENTS.md`、`/memory/profile.md`；其他写路径拒绝；
 

@@ -4,8 +4,6 @@ from typing import Any
 from deepagents import FilesystemPermission
 from langgraph.runtime import Runtime
 
-from agent.runtime.paths import AgentName
-
 
 def memory_namespace(rt: Runtime[Any]) -> tuple[str, ...]:
     user = rt.server_info.user if rt.server_info is not None else None
@@ -19,13 +17,11 @@ def memory_namespace(rt: Runtime[Any]) -> tuple[str, ...]:
     raise RuntimeError("未认证用户，无法加载用户记忆")
 
 
-def memory_permissions(agent: AgentName) -> list[FilesystemPermission]:
-    own = "/memory/lab/**" if agent == "exp" else "/memory/teaching/**"
-
-    rules = [
+def exp_memory_permissions() -> list[FilesystemPermission]:
+    return [
         FilesystemPermission(
             operations=["write"],
-            paths=[own],
+            paths=["/memory/lab/**"],
             mode="allow",
         ),
         FilesystemPermission(
@@ -33,22 +29,34 @@ def memory_permissions(agent: AgentName) -> list[FilesystemPermission]:
             paths=["/memory/AGENTS.md", "/memory/profile.md"],
             mode="allow",
         ),
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/memory/**"],
+            mode="deny",
+        ),
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/skills/**"],
+            mode="deny",
+        ),
     ]
 
-    if agent == "exp":
-        rules.append(
-            FilesystemPermission(
-                operations=["write"],
-                paths=["/root/workspace/**"],
-                mode="allow",
-            )
-        )
 
-    rules.append(
+def teach_memory_permissions() -> list[FilesystemPermission]:
+    return [
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/memory/teaching/**"],
+            mode="allow",
+        ),
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/memory/AGENTS.md", "/memory/profile.md"],
+            mode="allow",
+        ),
         FilesystemPermission(
             operations=["write"],
             paths=["/**"],
             mode="deny",
-        )
-    )
-    return rules
+        ),
+    ]

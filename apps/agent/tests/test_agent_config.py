@@ -12,7 +12,7 @@ from langchain_deepseek import ChatDeepSeek
 from agent import main
 from agent.main import build_exp_agent, build_teach_agent
 from agent.runtime.backends import build_exp_backend, build_teaching_backend
-from agent.runtime.memory import memory_permissions
+from agent.runtime.memory import exp_memory_permissions, teach_memory_permissions
 from agent.runtime.paths import RESOURCE_DIR, memory_paths, skill_paths
 from agent.runtime.prompts import load_prompt
 
@@ -80,8 +80,9 @@ def test_lab_prompt_keeps_sandbox_and_experiment_skill() -> None:
 def test_teaching_prompt_has_no_sandbox() -> None:
     text = load_prompt("base", "teaching")
 
-    assert "没有 `execute` 工具" in text
+    assert "没有可用的代码执行环境" in text
     assert "不能运行代码" in text
+    assert "不要使用 `execute`" in text
     assert "teaching/learning.md" in text
     assert "AGS" not in text
     assert "/skills/lab/" not in text
@@ -124,7 +125,7 @@ def test_skill_discovery_matches_agent_tracks() -> None:
 
 
 def test_teach_memory_permissions() -> None:
-    rules = memory_permissions("teach")
+    rules = teach_memory_permissions()
     operation: FilesystemOperation = "write"
 
     assert _check_fs_permission(rules, operation, "/memory/teaching/AGENTS.md") == "allow"
@@ -136,7 +137,7 @@ def test_teach_memory_permissions() -> None:
 
 
 def test_exp_memory_permissions() -> None:
-    rules = memory_permissions("exp")
+    rules = exp_memory_permissions()
     operation: FilesystemOperation = "write"
 
     assert _check_fs_permission(rules, operation, "/memory/lab/learning.md") == "allow"
@@ -147,13 +148,14 @@ def test_exp_memory_permissions() -> None:
     assert _check_fs_permission(rules, operation, "/root/workspace/traceroute.py") == "allow"
 
 
-def test_teach_graph_has_no_execute_but_keeps_task(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_teach_graph_uses_default_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     tools = _tool_names(_build_teach_graph(monkeypatch))
 
     assert "ask_student" in tools
     assert "read_file" in tools
     assert "write_file" in tools
-    assert "execute" not in tools
+    assert "delete" in tools
+    assert "execute" in tools
     assert "task" in tools
 
 
