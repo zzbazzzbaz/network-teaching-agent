@@ -39,7 +39,7 @@ def memory_permissions(agent: AgentName) -> list[FilesystemPermission]:
         ),
         FilesystemPermission(
             operations=["write"],
-            paths=["/skills/**", "/materials/**"],
+            paths=["/skills/**"],
             mode="deny",
         ),
     ]

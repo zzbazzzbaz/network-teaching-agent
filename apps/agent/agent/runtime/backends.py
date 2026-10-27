@@ -36,8 +36,4 @@ def _resource_routes() -> dict[str, FilesystemBackend]:
             root_dir=RESOURCE_DIR / "skills",
             virtual_mode=True,
         ),
-        "/materials/": FilesystemBackend(
-            root_dir=RESOURCE_DIR / "materials",
-            virtual_mode=True,
-        ),
     }

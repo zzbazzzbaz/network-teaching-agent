@@ -16,10 +16,10 @@ apps/agent/
 │   ├── infra/           LLM、E2B 沙盒、DeepAgents 后端
 │   ├── resources/
 │   │   ├── prompt/      base.md / lab.md / teaching.md
-│   │   ├── materials/   课程资料（只读）
 │   │   └── skills/
 │   │       ├── common/  ask-student、memory-maintenance
-│   │       └── lab/     traceroute-lab
+│   │       ├── lab/     traceroute-lab（含 chapters/）
+│   │       └── teaching/computer-networks（占位，含 textbook/）
 │   └── tools/           ask_student
 ├── langgraph.json       graph 与 auth 入口
 ├── pyproject.toml
@@ -58,12 +58,11 @@ agent/resources/prompt/
 
 提示词不属于 DeepAgents 的 memory，不会自动加载，也不允许 agent 修改。
 
-实验目标、环境、章节地图、诊断决策树、运行命令和验收标准放在 `agent/resources/skills/lab/traceroute-lab/SKILL.md`。教学三种模式的教学法放在 `agent/resources/prompt/teaching.md`；课程专用 skill 后续再补。
+实验目标、环境、章节地图、诊断决策树、运行命令和验收标准放在 `agent/resources/skills/lab/traceroute-lab/SKILL.md`，实验资料放在同目录的 `chapters/`。教学三种模式的教学法放在 `agent/resources/prompt/teaching.md`；教材 skill 当前是 `agent/resources/skills/teaching/computer-networks/` 的占位版本，教材正文尚未接入。
 
-`agent/runtime/backends.py` 用 `CompositeBackend` 挂三个路径：
+`agent/runtime/backends.py` 用 `CompositeBackend` 挂两个路径：
 
 - `/skills/` → `agent/resources/skills/`（只读）
-- `/materials/` → `agent/resources/materials/`（只读）
 - `/memory/` → LangGraph Store（用户级，可写）
 
 Skill 目录：
@@ -73,21 +72,28 @@ agent/resources/skills/
 ├── common/
 │   ├── ask-student/SKILL.md
 │   └── memory-maintenance/SKILL.md
-└── lab/
-    └── traceroute-lab/SKILL.md
+├── lab/
+│   └── traceroute-lab/
+│       ├── SKILL.md
+│       └── chapters/          # traceroute 8 章资料
+└── teaching/
+    └── computer-networks/
+        ├── SKILL.md
+        └── textbook/          # 占位索引；教材正文后续接入
 ```
 
 - `exp_agent` 挂载 `["/skills/common/", "/skills/lab/"]`；
-- `teach_agent` 只挂载 `["/skills/common/"]`，看不到实验 skill。
+- `teach_agent` 挂载 `["/skills/common/", "/skills/teaching/"]`；
+- 教学 agent 看不到实验 skill，实验 agent 看不到教材 skill。
 
 `agent/resources/skills/common/memory-maintenance/SKILL.md` 定义学生记忆的 v2 目录、模板和更新规则。首次创建或重建记忆时，agent 必须先读它。
 
 `agent/resources/skills/common/ask-student/SKILL.md` 定义 `ask_student` 的出题规范：单选/简答选择、题干和选项设计、难度控制、Markdown/Mermaid 图表、答后反馈和反模式。设计检查题前先读它。
 
-`agent/resources/materials/traceroute/` 是 `docs/chat/10.26/教程/成品/` 的副本。更新教程后重新同步：
+`agent/resources/skills/lab/traceroute-lab/chapters/` 是 `docs/chat/10.26/教程/成品/` 的副本。更新教程后重新同步：
 
 ```bash
-rsync -a --delete docs/chat/10.26/教程/成品/ apps/agent/agent/resources/materials/traceroute/
+rsync -a --delete docs/chat/10.26/教程/成品/ apps/agent/agent/resources/skills/lab/traceroute-lab/chapters/
 ```
 
 Skill 元数据按 thread 缓存在 state；新增或重命名 skill 后，已有 thread 需要新开对话，或把 `skills_metadata` 置为 `None` 触发重新加载。
@@ -104,7 +110,7 @@ Skill 元数据按 thread 缓存在 state；新增或重命名 skill 后，已�
 
 ### `teach_agent`
 
-- 无沙盒，`CompositeBackend(default=StateBackend(), routes=skills/materials/memory)`；
+- 无沙盒，`CompositeBackend(default=StateBackend(), routes=skills/memory)`；
 - 系统提示词 `base.md` + `teaching.md`；
 - 工具：`ask_student` + 文件工具（`ls`、`read_file`、`write_file`、`edit_file`、`glob`、`grep`）；
 - 主 agent 不暴露 `execute`；默认 `task` 子智能体同样使用 `StateBackend`，不会连接 AGS 沙盒；

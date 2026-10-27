@@ -58,11 +58,11 @@ metadata:
 |---|---|
 | `/root/workspace/traceroute.py` | 学生唯一要修改的文件 |
 | `/root/workspace/util.py` | 课程工具，只读，不要修改 |
-| `/materials/traceroute/01-...md` 到 `08-...md` | 中文课程资料 |
+| `/skills/lab/traceroute-lab/chapters/01-...md` 到 `08-...md` | 中文课程资料 |
 | `/skills/lab/traceroute-lab/SKILL.md` | 本手册 |
 | `/memory/lab/learning.md` | 学生当前进度/误解；开始教学前按需读 |
 
-`/skills/` 和 `/materials/` 是只读虚拟路径，**只能用 `read_file` 读取**，不能用 shell 的 `cat`/`less`。记忆维护见 `/skills/common/memory-maintenance/SKILL.md`，同样不要用 shell 操作 `/memory`。
+`/skills/` 是只读虚拟路径，**只能用 `read_file` 读取**，不能用 shell 的 `cat`/`less`。记忆维护见 `/skills/common/memory-maintenance/SKILL.md`，同样不要用 shell 操作 `/memory`。
 
 ### 3.2 运行
 
@@ -173,7 +173,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ### 第 1 章：认识 traceroute
 
-- 资料：`/materials/traceroute/01-认识-traceroute.md`
+- 资料：`/skills/lab/traceroute-lab/chapters/01-认识-traceroute.md`
 - 目标：理解路径、头部/负载、TTL、三种结果。
 - 核心概念：网络是 network of networks；包 = header + payload；TTL 逐跳递减；TTL=0 时路由器回 ICMP Time Exceeded；目标端口不可达时回 ICMP Port Unreachable；`*` 表示这一跳没回包。
 - 首个问题：**如果 TTL=1，第一台路由器收到包后会做什么？它会怎么告诉你？**
@@ -184,7 +184,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ### 第 2 章：Python socket 编程
 
-- 资料：`/materials/traceroute/02-python-socket.md`
+- 资料：`/skills/lab/traceroute-lab/chapters/02-python-socket.md`
 - 目标：发出第一个 UDP 探测，设置 TTL，用 ICMP socket 收回包。
 - 核心概念：UDP socket 只收发给它自己端口的 UDP；ICMP 错误要用 raw ICMP socket；TTL 是 IP 层选项，`set_ttl` 要在 `sendto` 之前；`recv_select` 超时返回 False。
 - 首个问题：**为什么发探测用一个 socket，收回包又用另一个 socket？**
@@ -195,7 +195,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ### 第 3 章：抓包与 hex
 
-- 资料：`/materials/traceroute/03-抓包与hex.md`
+- 资料：`/skills/lab/traceroute-lab/chapters/03-抓包与hex.md`
 - 目标：把回包看成十六进制，按偏移分出外层 IP、ICMP、内层 IP、内层 UDP。
 - 核心概念：hex 每两个字符一字节；网络字节序是大端；外层 IP 头通常 20 字节，带 options 时更长；ICMP 错误包带“原始探测”的内层 IP + UDP。
 - 首个问题：**给你一串 hex，你怎么知道外层 IP 头到哪里结束、ICMP 从哪里开始？**
@@ -206,7 +206,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ### 第 4 章：IPv4 / UDP / ICMP 与手动解码
 
-- 资料：`/materials/traceroute/04-IPv4-UDP-ICMP.md`
+- 资料：`/skills/lab/traceroute-lab/chapters/04-IPv4-UDP-ICMP.md`
 - 目标：不查表写出 IPv4 头字段顺序，手工解码真实 Time Exceeded / Port Unreachable 包。
 - 核心概念：Version/IHL 共用字节；Total Length 是整个 IP 包；Protocol 1=ICMP、17=UDP；UDP 头 8 字节；ICMP type/code：11/0=Time Exceeded，3/3=Port Unreachable；内层 Total Length 可能大于实际携带字节。
 - 首个问题：**IHL 的单位是什么？为什么不能把 20 写死？**
@@ -217,7 +217,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ### 第 5 章：用代码解码 hex
 
-- 资料：`/materials/traceroute/05-用代码解码hex.md`
+- 资料：`/skills/lab/traceroute-lab/chapters/05-用代码解码hex.md`
 - 目标：实现 `IPv4.__init__`、`ICMP.__init__`、`UDP.__init__`，用动态偏移写 `parse_packet`。
 - 核心概念：`int.from_bytes(..., "big")`；`version = b0 >> 4`；`header_len = (b0 & 0x0F) * 4`；`flags = b6 >> 5`；`frag_offset = ((b6 & 0x1F) << 8) | b7`；`util.inet_ntoa`；只有 ICMP type 3/11 才有内层包。
 - 首个问题：**Version 和 IHL 为什么能共用一个字节？你准备怎么把它们分开？**
@@ -228,7 +228,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ### 第 6 章：最小实现
 
-- 资料：`/materials/traceroute/06-最小实现.md`
+- 资料：`/skills/lab/traceroute-lab/chapters/06-最小实现.md`
 - 目标：写 `probe_ttl`，循环 1–30，返回 `list[list[str]]`。
 - 核心概念：一次探测 = set TTL → sendto → recv_select → recvfrom → 解析外层源 IP；每个 TTL 都要 append 一个子列表，没回包就 append 空列表；先用 TTL=8 验证；30 跳全超时最坏约 60 秒。
 - 首个问题：**如果这一跳没有任何回包，`result` 里这一位应该放什么？为什么不能直接跳过？**
@@ -239,7 +239,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ### 第 7 章：多路径与重复探测
 
-- 资料：`/materials/traceroute/07-多路径.md`
+- 资料：`/skills/lab/traceroute-lab/chapters/07-多路径.md`
 - 目标：每个 TTL 发 3 个 probe，用不同目标端口编号，收满 N 个就停，每个 TTL 内去重。
 - 核心概念：best-effort 会丢包；ECMP 会让同一 TTL 出现多个路由器；3 probe 同时缓解丢包和多路径；不同目标端口改变五元组；接收循环最多读 `PROBE_ATTEMPT_COUNT` 个；每个 TTL 独立 `set`。
 - 首个问题：**一个 TTL 只发一个包，会漏掉哪两类情况？**
@@ -250,7 +250,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ### 第 8 章：完成 traceroute
 
-- 资料：`/materials/traceroute/08-完成traceroute.md`
+- 资料：`/skills/lab/traceroute-lab/chapters/08-完成traceroute.md`
 - 目标：判断到达目标，正确停止，最后一跳写 `[ip]`，完成验收。
 - 核心概念：`outer.src == ip` 不够，还要 `icmp.type == 3 and icmp.code == 3`；`break` 要跳出 TTL 循环；先 print/append 再 break；最后一跳要求 `[ip]`；目标不回时跑满 30 跳是合法结果。
 - 首个问题：**只看 `outer.src == ip` 会有什么误判？**
@@ -325,7 +325,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 - 只操作 `/root/workspace` 和课程资料；不读取 `.env`、密钥、token。
 - 不执行 `rm -rf`、`curl | sh`、与课程无关的安装。
 - 不扫描无关网段，不攻击目标；只用课程目标做 traceroute。
-- 不修改 `/skills`、`/materials`、`util.py`。
+- 不修改 `/skills`、`util.py`。
 - 不把沙箱公网链接、密钥、用户隐私写进回答。
 
 ## 11. 回复前自检

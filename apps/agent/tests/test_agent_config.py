@@ -5,11 +5,13 @@ from typing import Protocol, cast
 
 import pytest
 from deepagents.middleware.filesystem import FilesystemOperation, _check_fs_permission
+from deepagents.middleware.skills import _list_skills
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_deepseek import ChatDeepSeek
 
 from agent import main
 from agent.main import build_exp_agent, build_teach_agent
+from agent.runtime.backends import build_exp_backend, build_teaching_backend
 from agent.runtime.memory import memory_permissions
 from agent.runtime.paths import RESOURCE_DIR, memory_paths, skill_paths
 from agent.runtime.prompts import load_prompt
@@ -99,7 +101,26 @@ def test_memory_paths_are_track_specific() -> None:
 
 def test_skill_paths_are_track_specific() -> None:
     assert skill_paths("exp") == ["/skills/common/", "/skills/lab/"]
-    assert skill_paths("teach") == ["/skills/common/"]
+    assert skill_paths("teach") == ["/skills/common/", "/skills/teaching/"]
+
+
+def test_skill_discovery_matches_agent_tracks() -> None:
+    exp_backend = build_exp_backend()
+    teach_backend = build_teaching_backend()
+
+    exp_skills = {
+        skill["name"]
+        for source in skill_paths("exp")
+        for skill in _list_skills(exp_backend, source)
+    }
+    teach_skills = {
+        skill["name"]
+        for source in skill_paths("teach")
+        for skill in _list_skills(teach_backend, source)
+    }
+
+    assert exp_skills == {"ask-student", "memory-maintenance", "traceroute-lab"}
+    assert teach_skills == {"ask-student", "memory-maintenance", "computer-networks"}
 
 
 def test_teach_memory_permissions() -> None:
@@ -111,7 +132,6 @@ def test_teach_memory_permissions() -> None:
     assert _check_fs_permission(rules, operation, "/memory/profile.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/lab/AGENTS.md") == "deny"
     assert _check_fs_permission(rules, operation, "/skills/common/ask-student/SKILL.md") == "deny"
-    assert _check_fs_permission(rules, operation, "/materials/traceroute/01.md") == "deny"
     assert _check_fs_permission(rules, operation, "/root/workspace/traceroute.py") == "deny"
 
 
@@ -154,6 +174,14 @@ def test_prompt_and_skill_layout() -> None:
     assert (RESOURCE_DIR / "skills" / "common" / "ask-student" / "SKILL.md").is_file()
     assert (RESOURCE_DIR / "skills" / "common" / "memory-maintenance" / "SKILL.md").is_file()
     assert (RESOURCE_DIR / "skills" / "lab" / "traceroute-lab" / "SKILL.md").is_file()
+    assert (
+        RESOURCE_DIR / "skills" / "lab" / "traceroute-lab" / "chapters" / "01-认识-traceroute.md"
+    ).is_file()
+    assert (RESOURCE_DIR / "skills" / "teaching" / "computer-networks" / "SKILL.md").is_file()
+    assert (
+        RESOURCE_DIR / "skills" / "teaching" / "computer-networks" / "textbook" / "00-index.md"
+    ).is_file()
+    assert not (RESOURCE_DIR / "materials").exists()
     assert not (RESOURCE_DIR / "skills" / "ask-student").exists()
     assert not (RESOURCE_DIR / "skills" / "memory-maintenance").exists()
     assert not (RESOURCE_DIR / "skills" / "traceroute-lab").exists()

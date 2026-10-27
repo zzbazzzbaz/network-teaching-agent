@@ -245,7 +245,7 @@ placeholder: 用一句话说明原因
 - `ask-student`：负责把问题设计好、选择模式、控制难度；
 - `memory-maintenance`：负责把答题结果写入当前 track 的学习状态。
 
-提问前先读当前场景的 skill/资料：实验 agent 读 `traceroute-lab` 和当前实验章节；教学 agent 读教学提示词和 `/materials/`。确认问题属于当前单元，不要假设实验章节就是教学章节。提问后按需要读记忆 skill 记录结果。
+提问前先读当前场景的 skill/资料：实验 agent 读 `traceroute-lab` 和当前实验章节；教学 agent 读 `/skills/teaching/` 下的教材 skill 和当前章节。确认问题属于当前单元，不要假设实验章节就是教学章节。提问后按需要读记忆 skill 记录结果。
 
 ## 12. 调用前检查
 

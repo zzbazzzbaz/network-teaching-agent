@@ -13,7 +13,7 @@ MEMORY_PATHS: dict[AgentName, list[str]] = {
 
 SKILLS_PATHS: dict[AgentName, list[str]] = {
     "exp": ["/skills/common/", "/skills/lab/"],
-    "teach": ["/skills/common/"],
+    "teach": ["/skills/common/", "/skills/teaching/"],
 }
 
 
