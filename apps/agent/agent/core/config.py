@@ -53,7 +53,6 @@ class Settings(_Base):
     agent_api_base_url: str = Field(min_length=1)
     agent_internal_token: str = Field(min_length=1)
     agent_api_timeout_seconds: float = 15.0
-    agent_dev_user_id: str | None = None
 
 
 @lru_cache

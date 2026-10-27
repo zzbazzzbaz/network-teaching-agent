@@ -84,30 +84,10 @@ def test_current_user_id_uses_auth_user_identity(
     assert ags_backend._current_user_id() == "bob"
 
 
-def test_current_user_id_local_dev_fallback(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("LANGSMITH_LANGGRAPH_API_VARIANT", "local_dev")
-    monkeypatch.setattr(ags_backend, "_configurable", lambda: {})
-    monkeypatch.setattr(
-        ags_backend,
-        "get_settings",
-        lambda: SimpleNamespace(agent_dev_user_id="dev-user"),
-    )
-
-    assert ags_backend._current_user_id() == "dev-user"
-
-
 def test_current_user_id_fails_closed_without_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("LANGSMITH_LANGGRAPH_API_VARIANT", raising=False)
     monkeypatch.setattr(ags_backend, "_configurable", lambda: {})
-    monkeypatch.setattr(
-        ags_backend,
-        "get_settings",
-        lambda: SimpleNamespace(agent_dev_user_id=None),
-    )
 
     with pytest.raises(RuntimeError, match="未认证用户"):
         ags_backend._current_user_id()

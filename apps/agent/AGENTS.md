@@ -25,7 +25,7 @@ apps/agent/
 
 Agent 运行时从 LangGraph auth 注入的 `user_id` 调 API 内部接口 `POST /internal/sandbox/ensure`，获取当前账户的 `sandbox_id`。API 负责创建、恢复、续期和轮换；`AgsBackend` 按需连接，不直接调用 AGS 生命周期，也不信任前端传入的 `sandbox_id`。沙箱运行用户和工作目录固定为 `root` / `/root/workspace`，所有命令和文件操作显式使用 root。
 
-生产缺少 auth user、`AGENT_INTERNAL_TOKEN` 或 API 不可用时本次 run 失败，不静默降级到共享沙箱。本地 `langgraph dev` 无 auth 时，仅在 `LANGSMITH_LANGGRAPH_API_VARIANT=local_dev` 下使用 `AGENT_DEV_USER_ID`，该值必须是 API 中已存在的用户。
+缺少 auth user、`AGENT_INTERNAL_TOKEN` 或 API 不可用时本次 run 失败，不静默降级到共享沙箱。
 
 ## 系统提示词、课程资料与 Skill
 

@@ -1,4 +1,3 @@
-import os
 import threading
 import time
 from collections.abc import Mapping
@@ -188,13 +187,6 @@ def _current_user_id() -> str:
         identity = getattr(user, "identity", None)
     if identity is not None and str(identity):
         return str(identity)
-
-    settings = get_settings()
-    if (
-        os.getenv("LANGSMITH_LANGGRAPH_API_VARIANT") == "local_dev"
-        and settings.agent_dev_user_id
-    ):
-        return settings.agent_dev_user_id
 
     raise RuntimeError("未认证用户，无法解析沙箱")
 
