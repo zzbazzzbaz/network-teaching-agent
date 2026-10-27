@@ -21,10 +21,6 @@ def get_sandbox(
     user_id: UserIdDep,
     settings: SettingsDep,
 ) -> SandboxResponse:
-    """只读查询当前用户的沙箱状态。
-
-    不创建沙箱、不连接 AGS，也不触发续期；沙箱记录不存在时返回 404。
-    """
     info = sandbox_service.get_user_sandbox(
         user_id=user_id,
         session=session,
@@ -80,10 +76,6 @@ def pause_sandbox(
     user_id: UserIdDep,
     settings: SettingsDep,
 ) -> SandboxResponse:
-    """暂停当前用户的沙箱并保留 workspace。
-
-    已暂停时幂等返回 paused；沙箱不存在时返回 404。
-    """
     info = sandbox_service.pause_user_sandbox(
         user_id=user_id,
         session=session,
@@ -98,11 +90,6 @@ def delete_sandbox(
     user_id: UserIdDep,
     settings: SettingsDep,
 ) -> Response:
-    """销毁当前用户的沙箱及其 workspace。
-
-    删除是异步的：正在销毁时返回 202 + ``{"status": "stopping"}``；
-    已删除或本来不存在时返回 204。
-    """
     deleted = sandbox_service.delete_user_sandbox(
         user_id=user_id,
         session=session,
@@ -114,7 +101,6 @@ def delete_sandbox(
 
 
 def _to_response(info: sandbox_service.SandboxInfo) -> SandboxResponse:
-    """把服务层 SandboxInfo 映射为公开沙箱接口响应。"""
     return SandboxResponse(
         sandbox_id=info.sandbox_id,
         status=info.status,

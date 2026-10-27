@@ -17,7 +17,6 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 @router.get("", response_model=list[SessionResponse], summary="列出我的会话")
 def list_sessions(session: SessionDep, user_id: UserIdDep) -> list[ChatSession]:
-    """列出当前用户的所有会话，按最近更新时间倒序排列。"""
     return session_service.list_sessions(owner_id=user_id, session=session)
 
 
@@ -40,7 +39,6 @@ def get_session(
     session: SessionDep,
     user_id: UserIdDep,
 ) -> ChatSession:
-    """获取当前用户拥有的指定会话；不存在或不属于当前用户时返回 404。"""
     return session_service.get_owned_session(
         owner_id=user_id,
         session_id=session_id,
@@ -55,7 +53,6 @@ def rename_session(
     session: SessionDep,
     user_id: UserIdDep,
 ) -> ChatSession:
-    """修改当前用户拥有的会话标题；空标题会回退到默认标题。"""
     return session_service.rename_session(
         owner_id=user_id,
         session_id=session_id,
@@ -70,7 +67,6 @@ def touch_session(
     session: SessionDep,
     user_id: UserIdDep,
 ) -> Response:
-    """更新会话的 updated_at，用于让最近使用的会话排在列表前面。"""
     session_service.touch_session(owner_id=user_id, session_id=session_id, session=session)
     return Response(status_code=204)
 
@@ -81,6 +77,5 @@ def delete_session(
     session: SessionDep,
     user_id: UserIdDep,
 ) -> Response:
-    """删除当前用户拥有的会话；不存在或不属于当前用户时返回 404。"""
     session_service.delete_session(owner_id=user_id, session_id=session_id, session=session)
     return Response(status_code=204)
