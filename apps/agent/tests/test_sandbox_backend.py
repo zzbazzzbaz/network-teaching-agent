@@ -5,7 +5,12 @@ import pytest
 
 from agent.infra import ags_backend, sandbox_api
 from agent.infra.ags_backend import AgsBackend
-from agent.infra.sandbox_api import ResolvedSandbox, SandboxApiClient, SandboxApiError
+from agent.infra.sandbox_api import (
+    ResolvedSandbox,
+    SandboxApiClient,
+    SandboxApiError,
+    SandboxManager,
+)
 
 
 def test_sandbox_api_client_posts_internal_token(
@@ -60,40 +65,24 @@ def test_sandbox_api_client_surfaces_api_error(
         client.ensure_user_sandbox("user-1")
 
 
-def test_current_user_id_prefers_auth_user_id(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_backend_id_reads_auth_user_id(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         ags_backend,
-        "_configurable",
-        lambda: {"langgraph_auth_user_id": "alice"},
+        "get_config",
+        lambda: {"configurable": {"langgraph_auth_user_id": "alice"}},
     )
 
-    assert ags_backend._current_user_id() == "alice"
+    assert AgsBackend().id == "alice"
 
 
-def test_current_user_id_uses_auth_user_identity(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        ags_backend,
-        "_configurable",
-        lambda: {"langgraph_auth_user": SimpleNamespace(identity="bob")},
-    )
+def test_backend_id_has_no_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ags_backend, "get_config", lambda: {"configurable": {}})
 
-    assert ags_backend._current_user_id() == "bob"
+    with pytest.raises(KeyError):
+        _ = AgsBackend().id
 
 
-def test_current_user_id_fails_closed_without_identity(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(ags_backend, "_configurable", lambda: {})
-
-    with pytest.raises(RuntimeError, match="未认证用户"):
-        ags_backend._current_user_id()
-
-
-def test_backend_resolves_and_caches_by_user(
+def test_manager_resolves_and_caches_by_user(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeApiClient:
@@ -104,22 +93,17 @@ def test_backend_resolves_and_caches_by_user(
             self.calls.append(user_id)
             return ResolvedSandbox(sandbox_id=f"sbx-{user_id}", status="running")
 
-    current_user = "alice"
     api_client = FakeApiClient()
-    backend = AgsBackend()
-    backend._api_client = cast(SandboxApiClient, api_client)
-    monkeypatch.setattr(ags_backend, "_current_user_id", lambda: current_user)
+    manager = SandboxManager(api_client=cast(SandboxApiClient, api_client))
+    monkeypatch.setattr(sandbox_api, "_current_run_id", lambda: None)
 
-    assert backend._ensure_sandbox_id() == "sbx-alice"
-    assert backend._ensure_sandbox_id() == "sbx-alice"
-    assert api_client.calls == ["alice"]
-
-    current_user = "bob"
-    assert backend._ensure_sandbox_id() == "sbx-bob"
+    assert manager._ensure_sandbox_id("alice") == "sbx-alice"
+    assert manager._ensure_sandbox_id("alice") == "sbx-alice"
+    assert manager._ensure_sandbox_id("bob") == "sbx-bob"
     assert api_client.calls == ["alice", "bob"]
 
 
-def test_backend_re_resolves_for_new_run(
+def test_manager_re_resolves_for_new_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeApiClient:
@@ -132,18 +116,16 @@ def test_backend_re_resolves_for_new_run(
 
     run_id = "run-1"
     api_client = FakeApiClient()
-    backend = AgsBackend()
-    backend._api_client = cast(SandboxApiClient, api_client)
-    monkeypatch.setattr(ags_backend, "_current_user_id", lambda: "alice")
-    monkeypatch.setattr(ags_backend, "_current_run_id", lambda: run_id)
+    manager = SandboxManager(api_client=cast(SandboxApiClient, api_client))
+    monkeypatch.setattr(sandbox_api, "_current_run_id", lambda: run_id)
 
-    assert backend._ensure_sandbox_id() == "sbx-1"
+    assert manager._ensure_sandbox_id("alice") == "sbx-1"
     run_id = "run-2"
-    assert backend._ensure_sandbox_id() == "sbx-2"
+    assert manager._ensure_sandbox_id("alice") == "sbx-2"
     assert api_client.calls == 2
 
 
-def test_backend_connects_and_caches_sandbox(
+def test_manager_connects_and_caches_sandbox(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connected: list[str] = []
@@ -156,28 +138,26 @@ def test_backend_connects_and_caches_sandbox(
         connected.append(sandbox_id)
         return object()
 
-    backend = AgsBackend()
-    backend._api_client = cast(SandboxApiClient, FakeApiClient())
-    monkeypatch.setattr(ags_backend, "_current_user_id", lambda: "alice")
-    monkeypatch.setattr(ags_backend, "_connect_sandbox", fake_connect)
+    manager = SandboxManager(api_client=cast(SandboxApiClient, FakeApiClient()))
+    monkeypatch.setattr(sandbox_api, "_current_run_id", lambda: None)
+    monkeypatch.setattr(sandbox_api, "_connect_sandbox", fake_connect)
 
-    first = backend._get_sandbox()
-    second = backend._get_sandbox()
+    first = manager.get_sandbox("alice")
+    second = manager.get_sandbox("alice")
 
     assert first is second
     assert connected == ["sbx-1"]
 
 
-def test_backend_wraps_api_failure(
+def test_manager_wraps_api_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FailingApiClient:
         def ensure_user_sandbox(self, _user_id: str) -> ResolvedSandbox:
             raise SandboxApiError("沙箱服务暂不可用")
 
-    backend = AgsBackend()
-    backend._api_client = cast(SandboxApiClient, FailingApiClient())
-    monkeypatch.setattr(ags_backend, "_current_user_id", lambda: "alice")
+    manager = SandboxManager(api_client=cast(SandboxApiClient, FailingApiClient()))
+    monkeypatch.setattr(sandbox_api, "_current_run_id", lambda: None)
 
     with pytest.raises(RuntimeError, match="沙箱服务暂不可用"):
-        backend._ensure_sandbox_id()
+        manager._ensure_sandbox_id("alice")
