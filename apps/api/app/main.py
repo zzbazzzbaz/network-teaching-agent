@@ -4,8 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_error_handlers
-from app.api.internal import router as internal_router
 from app.api.v1.endpoints.health import router as health_router
+from app.api.v1.endpoints.internal import router as internal_router
 from app.api.v1.endpoints.wellknown import router as wellknown_router
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
@@ -35,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
     application.state.settings = resolved_settings
     register_error_handlers(application)
+    # 内部接口保留在 /internal，不挂 /api/v1，避免被 nginx 的 /api/ 转发到公网。
     application.include_router(internal_router)
     application.include_router(api_router, prefix="/api/v1")
     application.include_router(wellknown_router)

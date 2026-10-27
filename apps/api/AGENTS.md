@@ -64,6 +64,7 @@ uv run ruff check . && uv run ty check . && uv run pytest -q
 
 Agent 使用 `POST /internal/sandbox/ensure` 获取当前用户可用的 `sandbox_id`：
 
+- 实现位于 `app/api/v1/endpoints/internal.py`，但路由保留 `/internal` 前缀，不挂到 `/api/v1`；
 - 请求头 `X-Internal-Token` 必须匹配 `AGENT_INTERNAL_TOKEN`；
 - 请求体 `{"user_id": "<uuid>"}`；
 - API 校验用户存在且启用后，复用 `sandbox_service.ensure_user_sandbox` 创建/恢复/续期/轮换；
