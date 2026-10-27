@@ -59,10 +59,10 @@ metadata:
 | `/root/workspace/traceroute.py` | 学生唯一要修改的文件 |
 | `/root/workspace/util.py` | 课程工具，只读，不要修改 |
 | `/materials/traceroute/01-...md` 到 `08-...md` | 中文课程资料 |
-| `/skills/traceroute-lab/SKILL.md` | 本手册 |
-| `/memory/learning.md` | 学生当前进度/误解；开始教学前按需读 |
+| `/skills/lab/traceroute-lab/SKILL.md` | 本手册 |
+| `/memory/lab/learning.md` | 学生当前进度/误解；开始教学前按需读 |
 
-`/skills/` 和 `/materials/` 是只读虚拟路径，**只能用 `read_file` 读取**，不能用 shell 的 `cat`/`less`。记忆维护见 `/skills/memory-maintenance/SKILL.md`，同样不要用 shell 操作 `/memory`。
+`/skills/` 和 `/materials/` 是只读虚拟路径，**只能用 `read_file` 读取**，不能用 shell 的 `cat`/`less`。记忆维护见 `/skills/common/memory-maintenance/SKILL.md`，同样不要用 shell 操作 `/memory`。
 
 ### 3.2 运行
 
@@ -309,7 +309,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 
 ## 9. 复盘题库
 
-学生说“懂了”时，从这里选一个，用 `ask_student` 提问。一次只问一个；出题规范见 `/skills/ask-student/SKILL.md`。
+学生说“懂了”时，从这里选一个，用 `ask_student` 提问。一次只问一个；出题规范见 `/skills/common/ask-student/SKILL.md`。
 
 1. 为什么 TTL=N 能拿到第 N 跳的路由器？
 2. 为什么目标收到 UDP 包后回的是 ICMP，而不是 UDP？

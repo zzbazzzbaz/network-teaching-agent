@@ -13,7 +13,7 @@ RUN for dep in /deps/*; do \
     done
 
 ENV LANGGRAPH_AUTH='{"path": "/deps/agent/agent/core/auth.py:auth"}'
-ENV LANGSERVE_GRAPHS='{"exp_agent": "/deps/agent/agent/main.py:build_exp_agent"}'
+ENV LANGSERVE_GRAPHS='{"exp_agent": "/deps/agent/agent/main.py:build_exp_agent", "teach_agent": "/deps/agent/agent/main.py:build_teach_agent"}'
 
 RUN mkdir -p /api/langgraph_api /api/langgraph_runtime /api/langgraph_license \
  && touch /api/langgraph_api/__init__.py /api/langgraph_runtime/__init__.py /api/langgraph_license/__init__.py

@@ -12,7 +12,7 @@ _DESCRIPTION = (
     "向学生提出检查题或引导题，并等待学生作答。"
     "支持 single_choice（2–6 个 A.–F. 选项）和 short_answer。"
     "question 支持 Markdown，图表使用 ```mermaid 代码块；选项保持纯文本。"
-    "一次只问一个主问题。出题规范见 /skills/ask-student/SKILL.md。"
+    "一次只问一个主问题。出题规范见 /skills/common/ask-student/SKILL.md。"
     "调用后本次运行会暂停，直到客户端提交答案。"
 )
 

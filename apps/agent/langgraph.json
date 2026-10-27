@@ -1,7 +1,8 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "exp_agent": "./agent/main.py:build_exp_agent"
+    "exp_agent": "./agent/main.py:build_exp_agent",
+    "teach_agent": "./agent/main.py:build_teach_agent"
   },
   "env": "../.env",
   "auth": {

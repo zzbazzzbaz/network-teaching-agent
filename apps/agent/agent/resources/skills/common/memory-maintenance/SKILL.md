@@ -1,0 +1,427 @@
+---
+name: memory-maintenance
+description: 维护学生的跨会话记忆。首次使用、章节/阶段完成、quiz 结束、学生明确自述偏好/背景，或要求忘记时，按固定结构读写 /memory/AGENTS.md、profile.md、lab/、teaching/。需要创建、更新、压缩或修复学生记忆时使用。
+metadata:
+  scope: user-memory
+  version: v2
+---
+
+# 学生记忆维护
+
+这个 skill 负责维护用户级、跨 thread 的学生记忆。记忆不是聊天记录，而是让下一次教学能接着上次继续的“教学状态”。
+
+v2 的核心变化：
+
+- 根 `AGENTS.md` 只放跨 agent 的稳定画像和索引；
+- 实验状态写 `/memory/lab/`；
+- 教学状态写 `/memory/teaching/`；
+- 教学预习/习题/考研三种模式共用 `/memory/teaching/learning.md`，不拆子目录；
+- 不再读取根 `learning.md` 和根 `sessions/`。
+
+## 1. 何时使用
+
+使用：
+
+- 第一次为该学生创建记忆；
+- 完成一章、一个阶段或一次检查点；
+- `ask_student` 的检查题结束；
+- 学生明确说出偏好、背景、目标；
+- 学生说“忘掉这个/不要记”；
+- 记忆文件损坏、过长、结构混乱，需要修复或压缩。
+
+不要使用：
+
+- 普通问答、临时调试、一次性问题；
+- 学生没有提供新信息时；
+- 想记录完整对话或完整代码时。
+
+## 2. 记忆地图
+
+```text
+/memory/
+├── AGENTS.md                    # 全局卡：稳定画像 + 两个 agent 的索引
+├── profile.md                   # 稳定画像明细：背景、偏好、目标、考研信息
+│
+├── lab/
+│   ├── AGENTS.md                # 实验 agent 卡：当前章、下一步、Top 3 易错点
+│   ├── learning.md              # 实验学习状态：进度、掌握、误解、策略
+│   └── sessions/
+│       └── YYYY-MM.md
+│
+└── teaching/
+    ├── AGENTS.md                # 教学 agent 卡：当前模式、当前单元、下一步、Top 3
+    ├── learning.md              # 教学学习状态：预习/习题/考研分节
+    └── sessions/
+        └── YYYY-MM.md
+```
+
+职责：
+
+| 文件 | 内容 | 是否常驻 |
+|---|---|---|
+| `/memory/AGENTS.md` | 跨 agent 的稳定信息和索引 | 是，两个 agent 都自动加载 |
+| `/memory/profile.md` | 稳定背景、偏好、目标、考研信息 | 否，按需读 |
+| `/memory/lab/AGENTS.md` | 实验当前摘要 | 实验 agent 自动加载 |
+| `/memory/lab/learning.md` | 实验进度、掌握、误解、策略 | 否，按需读 |
+| `/memory/lab/sessions/YYYY-MM.md` | 实验会话摘要 | 否，按需读 |
+| `/memory/teaching/AGENTS.md` | 教学当前摘要 | 教学 agent 自动加载 |
+| `/memory/teaching/learning.md` | 教学三种模式的状态 | 否，按需读 |
+| `/memory/teaching/sessions/YYYY-MM.md` | 教学会话摘要 | 否，按需读 |
+
+## 3. Track 归属
+
+你的系统提示词会告诉你当前是实验 agent 还是教学 agent：
+
+- 实验 agent 只写 `/memory/lab/**`；
+- 教学 agent 只写 `/memory/teaching/**`；
+- 两个 agent 都可以低频更新 `/memory/AGENTS.md` 和 `/memory/profile.md`，但只在学生明确自述时；
+- 跨 track 读取允许，但不要自动加载或改写另一个 track。
+
+不要创建：
+
+- `/memory/learning.md`
+- `/memory/sessions/`
+- `/memory/teaching/preview/`
+- `/memory/teaching/exercise/`
+- `/memory/teaching/exam/`
+
+## 4. 硬规则
+
+1. `/memory` 是虚拟路径，只能用 `read_file` / `edit_file` / `write_file`，不能用 shell 的 `cat`/`echo`。
+2. 只有 `/memory/AGENTS.md` 和当前 track 的 `AGENTS.md` 会自动加载；`profile.md`、`learning.md`、`sessions/` 由你按需读取。
+3. `AGENTS.md` 是摘要，明细文件是事实来源。冲突时以明细为准，然后更新摘要。
+4. 只在检查点、quiz 结束、章节/阶段完成、学生明确自述或要求忘记时更新；不要每轮都写。
+5. 不记录完整对话、完整代码、题干全文、选项、答案、解析、沙箱 ID、IP、端口、公钥/私钥、token、`.env`、敏感个人信息。
+6. 不使用“基础差”“不认真”“聪明”等评价性标签。
+7. 根 `AGENTS.md` 控制在 500 tokens / 2KB 以内；track 卡控制在 1KB 以内；`learning.md` 控制在 8KB 以内。
+8. 同一个 thread 内 `AGENTS.md` 不会重新加载；更新后下一次新 thread 才生效。当前 thread 需要细节时，直接读 `learning.md`。
+9. 教学三种模式共用 `teaching/learning.md`；题目只记 id、正确率和薄弱知识点，不记题干、选项、答案、解析。
+10. 不读取、不迁移旧根 `learning.md` / 根 `sessions/`；如果看到旧文件，视为需要清理的历史数据，不要继续使用。
+
+## 5. 文件模板
+
+以下模板中的具体数值、章节和例子都是示例。创建新学生的记忆时不要原样复制；未知字段留空或写“未知”。
+
+### 5.1 全局卡 `/memory/AGENTS.md`
+
+```markdown
+# 学生卡片
+
+## 稳定信息
+- 称呼：
+- 语言：中文
+- 背景：
+- 偏好：
+- 目标：期末 / 考研
+- 考研目标：院校；年份；专业课代码
+- 当前课程：计算机网络
+
+## Agent 索引
+- 实验：`/memory/lab/AGENTS.md`
+- 教学：`/memory/teaching/AGENTS.md`
+
+## 维护约定
+- 这里只放跨 agent 的稳定信息
+- 进度、误解、下一步写各自目录
+- 不写题目全文、答案、完整对话
+```
+
+约定：
+
+- 只放“换一个 agent 也需要知道”的信息。
+- 不写当前章节、当前单元、具体误解。
+- 不写题目、答案、完整代码。
+- 学生明确自述偏好/背景/目标时才更新。
+- 不使用评价性标签。
+
+### 5.2 稳定画像 `/memory/profile.md`
+
+```markdown
+# 稳定画像
+
+## 背景
+- 专业/年级：
+- Python：
+- 计网：
+- 数学/位运算：
+- 已用工具：
+
+## 偏好
+- 语言：中文
+- 解释方式：
+- 提示强度：
+- 节奏：
+- 喜欢：
+- 不喜欢：
+
+## 目标
+- 课程目标：
+- 考研目标：
+- 希望达到的程度：
+
+## 更新记录
+- YYYY-MM-DD：学生自述……
+```
+
+约定：
+
+- 自述和推断分开；推断标注置信度。
+- 不确定写“未知”，不要编。
+- 不使用评价性标签。
+- 目标 ≤ 2KB。
+
+### 5.3 实验卡 `/memory/lab/AGENTS.md`
+
+```markdown
+# 实验 Agent 卡片
+
+## 当前
+- 当前章：
+- 上次会话：
+- 当前焦点：
+- 下一步：
+
+## 易错点 Top 3
+1.
+2.
+3.
+
+## 维护约定
+- 本文件只放实验摘要
+- 细节写 `learning.md`
+- 不记录代码、沙箱 ID、IP
+```
+
+### 5.4 实验学习状态 `/memory/lab/learning.md`
+
+```markdown
+# 实验学习状态
+
+## 进度
+- 当前章：
+- 已完成：
+- 上次会话：
+- 当前焦点：
+- 下一步：
+
+## 概念掌握
+| 概念 | 状态 | 证据 |
+|---|---|---|
+| TTL | learning | 能解释 TTL=1 的行为 |
+| IPv4 头 | shaky | header_len 偶尔忘记乘 4 |
+
+## 当前误解
+| 概念 | 表现 | 状态 | 次数 | 最后出现 |
+|---|---|---|---|---|
+| IPv4 头 | header_len 忘记乘 4 | active | 2 | 2026-10-26 |
+
+## 有效策略
+- 有效：画路径图；先跑 TTL=8 再讲循环
+- 无效：直接贴字段表；一次性给完整代码
+
+## 待确认
+- UDP 端口字节序是否已经稳定
+```
+
+约定：
+
+- `状态` 使用 `not_seen` / `learning` / `shaky` / `solid`。
+- `当前误解` 只保留 active，最多 10 条；resolved 的标记后定期清理。
+- 每个概念一行，不写长段落。
+- 不记录完整代码、沙箱 ID、IP、端口、密钥。
+
+### 5.5 教学卡 `/memory/teaching/AGENTS.md`
+
+```markdown
+# 教学 Agent 卡片
+
+## 当前
+- 当前模式：预习 / 习题 / 考研
+- 当前单元：
+- 上次会话：
+- 当前焦点：
+- 下一步：
+
+## 易错点 Top 3
+1.
+2.
+3.
+
+## 题库
+- 未接入；不要编造题号、年份、来源
+
+## 维护约定
+- 本文件只放教学摘要
+- 三种模式的细节写 `learning.md`
+- 题目只记 id，不记全文和答案
+```
+
+### 5.6 教学学习状态 `/memory/teaching/learning.md`
+
+```markdown
+# 教学学习状态
+
+## 模式进度
+| 模式 | 当前单元 | 下一步 | 上次会话 |
+|---|---|---|---|
+| 预习 |  |  |  |
+| 习题 |  |  |  |
+| 考研 |  |  |  |
+
+## 概念掌握
+| 概念 | 状态 | 证据 | 最近出现 |
+|---|---|---|---|
+| TCP 拥塞控制 | learning | 能说出慢启动，但不会算窗口 | 2026-10-27 |
+
+## 当前误解
+| 概念 | 表现 | 状态 | 次数 | 最后出现 | 来源模式 |
+|---|---|---|---|---|---|
+| TCP 拥塞控制 | 把拥塞窗口当接收窗口 | active | 1 | 2026-10-27 | 习题 |
+
+## 题库表现
+- 题库未接入；本节暂空
+- 接入后只写：正确率、薄弱知识点、错题题号
+- 不写题干、选项、答案、解析
+
+## 有效策略
+- 有效：先画时序图再讲窗口变化
+- 无效：直接背公式
+
+## 待确认
+- 接收窗口和拥塞窗口是否已经分清
+```
+
+约定：
+
+- 三种模式共用概念掌握和误解，避免“预习说会了、习题又错”失联。
+- `模式进度` 只更新当前模式对应行，不整表重写。
+- `来源模式` 使用 `预习` / `习题` / `考研`。
+- 不创建 `teaching/preview/`、`teaching/exercise/`、`teaching/exam/`。
+- 后续如果拆成多个教学 agent，再把模式节提升为子目录。
+- 目标 ≤ 8KB。
+
+### 5.7 Session 文件
+
+实验 `/memory/lab/sessions/YYYY-MM.md`：
+
+```markdown
+# 2026-10
+
+## 2026-10-27
+- Agent：实验
+- 主题：
+- 完成：
+- 卡点：
+- 检查：
+- 下次：
+
+<!-- APPEND BELOW -->
+```
+
+教学 `/memory/teaching/sessions/YYYY-MM.md`：
+
+```markdown
+# 2026-10
+
+## 2026-10-27
+- Agent：教学
+- 模式：预习 / 习题 / 考研
+- 主题：
+- 完成：
+- 卡点：
+- 检查：
+- 下次：
+
+<!-- APPEND BELOW -->
+```
+
+约定：
+
+- 一次会话一个二级标题，按日期。
+- 每次 5 行左右，不写完整对话。
+- 末尾保留 `<!-- APPEND BELOW -->`。
+- 追加时把标记替换成“新条目 + 同一个标记”。
+- 只追加，不改历史。
+- 不写题干、选项、答案、解析、完整代码。
+- 目标 ≤ 20KB/月。
+
+## 6. 首次使用
+
+第一次没有记忆文件时：
+
+1. 不要阻塞教学；先正常回答学生。
+2. 在第一个有意义的检查点，先读本 skill 的模板。
+3. 创建 `/memory/AGENTS.md` 和当前 track 的 `AGENTS.md`。
+4. 如果学生已经明确自述稳定背景/偏好/目标，再创建 `/memory/profile.md`；否则等明确自述时再建。
+5. 如有会话内容，创建当前 track 的 `sessions/YYYY-MM.md`。
+6. 当前 thread 仍使用空记忆；下一次新 thread 才会加载新卡。
+
+创建时只写已知信息，未知字段留空或写“未知”。不要编造背景。两个 agent 都可能创建根 `AGENTS.md`；并发时 last-write-wins，v2 接受。
+
+## 7. 更新流程
+
+### 7.1 学生明确自述偏好/背景
+
+例如“我 Python 只会一点”“我喜欢先看例子”“我要考 XX 学校”。
+
+1. 更新 `/memory/profile.md` 的对应字段，标注“自述”。
+2. 更新 `/memory/AGENTS.md` 的稳定信息。
+3. 不需要每次更新 `learning.md`。
+
+### 7.2 quiz 结束
+
+`ask_student` 返回后：
+
+1. 更新当前 track 的 `learning.md` 概念状态（`not_seen` / `learning` / `shaky` / `solid`）。
+2. 如果答错，更新“当前误解”的 `次数` 和 `最后出现`。
+3. 如果答对且之前是误解，把状态改为 resolved 或移除。
+4. 更新当前 track 的 `AGENTS.md` 的“易错点 Top 3”。
+5. 教学 agent 同时更新 `来源模式`；实验 agent 不需要。
+
+### 7.3 完成一章/阶段/模式
+
+1. 更新当前 track 的 `learning.md` 进度和下一步。
+2. 更新当前 track 的 `AGENTS.md` 的“当前”“下一步”。
+3. 追加一条当前 track 的 `sessions/YYYY-MM.md`。
+4. 如果 `learning.md` 超过 8KB，先压缩再更新。
+
+### 7.4 会话结束
+
+1. 追加一条当前 track 的 session 摘要。
+2. 更新 `learning.md` 的“上次会话”“当前焦点”“下一步”。
+3. 更新当前 track 的 `AGENTS.md` 摘要。
+4. 不要复制完整对话。
+
+### 7.5 学生要求忘记
+
+学生说“忘掉这个/不要记”时：
+
+1. 在 `profile.md` / 当前 track 的 `learning.md` 中删除或匿名化对应条目。
+2. 同步当前 track 的 `AGENTS.md` 和全局 `AGENTS.md` 摘要。
+3. 如果涉及敏感信息，不保留原文。
+4. 不要删除整个文件，除非学生明确要求清空全部记忆。
+5. 不要问太多；尊重学生的删除请求。
+
+## 8. 压缩与拆分
+
+- 根 `AGENTS.md` 超过 500 tokens / 2KB：删细节，只留稳定信息，把详细内容移到 `profile.md` 或 track。
+- `profile.md` 超过 2KB：压缩背景/偏好，保留目标和当前约束。
+- track `AGENTS.md` 超过 1KB：只留当前、下一步、Top 3。
+- `learning.md` 超过 8KB：压缩误解和策略；教学优先压缩模式细节。
+- `sessions/YYYY-MM.md` 超过 20KB：按季度/年份归档（v2）。
+- active 误解超过 10 条：resolved 清理或归档。
+
+v2 不主动创建额外文件；超过阈值优先压缩，不擅自改目录结构。
+
+## 9. 质量检查
+
+更新完记忆后，快速检查：
+
+- [ ] 我只改了当前 agent 的 track 吗？
+- [ ] 全局卡/`profile.md` 只在学生明确自述时更新了吗？
+- [ ] 根 `AGENTS.md` 仍然是摘要，没有变成流水账？
+- [ ] track 卡和 `learning.md` 没有矛盾？
+- [ ] active 误解不超过 10 条？
+- [ ] 没有写题干、选项、答案、解析、完整代码、完整对话？
+- [ ] 教学三种模式共用了 `teaching/learning.md`，没有拆子目录？
+- [ ] 没有读取或写入旧根 `learning.md` / 根 `sessions/`？
