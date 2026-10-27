@@ -24,6 +24,10 @@ venv/
 # Personal chat notes (never tracked)
 docs/chat/
 
+# Local knowledge base sources (large / personal use)
+data/sources/*
+!data/sources/README.md
+
 # Ignored app
 apps/agent-chat-ui/
 

@@ -17,17 +17,6 @@ DEFAULT_WORK_DIR = "/root/workspace"
 DEFAULT_USER = "root"
 
 
-def _connect_sandbox(sandbox_id: str) -> Sandbox:
-    settings = get_settings()
-    return Sandbox.connect(
-        sandbox_id=sandbox_id, api_key=settings.e2b.api_key, domain=settings.e2b.domain
-    )
-
-
-def _sandbox_id() -> str | None:
-    return get_config()["configurable"].get("sandbox_id")
-
-
 class AgsBackend(BaseSandbox):
     enable_capture_offload = True
 
@@ -45,26 +34,19 @@ class AgsBackend(BaseSandbox):
 
     @property
     def id(self) -> str:
-        return _sandbox_id() or "sandbox"
+        return get_config()["configurable"].get("sandbox_id") or "sandbox"
 
     def _get_sandbox(self) -> Sandbox:
-        sandbox_id = _sandbox_id()
-        if sandbox_id is None:
-            raise RuntimeError("sandbox_id 未传入，请先启动沙箱")
-
-        sandbox = self._sandboxes.get(sandbox_id)
+        sandbox = self._sandboxes.get(self.id)
         if sandbox is not None:
             return sandbox
-        sandbox = _connect_sandbox(sandbox_id)
+        sandbox = _connect_sandbox(self.id)
         with self._lock:
-            return self._sandboxes.setdefault(sandbox_id, sandbox)
+            return self._sandboxes.setdefault(self.id, sandbox)
 
     def _drop_sandbox(self) -> None:
-        sandbox_id = _sandbox_id()
-        if sandbox_id is None:
-            return
         with self._lock:
-            self._sandboxes.pop(sandbox_id, None)
+            self._sandboxes.pop(self.id, None)
 
     def execute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
         timeout = self._default_timeout if timeout is None else timeout
@@ -119,6 +101,13 @@ class AgsBackend(BaseSandbox):
             except SandboxException as e:
                 responses.append(FileDownloadResponse(path=path, error=_file_error(e)))
         return responses
+
+
+def _connect_sandbox(sandbox_id: str) -> Sandbox:
+    settings = get_settings()
+    return Sandbox.connect(
+        sandbox_id=sandbox_id, api_key=settings.e2b.api_key, domain=settings.e2b.domain
+    )
 
 
 def _file_error(e: Exception) -> str:

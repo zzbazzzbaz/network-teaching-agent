@@ -29,14 +29,19 @@ Agent 运行时必须从 `config.configurable.sandbox_id` 获取账户沙箱；`
 
 固定系统提示词在 `agent/resources/prompt/system.md`，`agent/main.py` 启动时读入并传给 `create_deep_agent(system_prompt=...)`。它不属于 DeepAgents 的 memory，不会自动加载，也不允许 agent 修改。
 
+`system.md` 只保留实验无关的通用规则：角色、教学原则、用户记忆、工具和安全。实验目标、环境、章节地图、诊断决策树、运行命令和验收标准放在对应的实验 skill（当前是 `traceroute-lab`）。
+
 `agent/resources/skills/traceroute-lab/SKILL.md` 以 CS168 Project 1: Traceroute 的核心 8 章（对应 1A）为范围。修改课程结构时，同步更新系统提示词、skill 和 `materials/traceroute/`。
 
-`agent/main.py` 用 `CompositeBackend` 把两个只读路径挂到 agent 侧：
+`agent/main.py` 用 `CompositeBackend` 挂三个路径：
 
-- `/skills/` → `agent/resources/skills/`
-- `/materials/` → `agent/resources/materials/`
+- `/skills/` → `agent/resources/skills/`（只读）
+- `/materials/` → `agent/resources/materials/`（只读）
+- `/memory/` → LangGraph Store（用户级，可写）
 
-`create_deep_agent(skills=["/skills/"])` 自动发现各技能目录下的 `SKILL.md`；`permissions` 禁止 agent 写入这两个路径。资料不写入沙箱，因此不随沙箱镜像发布，也不会因暂停/销毁丢失。
+`create_deep_agent(skills=["/skills/"])` 自动发现各技能目录下的 `SKILL.md`；`permissions` 禁止 agent 写入 `/skills`、`/materials`，允许写 `/memory`。资料不写入沙箱，因此不随沙箱镜像发布，也不会因暂停/销毁丢失。
+
+`agent/resources/skills/memory-maintenance/SKILL.md` 定义学生记忆的文件模板和更新规则。首次创建或重建记忆时，agent 必须先读它。
 
 `agent/resources/materials/traceroute/` 是 `docs/chat/10.26/教程/成品/` 的副本。更新教程后重新同步：
 
@@ -45,6 +50,24 @@ rsync -a --delete docs/chat/10.26/教程/成品/ apps/agent/agent/resources/mate
 ```
 
 Skill 元数据按 thread 缓存在 state；新增或重命名 skill 后，已有 thread 需要新开对话，或把 `skills_metadata` 置为 `None` 触发重新加载。
+
+## 用户级记忆
+
+`/memory/` 通过 `StoreBackend` 存放在 LangGraph Store，namespace 为 `("users", <identity>, "memory")`。v1 目录：
+
+```text
+/memory/
+├── AGENTS.md              # 唯一常驻注入
+├── profile.md             # 稳定背景/偏好/目标
+├── learning.md            # 进度/掌握/误解/有效策略
+└── sessions/YYYY-MM.md    # 按月追加
+```
+
+- `create_deep_agent(memory=["/memory/AGENTS.md"])`，其他文件由 agent 按需 `read_file`。
+- 记忆只存在 Store，不放沙箱；沙箱销毁/轮换不影响。
+- `AGENTS.md` 在同一个 thread 内不会重新加载，更新后新 thread 生效。
+- 本地 `langgraph dev` 无 auth user 时使用 `("users", "local", "memory")`（通过 `LANGSMITH_LANGGRAPH_API_VARIANT=local_dev` 识别）；生产必须 fail closed。
+- 记忆规范见 `docs/chat/10.26/user-profile-memory-v1-spec.md`。
 
 ## 可观测性
 

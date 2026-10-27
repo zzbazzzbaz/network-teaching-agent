@@ -22,7 +22,7 @@
 
 镜像内置：`busybox`、`traceroute`、`iputils-ping`、`tcpdump`、`bind9-dnsutils`/`bind9-host`、`netcat-openbsd`、`xxd`/`hexdump`、`mtr`。
 
-`/usr/local/bin/traceroute` 是 BusyBox wrapper，默认参数 `-n -q 1 -w 1`。AGS `PUBLIC` 出网 NAT 会把 ICMP 错误包的内层源地址改写成 `192.168.0.80`，标准 `traceroute` 依赖 `IP_RECVERR` 匹配不到，会全部显示 `*`；BusyBox 用 raw socket 按内层 UDP 端口匹配，能正常显示路径。标准工具保留在 `/usr/sbin/traceroute`，用于对比 NAT 行为。
+`/usr/local/bin/traceroute` 是 BusyBox wrapper，默认参数 `-n -q 1 -w 1`。AGS `PUBLIC` 出网 NAT 会把 ICMP 错误包的内层源地址改写成 `192.168.0.x`（2026-10-26 实测为 `192.168.0.99`，以抓包为准），标准 `traceroute` 依赖 `IP_RECVERR` 匹配不到，会全部显示 `*`；BusyBox 用 raw socket 按内层 UDP 端口匹配，能正常显示路径。标准工具保留在 `/usr/sbin/traceroute`，用于对比 NAT 行为。
 
 ## 构建
 

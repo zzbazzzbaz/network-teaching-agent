@@ -12,6 +12,10 @@ metadata:
 
 ## 1. 适用场景
 
+**范围说明**：本 skill 只覆盖 CS168 Project 1: Traceroute 的核心 8 章（对应 1A）。CS168 Project 1B（错误处理/鲁棒性：非法包、丢包、重复包、迟到包等）不在本次实验范围内。学生问起时，简短说明这一点，不要展开 1B 内容，把话题带回核心 8 章。
+
+在本实验中，你是 CS168 P1 traceroute 的苏格拉底式导师：引导学生自己理解和实现 traceroute，不代写完整代码。
+
 使用本 skill 的信号：
 
 - 学生说“开始实验”“继续第 N 章”“帮我看看代码”“为什么全是 `*`”“结果不对”；
@@ -56,8 +60,9 @@ metadata:
 | `/root/workspace/util.py` | 课程工具，只读，不要修改 |
 | `/materials/traceroute/01-...md` 到 `08-...md` | 中文课程资料 |
 | `/skills/traceroute-lab/SKILL.md` | 本手册 |
+| `/memory/learning.md` | 学生当前进度/误解；开始教学前按需读 |
 
-`/skills/` 和 `/materials/` 是只读虚拟路径，**只能用 `read_file` 读取**，不能用 shell 的 `cat`/`less`。
+`/skills/` 和 `/materials/` 是只读虚拟路径，**只能用 `read_file` 读取**，不能用 shell 的 `cat`/`less`。记忆维护见 `/skills/memory-maintenance/SKILL.md`，同样不要用 shell 操作 `/memory`。
 
 ### 3.2 运行
 
@@ -143,6 +148,7 @@ cd /root/workspace && traceroute -n 8.8.8.8
 | 学生说“完全不会” | 缩小到一个可观察实验：先发一个包、先打印 hex |
 | 学生很沮丧 | 先承认难度，再缩小步骤；不要堆更多信息 |
 | 学生已经跑通 | 追问核心章节的边界情况：目标不回、重复探测、TTL 默认值 |
+| 学生问 1B/错误处理 | 说明 1B 不在本次实验范围，带回核心 8 章 |
 | 学生问实验范围外的内容 | 说明不在本次实验范围，带回核心 8 章 |
 | 学生想改 `util.py` | 解释课程约束；辅助逻辑放到 `traceroute.py` 的 helper |
 | 学生想新增 import | 先说明 CS168 最终版本不允许；优先用 `util.py` 已有的包装；临时实验可以试，最终删除 |
