@@ -35,20 +35,23 @@ class AgsBackend(BaseSandbox):
 
     @property
     def id(self) -> str:
-        user_id = str(get_config()["configurable"]["langgraph_auth_user_id"])
-        return ensure_sandbox_id(user_id)
+        return ensure_sandbox_id(_user_id())
 
     def _get_sandbox(self) -> Sandbox:
-        sandbox = self._sandboxes.get(self.id)
+        user_id = _user_id()
+        with self._lock:
+            sandbox = self._sandboxes.get(user_id)
         if sandbox is not None:
             return sandbox
+
         sandbox = _connect_sandbox(self.id)
         with self._lock:
-            return self._sandboxes.setdefault(self.id, sandbox)
+            return self._sandboxes.setdefault(user_id, sandbox)
 
     def _drop_sandbox(self) -> None:
+        user_id = _user_id()
         with self._lock:
-            self._sandboxes.pop(self.id, None)
+            self._sandboxes.pop(user_id, None)
 
     def execute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
         timeout = self._default_timeout if timeout is None else timeout
@@ -103,6 +106,10 @@ class AgsBackend(BaseSandbox):
             except SandboxException as e:
                 responses.append(FileDownloadResponse(path=path, error=_file_error(e)))
         return responses
+
+
+def _user_id() -> str:
+    return str(get_config()["configurable"]["langgraph_auth_user_id"])
 
 
 def _connect_sandbox(sandbox_id: str) -> Sandbox:

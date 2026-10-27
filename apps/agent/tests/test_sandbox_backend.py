@@ -88,19 +88,25 @@ def test_backend_id_has_no_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
         _ = AgsBackend().id
 
 
-def test_backend_caches_and_drops_sandbox(
+def test_backend_caches_sandbox_by_user(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     connected: list[str] = []
+    resolved: list[str] = []
 
     def fake_connect(sandbox_id: str) -> object:
         connected.append(sandbox_id)
         return object()
 
     monkeypatch.setattr(
+        ags_backend,
+        "get_config",
+        lambda: {"configurable": {"langgraph_auth_user_id": "alice"}},
+    )
+    monkeypatch.setattr(
         AgsBackend,
         "id",
-        property(lambda _self: "sbx-1"),
+        property(lambda _self: resolved.append("id") or "sbx-1"),
     )
     monkeypatch.setattr(ags_backend, "_connect_sandbox", fake_connect)
     backend = AgsBackend()
@@ -110,9 +116,11 @@ def test_backend_caches_and_drops_sandbox(
 
     assert first is second
     assert connected == ["sbx-1"]
+    assert resolved == ["id"]
 
     backend._drop_sandbox()
     third = backend._get_sandbox()
 
     assert third is not first
     assert connected == ["sbx-1", "sbx-1"]
+    assert resolved == ["id", "id"]
