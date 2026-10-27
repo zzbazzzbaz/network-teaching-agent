@@ -25,6 +25,7 @@ interface SandboxContextValue {
   sandbox: SandboxInfo | null;
   error: string | null;
   ensure: () => Promise<SandboxInfo>;
+  refresh: () => Promise<void>;
   pause: () => Promise<void>;
   stop: () => Promise<void>;
 }
@@ -174,8 +175,8 @@ export function SandboxProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const value = React.useMemo(
-    () => ({ status, sandbox, error, ensure, pause, stop }),
-    [status, sandbox, error, ensure, pause, stop],
+    () => ({ status, sandbox, error, ensure, refresh, pause, stop }),
+    [status, sandbox, error, ensure, refresh, pause, stop],
   );
 
   return <SandboxContext.Provider value={value}>{children}</SandboxContext.Provider>;

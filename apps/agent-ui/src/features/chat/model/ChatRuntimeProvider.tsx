@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   AssistantRuntimeProvider,
   useExternalMessageConverter,
@@ -40,6 +40,25 @@ export function ChatRuntimeProvider({
 }) {
   const stream = useChatSession({ threadId, onThreadIdChange });
   const sandbox = useSandbox();
+  const refreshSandbox = sandbox.refresh;
+  const wasLoading = useRef(false);
+
+  useEffect(() => {
+    if (!stream.isLoading) {
+      if (wasLoading.current) {
+        wasLoading.current = false;
+        void refreshSandbox();
+      }
+      return;
+    }
+
+    wasLoading.current = true;
+    const timer = window.setTimeout(() => {
+      void refreshSandbox();
+    }, 2000);
+
+    return () => window.clearTimeout(timer);
+  }, [stream.isLoading, refreshSandbox]);
 
   const messages = useExternalMessageConverter({
     callback: convertLangChainBaseMessage,
@@ -55,17 +74,10 @@ export function ChatRuntimeProvider({
       if (!text) return;
       await ensureFreshToken();
       if (getSession() === null) return;
-      const sandboxInfo = await sandbox.ensure();
-      await stream.submit(
-        {
-          messages: [{ type: "human", content: text }],
-        },
-        {
-          config: {
-            configurable: { sandbox_id: sandboxInfo.sandbox_id },
-          },
-        },
-      );
+      await stream.submit({
+        messages: [{ type: "human", content: text }],
+      });
+      void refreshSandbox();
     },
     onCancel: async () => {
       await stream.stop();

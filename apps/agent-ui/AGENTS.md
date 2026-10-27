@@ -38,7 +38,9 @@ npm run test:e2e
 
 `/api` 代理到 `API_URL`，`/agent` 代理到 `AGENT_URL`。
 
-沙箱入口在全局 `SandboxProvider` 中：进入页面调用 `GET /api/v1/sandbox`，启动或首次发送消息时调用 `POST`，运行中每 5 分钟调用 `POST /sandbox/heartbeat`，暂停/恢复/销毁分别调用 `/sandbox/pause`、`POST /sandbox`、`DELETE /sandbox`。发送消息和恢复中断时把 `sandbox_id` 写入 LangGraph 的 `configurable`。
+沙箱入口在全局 `SandboxProvider` 中：进入页面调用 `GET /api/v1/sandbox`，运行中每 5 分钟调用 `POST /sandbox/heartbeat`，暂停/恢复/销毁分别调用 `/sandbox/pause`、`POST /sandbox`、`DELETE /sandbox`。启动/恢复按钮和打开 VSCode/ttyd 前仍显式调用 `POST /sandbox`。
+
+发送消息和恢复中断时**不再**调用 `sandbox.ensure()`，也不再向 LangGraph 的 `configurable` 写 `sandbox_id`。Agent 根据 JWT 用户身份调用 API 内部接口创建/恢复沙箱；前端只在 run 进行中及结束后调用只读 `GET /api/v1/sandbox` 同步状态栏。
 
 打开 VSCode/ttyd 前必须先 `POST /sandbox` 确保沙箱为 `running`，再导航新标签页；暂停后旧链接会返回 404。
 

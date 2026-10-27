@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from collections.abc import Iterator
 from typing import Annotated, cast
@@ -30,6 +31,10 @@ def _bearer(request: Request) -> str | None:
     return None
 
 
+SessionDep = Annotated[Session, Depends(get_session)]
+SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
+
+
 def require_user(request: Request) -> uuid.UUID:
     token = _bearer(request)
     if token is None:
@@ -40,6 +45,13 @@ def require_user(request: Request) -> uuid.UUID:
         raise HTTPException(status_code=401, detail=str(e)) from e
 
 
-SessionDep = Annotated[Session, Depends(get_session)]
-SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
+def require_internal_token(request: Request, settings: SettingsDep) -> None:
+    token = request.headers.get("X-Internal-Token")
+    if not token:
+        raise HTTPException(status_code=401, detail="缺少内部凭证")
+    if not secrets.compare_digest(token, settings.agent_internal_token):
+        raise HTTPException(status_code=403, detail="内部凭证无效")
+
+
 UserIdDep = Annotated[uuid.UUID, Depends(require_user)]
+InternalTokenDep = Annotated[None, Depends(require_internal_token)]

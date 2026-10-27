@@ -8,6 +8,7 @@ dependencies = [
     "langgraph",
     "langchain-deepseek",
     "langchain-openai",
+    "httpx>=0.28.1",
     "pydantic-settings",
     "e2b>=2.59.0",
     "langfuse>=5.0.4",
@@ -18,6 +19,10 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["agent", "agent.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py314"
@@ -46,6 +51,7 @@ override-dependencies = [
 [dependency-groups]
 dev = [
     "langgraph-cli[inmem]==0.4.37",
+    "pytest>=9.1.1",
     "ruff==0.17.2",
     "ty==0.0.91",
 ]

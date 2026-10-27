@@ -22,6 +22,16 @@ test.describe("基础聊天", () => {
   test("发送消息后收到流式回复，URL 带上 threadId，刷新可恢复", async ({
     page,
   }) => {
+    const ensureCalls: string[] = [];
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        new URL(request.url()).pathname === "/api/v1/sandbox"
+      ) {
+        ensureCalls.push(request.url());
+      }
+    });
+
     const input = page.getByTestId("composer-input");
     await input.fill("用一句话解释 TCP 三次握手的目的是什么。");
     await page.getByTestId("composer-send").click();
@@ -42,5 +52,6 @@ test.describe("基础聊天", () => {
       { timeout: 60_000 },
     );
     await expect(page.getByTestId("empty-state")).toBeHidden();
+    expect(ensureCalls).toHaveLength(0);
   });
 });

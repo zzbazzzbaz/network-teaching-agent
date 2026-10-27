@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from e2b import SandboxException, SandboxNotFoundException
@@ -15,6 +15,7 @@ from app.models.user_sandbox import UserSandbox
 from app.services import sandbox_reaper, sandbox_service
 
 SANDBOX = "/api/v1/sandbox"
+INTERNAL_SANDBOX = "/internal/sandbox/ensure"
 
 
 class FakeSandbox:
@@ -145,6 +146,10 @@ def _update_record(client: TestClient, user_id: UUID, **values: object) -> None:
 
 def _settings(client: TestClient) -> Settings:
     return cast(FastAPI, client.app).state.settings
+
+
+def _internal_headers(client: TestClient) -> dict[str, str]:
+    return {"X-Internal-Token": _settings(client).agent_internal_token}
 
 
 def _host(client: TestClient, sandbox_id: str) -> str:
@@ -650,3 +655,82 @@ def test_sandbox_is_isolated_by_user(
 
     assert client.get(SANDBOX, headers=alice).json()["sandbox_id"] == "sbx-1"
     assert client.get(SANDBOX, headers=bob).json()["sandbox_id"] == "sbx-2"
+
+
+def test_internal_sandbox_requires_valid_token(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    user = create_user()
+    payload = {"user_id": str(user.user_id)}
+
+    assert client.post(INTERNAL_SANDBOX, json=payload).status_code == 401
+    assert (
+        client.post(
+            INTERNAL_SANDBOX,
+            json=payload,
+            headers={"X-Internal-Token": "wrong-token"},
+        ).status_code
+        == 403
+    )
+    assert world.sandboxes == []
+
+
+def test_internal_sandbox_creates_and_reuses(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    user = create_user()
+    payload = {"user_id": str(user.user_id)}
+    headers = _internal_headers(client)
+
+    created = client.post(INTERNAL_SANDBOX, json=payload, headers=headers)
+    assert created.status_code == 200, created.text
+    assert created.json() == {"sandbox_id": "sbx-1", "status": "running"}
+
+    reused = client.post(INTERNAL_SANDBOX, json=payload, headers=headers)
+    assert reused.status_code == 200, reused.text
+    assert reused.json()["sandbox_id"] == "sbx-1"
+    assert len(world.sandboxes) == 1
+
+
+def test_internal_sandbox_rejects_unknown_and_disabled_user(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    disabled = create_user(status=False)
+    headers = _internal_headers(client)
+
+    unknown = client.post(
+        INTERNAL_SANDBOX,
+        json={"user_id": str(uuid4())},
+        headers=headers,
+    )
+    assert unknown.status_code == 404
+
+    blocked = client.post(
+        INTERNAL_SANDBOX,
+        json={"user_id": str(disabled.user_id)},
+        headers=headers,
+    )
+    assert blocked.status_code == 403
+    assert world.sandboxes == []
+
+
+def test_internal_sandbox_create_failure_returns_503(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    world: FakeWorld,
+) -> None:
+    user = create_user()
+    world.create_fail = True
+
+    response = client.post(
+        INTERNAL_SANDBOX,
+        json={"user_id": str(user.user_id)},
+        headers=_internal_headers(client),
+    )
+    assert response.status_code == 503

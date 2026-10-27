@@ -75,6 +75,7 @@ class Settings(_Base):
     jwt: JWTSettings = Field(default_factory=JWTSettings)
 
     cors_origins: str
+    agent_internal_token: str = Field(min_length=1)
 
     @property
     def cors_origins_list(self) -> list[str]:

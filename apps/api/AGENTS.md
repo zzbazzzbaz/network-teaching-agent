@@ -25,7 +25,9 @@ apps/api/
 
 ## 配置
 
-只读取 `apps/.env`：`DB_DATABASE_URL`、`JWT_PRIVATE_KEY_PATH`、`JWT_PUBLIC_KEY_PATH`、`E2B_DOMAIN`、`E2B_API_KEY`、`AGS_TOOL_NAME`、`AGS_SANDBOX_TIMEOUT_SECONDS`、`AGS_SANDBOX_IDLE_SECONDS`、`AGS_SANDBOX_PAUSED_RETENTION_SECONDS`、`AGS_SANDBOX_MAX_LIFETIME_SECONDS`、`AGS_SANDBOX_HEARTBEAT_SECONDS`、`SCHEDULER_ENABLED`、`SCHEDULER_REAPER_INTERVAL_SECONDS`、`CORS_ORIGINS`。
+只读取 `apps/.env`：`DB_DATABASE_URL`、`JWT_PRIVATE_KEY_PATH`、`JWT_PUBLIC_KEY_PATH`、`E2B_DOMAIN`、`E2B_API_KEY`、`AGS_TOOL_NAME`、`AGS_SANDBOX_TIMEOUT_SECONDS`、`AGS_SANDBOX_IDLE_SECONDS`、`AGS_SANDBOX_PAUSED_RETENTION_SECONDS`、`AGS_SANDBOX_MAX_LIFETIME_SECONDS`、`AGS_SANDBOX_HEARTBEAT_SECONDS`、`SCHEDULER_ENABLED`、`SCHEDULER_REAPER_INTERVAL_SECONDS`、`CORS_ORIGINS`、`AGENT_INTERNAL_TOKEN`。
+
+`AGENT_INTERNAL_TOKEN` 只用于 Agent 调用的内部接口；必须与 Agent 环境中的同名变量一致，不能进入前端或公网。
 
 密钥路径相对 `apps/api`。JWT 签发方、受众、有效期定义在 `app/core/constants.py`。
 
@@ -57,6 +59,16 @@ cd apps/api
 uv run python -m app.scripts.cli create-user --username student
 uv run ruff check . && uv run ty check . && uv run pytest -q
 ```
+
+## 内部沙箱接口
+
+Agent 使用 `POST /internal/sandbox/ensure` 获取当前用户可用的 `sandbox_id`：
+
+- 请求头 `X-Internal-Token` 必须匹配 `AGENT_INTERNAL_TOKEN`；
+- 请求体 `{"user_id": "<uuid>"}`；
+- API 校验用户存在且启用后，复用 `sandbox_service.ensure_user_sandbox` 创建/恢复/续期/轮换；
+- 返回 `{"sandbox_id": "...", "status": "running"}`，不返回 VSCode/ttyd 链接；
+- 路由不挂在 `/api/v1` 下，`include_in_schema=False`，nginx 不转发 `/internal/`。
 
 ## 沙箱回收
 

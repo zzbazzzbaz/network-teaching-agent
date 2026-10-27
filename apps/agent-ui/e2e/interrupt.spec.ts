@@ -13,6 +13,16 @@ test.describe("ask_human 中断", () => {
   });
 
   test("中断卡片渲染选项，作答后 agent 继续运行", async ({ page }) => {
+    const ensureCalls: string[] = [];
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        new URL(request.url()).pathname === "/api/v1/sandbox"
+      ) {
+        ensureCalls.push(request.url());
+      }
+    });
+
     await page
       .getByTestId("composer-input")
       .fill("请直接调用 ask_human 工具考我一题，不要解释。");
@@ -43,5 +53,6 @@ test.describe("ask_human 中断", () => {
     await page.reload();
     await expect(page.getByTestId("ask-human-card")).toBeHidden();
     await expect(page.getByTestId("composer-input")).toBeVisible();
+    expect(ensureCalls).toHaveLength(0);
   });
 });

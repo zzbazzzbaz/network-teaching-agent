@@ -50,6 +50,11 @@ class Settings(_Base):
     e2b: E2BSettings = Field(default_factory=E2BSettings)
     jwt: JWTSettings = Field(default_factory=JWTSettings)
 
+    agent_api_base_url: str = Field(min_length=1)
+    agent_internal_token: str = Field(min_length=1)
+    agent_api_timeout_seconds: float = 15.0
+    agent_dev_user_id: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

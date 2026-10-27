@@ -58,16 +58,9 @@ export function AskHumanCard() {
     setSubmitting(letter);
     setError(null);
     try {
-      const sandboxInfo = await sandbox.ensure();
-      await stream.respond(
-        { answer: letter },
-        {
-          ...(interrupt.id ? { interruptId: interrupt.id } : {}),
-          config: {
-            configurable: { sandbox_id: sandboxInfo.sandbox_id },
-          },
-        },
-      );
+      const responseOptions = interrupt.id ? { interruptId: interrupt.id } : {};
+      await stream.respond({ answer: letter }, responseOptions);
+      void sandbox.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setSubmitting(null);

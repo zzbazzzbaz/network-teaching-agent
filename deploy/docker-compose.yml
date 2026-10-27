@@ -52,6 +52,7 @@ services:
       DATABASE_URI: "postgres://postgres:postgres@langgraph-pg:5432/postgres?sslmode=disable"
       REDIS_URI: "redis://langgraph-redis:6379"
       JWT_JWKS_URL: "http://api:8000/.well-known/jwks.json"
+      AGENT_API_BASE_URL: "http://api:8000"
       PORT: "8000"
       LANGFUSE_TRACING_ENVIRONMENT: production
       LANGFUSE_RELEASE: "${TAG}"

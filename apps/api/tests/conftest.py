@@ -19,6 +19,12 @@ from app.core.security import hash_password
 from app.models.user import Users
 
 API_DIR = Path(__file__).resolve().parents[1]
+INTERNAL_TOKEN = "test-internal-token"
+
+
+@pytest.fixture(autouse=True)
+def internal_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_INTERNAL_TOKEN", INTERNAL_TOKEN)
 
 
 @pytest.fixture(scope="session")
