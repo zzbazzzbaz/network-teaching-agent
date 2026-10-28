@@ -9,7 +9,7 @@ const AGENT_URL = requireEnv("AGENT_URL");
 const API_URL = requireEnv("API_URL");
 const DEV_PORT = 5173;
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),
@@ -17,6 +17,15 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
+      // Dev-only React DevTools bridge: swap it for a no-op in production builds.
+      ...(command === "build"
+        ? {
+            "react-devtools-cdt-mcp/register": path.resolve(
+              import.meta.dirname,
+              "./src/app/react-devtools.noop.ts",
+            ),
+          }
+        : {}),
     },
   },
   server: {
@@ -34,4 +43,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

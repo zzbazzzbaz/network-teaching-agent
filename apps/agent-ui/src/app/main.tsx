@@ -1,3 +1,6 @@
+// Exposes React component/profiling tools to chrome-devtools-mcp. Must be
+// imported before react-dom so the DevTools hook is installed in time.
+import "react-devtools-cdt-mcp/register";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
