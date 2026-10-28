@@ -161,7 +161,6 @@ def main() -> None:
         warnings.append("figures/index.md missing")
 
     image_links = 0
-    description_links = 0
     for path in (args.skill_root / "textbook").rglob("*.md"):
         front = parse_frontmatter(path)
         if front and "pdf_pages" in front:
@@ -175,21 +174,12 @@ def main() -> None:
             target = (path.parent / link).resolve()
             if not target.is_file():
                 errors.append(f"broken body image link: {path}: {link}")
-        for link in re.findall(r"\[图示说明\]\(([^)]+)\)", text):
-            description_links += 1
-            target = (path.parent / link).resolve()
-            if not target.is_file():
-                errors.append(f"broken figure description link: {path}: {link}")
-
     figure_files = len(list((args.skill_root / "figures").rglob("*.*"))) - 1
-    descriptions = list((args.skill_root / "figures" / "descriptions").rglob("*.md"))
     print(f"pages: {len(pages)}")
     print(f"units: {len(units)}")
     print(f"chapters: {sorted(chapters)}")
     print(f"body image links: {image_links}")
-    print(f"figure description links: {description_links}")
     print(f"figure files: {figure_files}")
-    print(f"description files: {len(descriptions)}")
     for warning in warnings:
         print(f"warning: {warning}")
     if errors:

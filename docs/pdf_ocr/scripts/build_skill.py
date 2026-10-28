@@ -63,8 +63,7 @@ metadata:
 │   ├── 01-概述/ ... 09-无线网络和移动网络/
 │   └── appendices/
 └── figures/
-    ├── index.md
-    └── descriptions/      # 视觉模型生成的图示说明
+    └── index.md
 ```
 
 教材正文只读。不要把整章或整本书一次性加载。
@@ -123,8 +122,7 @@ grep -n "拥塞控制" textbook/05-运输层/*.md
 
 - 正文优先使用 OCR 后的文字、图注和 Markdown 表格；
 - `figures/index.md` 记录全部教材图片（含子图），正文用 `../../figures/...` 相对链接引用；
-- 图片文件在 `figures/`，每张图有对应的 `figures/descriptions/*.md` 图示说明；
-- 视觉描述仅作辅助，教材原图、图注和页码优先；
+- 图片文件在 `figures/`；
 - 如果前端没有 `/skills` 静态资源路由，Markdown 图片链接可能只作为路径记录；
 - 不要根据图号猜图的内容。需要看图时，明确提示学生对照教材页。
 

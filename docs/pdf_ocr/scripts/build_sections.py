@@ -270,7 +270,6 @@ def block_markdown(
     unit: dict[str, Any],
     page_number: int,
     figure_map: dict[str, str],
-    description_map: dict[str, str],
     figure_overrides: dict[str, dict[str, str]],
 ) -> str:
     block_type = block.get("type") or "text"
@@ -296,22 +295,15 @@ def block_markdown(
         if any(marker in caption for marker in ("扫一扫", "扫码", "二维码", "视频讲解")):
             return ""
         relative = figure_map.get(str(block.get("image_path") or ""))
-        description = description_map.get(str(block.get("image_path") or ""))
-        description_line = f"> [图示说明](../../figures/{description})" if description else ""
         if not caption:
             if not relative:
                 return ""
             alt = f"教材第 {book} 页图片" if book else "教材图片"
-            image = f"![{alt}](../../figures/{relative})"
-            return f"{image}\n\n{description_line}" if description_line else image
+            return f"![{alt}](../../figures/{relative})"
         caption_line = f"> {caption}（教材第 {book} 页）" if book else f"> {caption}"
         if relative:
             alt = caption.replace("[", "\\[").replace("]", "\\]")
-            image = f"![{alt}](../../figures/{relative})"
-            parts = [image, caption_line]
-            if description_line:
-                parts.append(description_line)
-            return "\n\n".join(parts)
+            return f"![{alt}](../../figures/{relative})\n\n{caption_line}"
         return caption_line
     if block_type == "page_footnote":
         if not text:
@@ -345,7 +337,6 @@ def render_unit(
     unit: dict[str, Any],
     blocks: list[tuple[int, dict[str, Any]]],
     figure_map: dict[str, str],
-    description_map: dict[str, str],
     figure_overrides: dict[str, dict[str, str]],
 ) -> str:
     start = int(unit.get("start_index", 0))
@@ -354,9 +345,7 @@ def render_unit(
     body: list[str] = []
     previous = ""
     for page_number, block in selected:
-        markdown = block_markdown(
-            block, unit, page_number, figure_map, description_map, figure_overrides
-        )
+        markdown = block_markdown(block, unit, page_number, figure_map, figure_overrides)
         if not markdown or markdown == previous:
             continue
         body.append(markdown)
@@ -416,12 +405,6 @@ def main() -> None:
         for row in figures_payload.get("figures", [])
         if row.get("source_path") and row.get("file")
     }
-    description_map = {
-        str(row["source_path"]): str(row["description_path"])
-        for row in figures_payload.get("figures", [])
-        if row.get("source_path") and row.get("description_path")
-    }
-
     root = GENERATED_DIR / "computer-networks"
     textbook_root = root / "textbook"
     if textbook_root.exists() and not args.no_clean:
@@ -431,7 +414,7 @@ def main() -> None:
 
     output_units: list[dict[str, Any]] = []
     for unit in units:
-        content = render_unit(unit, blocks, figure_map, description_map, figure_overrides)
+        content = render_unit(unit, blocks, figure_map, figure_overrides)
         if not content.strip():
             continue
         # Drop an empty chapter/section intro if it ended up with only the

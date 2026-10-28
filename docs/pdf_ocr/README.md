@@ -49,22 +49,19 @@ uv run python scripts/normalize_api_output.py
 # 5. 复制全部教材图片（含子图/无图注大图）并生成索引
 uv run python scripts/build_figures.py
 
-# 6. 用视觉模型生成 figures/descriptions/*.md（可中断续跑）
-uv run python scripts/describe_figures.py --workers 1 --timeout 180
-
-# 7. 生成小节 Markdown（正文会嵌入图片链接和图示说明链接）
+# 6. 生成小节 Markdown（正文嵌入图片链接）
 uv run python scripts/build_sections.py
 
-# 8. 生成目录、索引和页码 JSON
+# 7. 生成目录、索引和页码 JSON
 uv run python scripts/build_index.py
 
-# 9. 生成 SKILL.md
+# 8. 生成 SKILL.md
 uv run python scripts/build_skill.py
 
-# 10. 校验
+# 9. 校验
 uv run python scripts/validate_pages.py
 
-# 11. 同步到 agent skill
+# 10. 同步到 agent skill
 uv run python scripts/promote_to_skill.py --clean
 ```
 
@@ -79,39 +76,6 @@ uv run python scripts/normalize_api_output.py --part sample-vlm-012-020
 ```
 
 跑完样张后重新执行全量 `split_pdf.py`，否则 `work/parts.json` 仍只包含样张。
-
-## 图示说明
-
-图片说明通过本机已登录的 `opencode` CLI 调用视觉模型生成：
-
-```bash
-uv run python scripts/describe_figures.py --workers 1 --timeout 180
-```
-
-默认模型：
-
-```text
-opencode/nemotron-3.5-super-vl-free
-```
-
-可通过 `OPENCODE_VL_MODEL` 覆盖。默认只使用免费模型，不自动切换付费模型；
-免费额度耗尽时脚本停止。说明写入：
-
-```text
-figures/descriptions/<章节目录>/<图片名>.md
-```
-
-说明是 AI 辅助内容，`reviewed: false`；教材原图、图注和页码优先。重复运行会跳过已有 SHA 匹配的说明，`--force` 可强制重生成。
-
-## 本次全量结果（2026-10-27）
-
-- 源 PDF：485 页，SHA-256 `ff70e7208d5d6c610441d7496408dfa68c5ed243503486330e38d8b8216ad19b`
-- MinerU：`vlm`，4 个 part，batch `c3e116eb-4551-4b38-9171-b151ef4daa65`
-- 归一化：485 页（第 485 页为空白页）
-- 教材资源：179 个小节文件（每章“本章的重要概念”保留在对应章节目录中）
-- 图表：333 张教材图片（含子图和无图注大图，排除二维码/视频入口）全部收录，并嵌入对应小节
-- 校验：`validate_pages.py` 通过
-- 已同步：`apps/agent/agent/resources/skills/teaching/computer-networks/`
 
 ## 关键约定
 

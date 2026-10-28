@@ -124,15 +124,9 @@ def main() -> None:
 
     root = GENERATED_DIR / "computer-networks"
     figures_root = root / "figures"
+    if figures_root.exists():
+        shutil.rmtree(figures_root)
     figures_root.mkdir(parents=True, exist_ok=True)
-    # Keep the expensive vision-model sidecars when rebuilding image assets.
-    for child in list(figures_root.iterdir()):
-        if child.name == "descriptions":
-            continue
-        if child.is_dir():
-            shutil.rmtree(child)
-        else:
-            child.unlink()
 
     rows: list[dict[str, Any]] = []
     used_targets: dict[Path, Path] = {}
