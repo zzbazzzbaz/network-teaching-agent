@@ -1,0 +1,189 @@
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import delete, func, or_, select, text
+from sqlalchemy.orm import Session
+
+from app.api.schemas.question_bank import QuestionInput
+from app.models.question import Question, QuestionAttempt
+
+
+class QuestionRepository:
+    def create_question(
+        self,
+        session: Session,
+        *,
+        owner_id: uuid.UUID | None,
+        payload: QuestionInput,
+    ) -> Question:
+        question = Question(
+            owner_id=owner_id,
+            question_type=payload.question_type,
+            stem=payload.stem,
+            options=payload.options,
+            correct_option=payload.correct_option,
+            reference_answer=payload.reference_answer,
+            primary_knowledge_point_id=payload.primary_knowledge_point_id,
+            secondary_knowledge_point_ids=payload.secondary_knowledge_point_ids,
+        )
+        session.add(question)
+        session.flush()
+        return question
+
+    def get_question(self, session: Session, question_id: uuid.UUID) -> Question | None:
+        return session.get(Question, question_id)
+
+    def get_attempt_by_tool_call(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        tool_call_id: str,
+    ) -> QuestionAttempt | None:
+        return session.scalar(
+            select(QuestionAttempt).where(
+                QuestionAttempt.user_id == user_id,
+                QuestionAttempt.tool_call_id == tool_call_id,
+            )
+        )
+
+    def create_attempt(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_id: uuid.UUID,
+        thread_id: str | None,
+        tool_call_id: str,
+        answer_text: str,
+    ) -> QuestionAttempt:
+        attempt = QuestionAttempt(
+            user_id=user_id,
+            question_id=question_id,
+            thread_id=thread_id,
+            tool_call_id=tool_call_id,
+            answer_text=answer_text,
+            note=None,
+        )
+        session.add(attempt)
+        session.flush()
+        return attempt
+
+    def last_attempt_times(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, datetime]:
+        if not question_ids:
+            return {}
+        rows = session.execute(
+            select(QuestionAttempt.question_id, func.max(QuestionAttempt.created_at))
+            .where(
+                QuestionAttempt.user_id == user_id,
+                QuestionAttempt.question_id.in_(question_ids),
+            )
+            .group_by(QuestionAttempt.question_id)
+        ).all()
+        return {question_id: created_at for question_id, created_at in rows}
+
+    def search(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        scope: str,
+        query: str | None,
+        question_type: str | None,
+        knowledge_point_id: str | None,
+        knowledge_point_prefix: str | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Question], int]:
+        conditions = []
+        if scope == "public":
+            conditions.append(Question.owner_id.is_(None))
+        elif scope == "mine":
+            conditions.append(Question.owner_id == user_id)
+        else:
+            conditions.append(
+                or_(Question.owner_id.is_(None), Question.owner_id == user_id)
+            )
+
+        if query:
+            escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            conditions.append(Question.stem.ilike(f"%{escaped}%", escape="\\"))
+        if question_type:
+            conditions.append(Question.question_type == question_type)
+        if knowledge_point_id:
+            conditions.append(
+                or_(
+                    Question.primary_knowledge_point_id == knowledge_point_id,
+                    Question.secondary_knowledge_point_ids.contains([knowledge_point_id]),
+                )
+            )
+        if knowledge_point_prefix:
+            prefix_like = f"{knowledge_point_prefix}.%"
+            conditions.append(
+                or_(
+                    Question.primary_knowledge_point_id == knowledge_point_prefix,
+                    Question.primary_knowledge_point_id.like(prefix_like),
+                    text(
+                        "EXISTS ("
+                        "SELECT 1 FROM jsonb_array_elements_text("
+                        "questions.secondary_knowledge_point_ids"
+                        ") AS secondary_kp "
+                        "WHERE secondary_kp = :kp_prefix "
+                        "OR secondary_kp LIKE :kp_prefix_like"
+                        ")"
+                    ).bindparams(
+                        kp_prefix=knowledge_point_prefix,
+                        kp_prefix_like=prefix_like,
+                    ),
+                )
+            )
+
+        base = select(Question).where(*conditions)
+        total = session.scalar(
+            select(func.count()).select_from(base.order_by(None).subquery())
+        )
+        items = list(
+            session.scalars(
+                base.order_by(Question.created_at.desc(), Question.question_id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        )
+        return items, int(total or 0)
+
+    def has_public_attempts(self, session: Session) -> bool:
+        return (
+            session.scalar(
+                select(func.count())
+                .select_from(QuestionAttempt)
+                .join(Question, Question.question_id == QuestionAttempt.question_id)
+                .where(Question.owner_id.is_(None))
+            )
+            or 0
+        ) > 0
+
+    def count_public_questions(self, session: Session) -> int:
+        return int(
+            session.scalar(
+                select(func.count())
+                .select_from(Question)
+                .where(Question.owner_id.is_(None))
+            )
+            or 0
+        )
+
+    def delete_public_questions(self, session: Session) -> int:
+        deleted = self.count_public_questions(session)
+        session.execute(delete(Question).where(Question.owner_id.is_(None)))
+        return deleted
+
+
+question_repository = QuestionRepository()

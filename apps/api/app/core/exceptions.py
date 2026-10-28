@@ -22,5 +22,9 @@ class ConflictError(AppError):
     status_code = 409
 
 
+class UnprocessableError(AppError):
+    status_code = 422
+
+
 class ServiceUnavailableError(AppError):
     status_code = 503

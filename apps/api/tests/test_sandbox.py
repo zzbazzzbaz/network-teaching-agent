@@ -148,8 +148,11 @@ def _settings(client: TestClient) -> Settings:
     return cast(FastAPI, client.app).state.settings
 
 
-def _internal_headers(client: TestClient) -> dict[str, str]:
-    return {"X-Internal-Token": _settings(client).agent_internal_token}
+def _internal_headers(client: TestClient, user_id: UUID | str) -> dict[str, str]:
+    return {
+        "X-Internal-Token": _settings(client).agent_internal_token,
+        "X-User-Id": str(user_id),
+    }
 
 
 def _host(client: TestClient, sandbox_id: str) -> str:
@@ -663,14 +666,15 @@ def test_internal_sandbox_requires_valid_token(
     world: FakeWorld,
 ) -> None:
     user = create_user()
-    payload = {"user_id": str(user.user_id)}
 
-    assert client.post(INTERNAL_SANDBOX, json=payload).status_code == 401
+    assert client.post(INTERNAL_SANDBOX).status_code == 401
     assert (
         client.post(
             INTERNAL_SANDBOX,
-            json=payload,
-            headers={"X-Internal-Token": "wrong-token"},
+            headers={
+                "X-Internal-Token": "wrong-token",
+                "X-User-Id": str(user.user_id),
+            },
         ).status_code
         == 403
     )
@@ -683,14 +687,13 @@ def test_internal_sandbox_creates_and_reuses(
     world: FakeWorld,
 ) -> None:
     user = create_user()
-    payload = {"user_id": str(user.user_id)}
-    headers = _internal_headers(client)
+    headers = _internal_headers(client, user.user_id)
 
-    created = client.post(INTERNAL_SANDBOX, json=payload, headers=headers)
+    created = client.post(INTERNAL_SANDBOX, headers=headers)
     assert created.status_code == 200, created.text
     assert created.json() == {"sandbox_id": "sbx-1", "status": "running"}
 
-    reused = client.post(INTERNAL_SANDBOX, json=payload, headers=headers)
+    reused = client.post(INTERNAL_SANDBOX, headers=headers)
     assert reused.status_code == 200, reused.text
     assert reused.json()["sandbox_id"] == "sbx-1"
     assert len(world.sandboxes) == 1
@@ -702,19 +705,16 @@ def test_internal_sandbox_rejects_unknown_and_disabled_user(
     world: FakeWorld,
 ) -> None:
     disabled = create_user(status=False)
-    headers = _internal_headers(client)
 
     unknown = client.post(
         INTERNAL_SANDBOX,
-        json={"user_id": str(uuid4())},
-        headers=headers,
+        headers=_internal_headers(client, uuid4()),
     )
     assert unknown.status_code == 404
 
     blocked = client.post(
         INTERNAL_SANDBOX,
-        json={"user_id": str(disabled.user_id)},
-        headers=headers,
+        headers=_internal_headers(client, disabled.user_id),
     )
     assert blocked.status_code == 403
     assert world.sandboxes == []
@@ -730,7 +730,6 @@ def test_internal_sandbox_create_failure_returns_503(
 
     response = client.post(
         INTERNAL_SANDBOX,
-        json={"user_id": str(user.user_id)},
-        headers=_internal_headers(client),
+        headers=_internal_headers(client, user.user_id),
     )
     assert response.status_code == 503

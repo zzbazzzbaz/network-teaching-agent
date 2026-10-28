@@ -36,8 +36,11 @@ def test_ensure_sandbox_id_posts_internal_token(
 
     assert ensure_sandbox_id("user-1") == "sbx-1"
     assert captured["url"] == "http://api:8000/internal/sandbox/ensure"
-    assert captured["headers"] == {"X-Internal-Token": "secret"}
-    assert captured["json"] == {"user_id": "user-1"}
+    assert captured["headers"] == {
+        "X-Internal-Token": "secret",
+        "X-User-Id": "user-1",
+    }
+    assert "json" not in captured
     assert captured["timeout"] == 3
 
 

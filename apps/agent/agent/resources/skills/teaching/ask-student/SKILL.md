@@ -1,15 +1,17 @@
 ---
 name: ask-student
-description: 设计并向学生提出检查题或引导题时使用。覆盖单选与简答的选择、题干和选项设计、难度控制、Markdown/Mermaid 图表、答后反馈和常见反模式；调用 ask_student 工具前先读本 skill。
+description: 教学 agent 设计并向学生提出检查题或引导题时使用。覆盖单选与简答的选择、知识点标注、题干和选项设计、难度控制、Markdown/Mermaid 图表、答后反馈和常见反模式；调用 ask_student 工具前先读本 skill。
 metadata:
   scope: teaching
   tool: ask_student
-  version: v1
+  version: v2
 ---
 
 # 向学生提问
 
-这个 skill 负责“怎么出题”，不重复 `ask_student` 的参数定义。工具 schema、payload 和返回格式以工具本身为准。
+这个 skill 负责“怎么出题”和知识点标注，不重复 `ask_student` 的参数定义。工具 schema、payload 和返回格式以工具本身为准。
+
+`ask_student` 只在 `teach_agent` 中提供；实验 agent 用普通文本追问，不要假设实验会话里能调用本工具。
 
 ## 1. 目标
 
@@ -73,7 +75,20 @@ metadata:
 - 不传 `options`；
 - 题干要具体，避免“谈谈你的理解”这种过宽问题；
 - 一次只问一个主问题；
-- 可以给 `placeholder`，例如“用一句话说明原因”。
+- 可以给 `placeholder`，例如“用一句话说明原因”；
+- 可以提供 `reference_answer`，仅用于答后讲解，不能提前展示。
+
+### 3.3 知识点标注
+
+每道题必须提供 `primary_knowledge_point_id`，按教材目录编号，例如 `5.8.2`：
+
+- 先读 `textbook/00-toc.md`，优先使用当前教学单元的编号；
+- 主知识点是“这道题主要考什么”；
+- `secondary_knowledge_point_ids` 放顺带涉及的知识点，最多 3 个，不能重复，也不能包含主知识点；
+- 不确定时，主知识点用相关小节的父节点/最低公共祖先，辅知识点放具体小节；
+- 无法确定时用父节点或 `99`，不要编造编号。
+
+例子：TCP 慢开始 cwnd 变化 → 主 `5.8.2`；慢开始和拥塞避免比较 → 主 `5.8.2`；拥塞控制 + AQM → 主 `5.8`，辅 `5.8.1`、`5.8.3`；跨章节综合 → 主 `99`，辅具体小节。
 
 ## 4. 题干设计
 
@@ -181,6 +196,10 @@ A. 直接把包转发给目标
 B. 把 TTL 减到 0，丢弃并回 ICMP Time Exceeded
 C. 回 ICMP Port Unreachable
 D. 静默丢弃，不回任何包
+
+correct_option: B
+primary_knowledge_point_id: 4.2.5
+secondary_knowledge_point_ids: [4.4.1]
 ````
 
 为什么好：
@@ -196,6 +215,8 @@ mode: short_answer
 question:
 为什么 ICMP 错误包里要带内层 IPv4 + UDP？如果只带路由器自己的 IP 和 ICMP 头，发送方会缺什么信息？
 placeholder: 用一句话说明原因
+reference_answer: 发送方需要靠原始探测包的源/目的地址、协议和端口匹配到自己的探测，缺少内层包就无法定位是哪一次探测触发了错误。
+primary_knowledge_point_id: 4.4.1
 ```
 
 为什么好：
@@ -231,21 +252,24 @@ placeholder: 用一句话说明原因
 
 ### 10.3 记录
 
-需要记录时，按 `/skills/common/memory-maintenance/SKILL.md` 更新当前 track 的 `learning.md`：
+学生作答后，`ask_student` 会自动把题目和作答保存到题库，**不要再调用 `save_question` 保存同一道题**。备注 `note` 字段当前只是预留，v1 流程不采集，也不要在对话里假装收到了备注。
+
+需要记录学习状态时，按 `/skills/common/memory-maintenance/SKILL.md` 更新当前 track 的 `learning.md`：
 
 - 概念状态；
 - 当前误解和次数；
 - 下一步。
 
-不要每答一题就写记忆；在检查点、quiz 结束或章节完成时更新。
+不要每答一题就写记忆；在检查点、quiz 结束或章节完成时更新。题库里的题目和作答也不要复制进 memory；需要时用 `search_questions` 查。
 
 ## 11. 与其他 skill 的关系
 
-- `traceroute-lab`：实验 agent 使用，提供当前章节、知识点、诊断决策树和复盘题库；
-- `ask-student`：负责把问题设计好、选择模式、控制难度；
+- `ask-student`：负责把问题设计好、选择模式、控制难度、标注知识点；
+- `question-bank`：负责题库检索、公有/私有题边界和录题流程；
+- `computer-networks`：提供教材目录、正文和知识点定位；
 - `memory-maintenance`：负责把答题结果写入当前 track 的学习状态。
 
-提问前先读当前场景的 skill/资料：实验 agent 读 `traceroute-lab` 和当前实验章节；教学 agent 读 `/skills/teaching/` 下的教材 skill 和当前章节。确认问题属于当前单元，不要假设实验章节就是教学章节。提问后按需要读记忆 skill 记录结果。
+提问前先读当前教学单元的教材资料和 `question-bank` skill；确认问题属于当前单元。提问后按需要读记忆 skill 记录学习状态。
 
 ## 12. 调用前检查
 
@@ -255,6 +279,8 @@ placeholder: 用一句话说明原因
 - [ ] 干扰项来自真实误解吗？
 - [ ] 选项是纯文本吗？
 - [ ] 简答题没有传 `options` 吗？
+- [ ] 提供了 `primary_knowledge_point_id`，且辅知识点不超过 3 个吗？
+- [ ] 单选题提供了 `correct_option`，简答题没有 `correct_option` 吗？
 - [ ] 题干中的 Mermaid 图有必要、可读、失败时也能理解吗？
 - [ ] 学生答完后，我知道下一步该做什么吗？
 - [ ] 我没有一次问多个主问题吗？

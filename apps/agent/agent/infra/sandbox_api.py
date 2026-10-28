@@ -15,8 +15,10 @@ def ensure_sandbox_id(user_id: str) -> str:
     try:
         response = httpx.post(
             f"{base_url}/internal/sandbox/ensure",
-            json={"user_id": user_id},
-            headers={"X-Internal-Token": settings.agent_internal_token},
+            headers={
+                "X-Internal-Token": settings.agent_internal_token,
+                "X-User-Id": user_id,
+            },
             timeout=settings.agent_api_timeout_seconds,
         )
         response.raise_for_status()

@@ -66,6 +66,7 @@ def test_base_prompt_is_agent_neutral() -> None:
     assert "沙箱" not in text
     assert "/skills/lab/" not in text
     assert "traceroute" not in text
+    assert "ask_student" not in text
 
 
 def test_lab_prompt_keeps_sandbox_and_experiment_skill() -> None:
@@ -74,7 +75,8 @@ def test_lab_prompt_keeps_sandbox_and_experiment_skill() -> None:
     assert "AGS" in text
     assert "execute" in text
     assert "/skills/lab/traceroute-lab/SKILL.md" in text
-    assert "ask_student" in text
+    assert "普通文本" in text
+    assert "ask_student" not in text
 
 
 def test_teaching_prompt_has_no_sandbox() -> None:
@@ -84,9 +86,21 @@ def test_teaching_prompt_has_no_sandbox() -> None:
     assert "不能运行代码" in text
     assert "不要使用 `execute`" in text
     assert "teaching/learning.md" in text
+    assert "search_questions" in text
+    assert "save_question" in text
     assert "AGS" not in text
     assert "/skills/lab/" not in text
     assert "traceroute" not in text
+
+
+def test_experiment_resources_do_not_reference_ask_student() -> None:
+    paths = [
+        RESOURCE_DIR / "prompt" / "base.md",
+        RESOURCE_DIR / "prompt" / "lab.md",
+        RESOURCE_DIR / "skills" / "lab" / "traceroute-lab" / "SKILL.md",
+    ]
+    for path in paths:
+        assert "ask_student" not in path.read_text(encoding="utf-8")
 
 
 def test_memory_paths_are_track_specific() -> None:
@@ -120,8 +134,13 @@ def test_skill_discovery_matches_agent_tracks() -> None:
         for skill in _list_skills(teach_backend, source)
     }
 
-    assert exp_skills == {"ask-student", "memory-maintenance", "traceroute-lab"}
-    assert teach_skills == {"ask-student", "memory-maintenance", "computer-networks"}
+    assert exp_skills == {"memory-maintenance", "traceroute-lab"}
+    assert teach_skills == {
+        "ask-student",
+        "memory-maintenance",
+        "computer-networks",
+        "question-bank",
+    }
 
 
 def test_teach_memory_permissions() -> None:
@@ -132,7 +151,7 @@ def test_teach_memory_permissions() -> None:
     assert _check_fs_permission(rules, operation, "/memory/AGENTS.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/profile.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/lab/AGENTS.md") == "deny"
-    assert _check_fs_permission(rules, operation, "/skills/common/ask-student/SKILL.md") == "deny"
+    assert _check_fs_permission(rules, operation, "/skills/teaching/ask-student/SKILL.md") == "deny"
     assert _check_fs_permission(rules, operation, "/root/workspace/traceroute.py") == "deny"
 
 
@@ -144,14 +163,18 @@ def test_exp_memory_permissions() -> None:
     assert _check_fs_permission(rules, operation, "/memory/AGENTS.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/profile.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/teaching/AGENTS.md") == "deny"
-    assert _check_fs_permission(rules, operation, "/skills/common/ask-student/SKILL.md") == "deny"
+    assert _check_fs_permission(rules, operation, "/skills/teaching/ask-student/SKILL.md") == "deny"
     assert _check_fs_permission(rules, operation, "/root/workspace/traceroute.py") == "allow"
 
 
-def test_teach_graph_uses_default_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_teach_graph_uses_default_and_question_bank_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     tools = _tool_names(_build_teach_graph(monkeypatch))
 
     assert "ask_student" in tools
+    assert "search_questions" in tools
+    assert "save_question" in tools
     assert "read_file" in tools
     assert "write_file" in tools
     assert "delete" in tools
@@ -159,10 +182,10 @@ def test_teach_graph_uses_default_tools(monkeypatch: pytest.MonkeyPatch) -> None
     assert "task" in tools
 
 
-def test_exp_graph_keeps_execute_and_task(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_exp_graph_has_no_ask_student(monkeypatch: pytest.MonkeyPatch) -> None:
     tools = _tool_names(_build_exp_graph(monkeypatch))
 
-    assert "ask_student" in tools
+    assert "ask_student" not in tools
     assert "execute" in tools
     assert "task" in tools
 
@@ -173,17 +196,19 @@ def test_prompt_and_skill_layout() -> None:
     assert (RESOURCE_DIR / "prompt" / "teaching.md").is_file()
     assert not (RESOURCE_DIR / "prompt" / "system.md").exists()
 
-    assert (RESOURCE_DIR / "skills" / "common" / "ask-student" / "SKILL.md").is_file()
+    assert (RESOURCE_DIR / "skills" / "teaching" / "ask-student" / "SKILL.md").is_file()
     assert (RESOURCE_DIR / "skills" / "common" / "memory-maintenance" / "SKILL.md").is_file()
     assert (RESOURCE_DIR / "skills" / "lab" / "traceroute-lab" / "SKILL.md").is_file()
     assert (
         RESOURCE_DIR / "skills" / "lab" / "traceroute-lab" / "chapters" / "01-认识-traceroute.md"
     ).is_file()
     assert (RESOURCE_DIR / "skills" / "teaching" / "computer-networks" / "SKILL.md").is_file()
+    assert (RESOURCE_DIR / "skills" / "teaching" / "question-bank" / "SKILL.md").is_file()
     assert (
         RESOURCE_DIR / "skills" / "teaching" / "computer-networks" / "textbook" / "00-index.md"
     ).is_file()
     assert not (RESOURCE_DIR / "materials").exists()
+    assert not (RESOURCE_DIR / "skills" / "common" / "ask-student").exists()
     assert not (RESOURCE_DIR / "skills" / "ask-student").exists()
     assert not (RESOURCE_DIR / "skills" / "memory-maintenance").exists()
     assert not (RESOURCE_DIR / "skills" / "traceroute-lab").exists()

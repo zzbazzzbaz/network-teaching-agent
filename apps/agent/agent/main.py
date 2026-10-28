@@ -6,18 +6,20 @@ from langgraph.graph.state import CompiledStateGraph
 
 from agent.core.observability import get_langfuse_handler
 from agent.infra.model import get_llm
+from agent.infra.question_bank_api import QuestionBankRecorder
 from agent.runtime.backends import build_exp_backend, build_teaching_backend
 from agent.runtime.memory import exp_memory_permissions, teach_memory_permissions
 from agent.runtime.paths import memory_paths, skill_paths
 from agent.runtime.prompts import load_prompt
 from agent.tools.ask_student import make_ask_student
+from agent.tools.question_bank import make_question_bank_tools
 
 
 def build_exp_agent(config: RunnableConfig) -> CompiledStateGraph[Any]:
     graph = create_deep_agent(
         model=get_llm(),
         system_prompt=load_prompt("base", "lab"),
-        tools=[make_ask_student()],
+        tools=[],
         backend=build_exp_backend(),
         skills=skill_paths("exp"),
         memory=memory_paths("exp"),
@@ -31,7 +33,10 @@ def build_teach_agent(config: RunnableConfig) -> CompiledStateGraph[Any]:
     graph = create_deep_agent(
         model=get_llm(),
         system_prompt=load_prompt("base", "teaching"),
-        tools=[make_ask_student()],
+        tools=[
+            make_ask_student(recorder=QuestionBankRecorder()),
+            *make_question_bank_tools(),
+        ],
         backend=build_teaching_backend(),
         skills=skill_paths("teach"),
         memory=memory_paths("teach"),
