@@ -1,0 +1,7 @@
+# OCR production data: never commit the PDF, raw MinerU output or API token.
+input/
+models/
+raw/
+work/
+generated/
+.venv/

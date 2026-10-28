@@ -1,0 +1,14 @@
+{
+  "images/2bdaf42b72a2c8e50a91d9a1af8e1245dc7931106feb5113b44a9aa6bc935bee.jpg": {
+    "caption": "图 3-3(a) 三层的简化模型",
+    "label": "图 3-3(a)",
+    "file_stem": "fig-3-03a",
+    "title": "三层的简化模型"
+  },
+  "images/7e0e18118a8b52bc9b965f6afe4c599c05ad4dcd2cb799847dfb7c98470f0288.jpg": {
+    "caption": "图 3-3(b) 只考虑数据链路层",
+    "label": "图 3-3(b)",
+    "file_stem": "fig-3-03b",
+    "title": "只考虑数据链路层"
+  }
+}

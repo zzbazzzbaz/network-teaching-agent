@@ -1,0 +1,24 @@
+[project]
+name = "computer-networks-ocr"
+version = "0.1.0"
+description = "MinerU OCR and skill resource builder for the computer networks textbook"
+requires-python = ">=3.12"
+dependencies = [
+  "beautifulsoup4>=4.13",
+  "pypdf>=5.9",
+  "python-dotenv>=1.0",
+  "requests>=2.32",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4",
+  "ruff>=0.11",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

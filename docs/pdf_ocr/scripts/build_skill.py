@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""Generate the computer-networks teaching skill entry file."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from common import BOOK_AUTHOR, BOOK_TITLE, GENERATED_DIR, WORK_DIR, ensure_dirs, fail, read_json
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--skill-root", type=Path, default=GENERATED_DIR / "computer-networks")
+    args = parser.parse_args()
+    ensure_dirs()
+    units_data = read_json(WORK_DIR / "units.json")
+    if not units_data:
+        fail("units.json missing; run build_sections.py first")
+    units = units_data["units"]
+
+    content = f"""---
+name: computer-networks
+description: 计算机网络教材索引与教学地图；用于预习、概念解释、习题定位和考研复习。
+metadata:
+  course: 计算机网络
+  scope: teaching
+  version: v1
+  source: {BOOK_TITLE} · {BOOK_AUTHOR}
+---
+
+# 计算机网络教材
+
+> 教材：{BOOK_TITLE}，{BOOK_AUTHOR}。
+>
+> 资源：{len(units)} 个小节文件。
+
+## 1. 何时使用
+
+使用：
+
+- 学生要预习、复习或定位计算机网络某一章；
+- 学生问分层、协议、算法、设备等课程概念；
+- 习题需要确认知识点属于哪一章；
+- 考研复习需要把考点映射到教材章节；
+- 需要引用教材中的定义、图、表或例题时。
+
+不要使用：
+
+- 实验步骤、traceroute 代码和沙箱操作，走 `traceroute-lab`；
+- 题库检索；当前没有题库工具；
+- 教材没有覆盖的内容。
+
+## 2. 资料位置
+
+```text
+/skills/teaching/computer-networks/
+├── SKILL.md
+├── textbook/
+│   ├── 00-toc.md          # 书本目录（带教材页码）
+│   ├── 00-index.md        # 小节 → 文件 → 教材页
+│   ├── 00-pages.json      # 机器可读页码索引
+│   ├── 01-概述/ ... 09-无线网络和移动网络/
+│   └── appendices/
+└── figures/
+    ├── index.md
+    └── descriptions/      # 视觉模型生成的图示说明
+```
+
+教材正文只读。不要把整章或整本书一次性加载。
+
+## 3. 检索流程
+
+1. 先读 `textbook/00-toc.md`，确认章节和小节；
+2. 再读 `textbook/00-index.md`，找到对应文件；
+3. 用 `grep` 搜索 2–3 个标题词、术语或英文缩写；
+4. 用 `read_file` 读取候选小节；
+5. 只引用回答需要的 1–2 段；
+6. 用“章节 + 小节 + 教材第 N 页”回答。
+
+示例：
+
+```text
+grep -n "拥塞控制" textbook/05-运输层/*.md
+```
+
+如果第一轮没有命中，换用同义词、英文缩写或相邻章节，不要直接猜。
+
+## 4. 页码与引用
+
+- 正文 frontmatter 的 `book_pages` 是原书印刷页码；
+- 不要引用 PDF 页码，也不要把页码写成文件序号；
+- 单页：`见第 4 章 4.2.5，教材第 136 页。`
+- 区间：`见第 5 章 5.8，教材第 238–247 页。`
+
+教材没有覆盖时，明确说：
+
+```text
+当前教材文本没有覆盖这一点，我不能编造原文。
+```
+
+## 5. 三种教学模式
+
+### 预习
+
+- 用 `00-toc.md` 和 `textbook/*/本章的重要概念.md` 建立框架；
+- 标出前置概念和 2–3 个预习问题；
+- 不直接把整章内容讲完。
+
+### 习题
+
+- 先用教材定位知识点和定义；
+- 给提示而不是直接给答案；
+- 学生答完后，用 `ask_student` 检查关键条件。
+
+### 考研
+
+- 用章节和小节映射考点；
+- 讲考点结构、评分点和常见边界；
+- 不承诺押题，不编造真题年份或来源。
+
+## 6. 图片与表格
+
+- 正文优先使用 OCR 后的文字、图注和 Markdown 表格；
+- `figures/index.md` 记录全部教材图片（含子图），正文用 `../../figures/...` 相对链接引用；
+- 图片文件在 `figures/`，每张图有对应的 `figures/descriptions/*.md` 图示说明；
+- 视觉描述仅作辅助，教材原图、图注和页码优先；
+- 如果前端没有 `/skills` 静态资源路由，Markdown 图片链接可能只作为路径记录；
+- 不要根据图号猜图的内容。需要看图时，明确提示学生对照教材页。
+
+## 7. 与其他 skill 的关系
+
+- `ask-student`：负责设计检查题；出题前按需读教材小节；
+- `memory-maintenance`：负责记录教学进度、概念掌握和误解；
+- `traceroute-lab`：实验专用，不用于教材概念讲解。
+
+## 8. 边界
+
+- 不整章粘贴、不一次加载整本教材；
+- 不编造教材原文、页码、图的内容或题号；
+- 不把 OCR 错误当成教材原文；不确定时说明需要对照原书；
+- 不记录教材全文到学生记忆；
+- 不把图片 base64 写入 Markdown 或记忆。
+"""
+    args.skill_root.mkdir(parents=True, exist_ok=True)
+    (args.skill_root / "SKILL.md").write_text(content, encoding="utf-8")
+    print(f"wrote {args.skill_root / 'SKILL.md'}")
+
+
+if __name__ == "__main__":
+    main()
