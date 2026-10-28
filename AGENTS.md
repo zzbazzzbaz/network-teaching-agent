@@ -14,7 +14,7 @@
 │   ├── .env                    # 唯一配置源
 │   └── docker-compose.dev.yml  # 本地 Postgres
 ├── deploy/                     # nginx + compose
-├── docs/                       # pdf_ocr；chat/ 为个人笔记（gitignored）
+├── docs/                       # pdf_ocr；ui/ 学生端 UI 原型；chat/ 为个人笔记（gitignored）
 ├── .agents/skills/             # 项目技能
 ├── Makefile
 └── opencode.json
