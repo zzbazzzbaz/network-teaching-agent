@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.constants import DEFAULT_SESSION_TITLE, MAX_SESSION_TITLE_LENGTH
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.pagination import PageRequest, PageResult
 from app.models.session import ChatSession
 from app.repositories.session_repository import session_repository
 
@@ -15,8 +16,19 @@ def _normalize_title(title: str) -> str:
     return resolved
 
 
-def list_sessions(*, owner_id: uuid.UUID, session: Session) -> list[ChatSession]:
-    return session_repository.list_by_owner(session, owner_id)
+def list_sessions(
+    *,
+    owner_id: uuid.UUID,
+    session: Session,
+    page: PageRequest,
+    agent_id: str | None = None,
+) -> PageResult[ChatSession]:
+    return session_repository.list_by_owner(
+        session,
+        owner_id,
+        page=page,
+        agent_id=agent_id,
+    )
 
 
 def get_owned_session(
@@ -35,10 +47,17 @@ def get_owned_session(
     return chat_session
 
 
-def create_session(*, owner_id: uuid.UUID, title: str, session: Session) -> ChatSession:
+def create_session(
+    *,
+    owner_id: uuid.UUID,
+    agent_id: str,
+    title: str,
+    session: Session,
+) -> ChatSession:
     return session_repository.create(
         session,
         owner_id=owner_id,
+        agent_id=agent_id,
         title=_normalize_title(title),
     )
 

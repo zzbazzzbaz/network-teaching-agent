@@ -24,7 +24,7 @@ INTERNAL_TOKEN = "test-internal-token"
 
 @pytest.fixture(autouse=True)
 def internal_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("AGENT_INTERNAL_TOKEN", INTERNAL_TOKEN)
+    monkeypatch.setenv("SERVER_AUTH_TOKEN", INTERNAL_TOKEN)
 
 
 @pytest.fixture(scope="session")
@@ -84,6 +84,8 @@ def client(
     monkeypatch.setenv("JWT_PRIVATE_KEY_PATH", private_path)
     monkeypatch.setenv("JWT_PUBLIC_KEY_PATH", public_path)
     monkeypatch.setenv("SCHEDULER_ENABLED", "false")
+    monkeypatch.setenv("SERVER_AGENT_BASE_URL", "http://127.0.0.1:2024")
+    monkeypatch.setenv("SERVER_TIMEOUT_SECONDS", "15")
     get_settings.cache_clear()
     _run_migrations()
 

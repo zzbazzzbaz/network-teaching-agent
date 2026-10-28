@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from agent.infra.question_bank_api import AskStudentRecordResult
 from agent.tools.ask_student import make_ask_student
 from agent.tools.schemas.ask_student import (
+    AskStudentAnswer,
     AskStudentPayload,
     AskStudentResume,
     GeneratedQuestion,
@@ -73,13 +74,25 @@ def test_single_choice_payload() -> None:
             "B. 丢弃并回 ICMP Time Exceeded",
             "C. 回 ICMP Port Unreachable",
         ],
+        answer=AskStudentAnswer(correct_option="B"),
     )
 
     assert payload.type == "ask_student"
     assert payload.mode == "single_choice"
     assert payload.options is not None
     assert len(payload.options) == 3
+    assert payload.answer.correct_option == "B"
     assert payload.model_dump(mode="json", exclude_none=True)["type"] == "ask_student"
+
+
+def test_short_answer_payload_can_have_empty_answer() -> None:
+    payload = AskStudentPayload(
+        mode="short_answer",
+        question="解释一下",
+        answer=AskStudentAnswer(),
+    )
+
+    assert payload.model_dump(mode="json", exclude_none=True)["answer"] == {}
 
 
 def test_short_answer_payload() -> None:
@@ -87,10 +100,14 @@ def test_short_answer_payload() -> None:
         mode="short_answer",
         question="为什么 ICMP 错误包要带内层 IPv4 + UDP？",
         placeholder="用一句话说明原因",
+        answer=AskStudentAnswer(
+            reference_answer="为了让接收方知道是哪个上层协议/端口触发的错误。"
+        ),
     )
 
     assert payload.options is None
     assert payload.placeholder == "用一句话说明原因"
+    assert payload.answer.reference_answer is not None
 
 
 def test_short_answer_rejects_options() -> None:
@@ -242,6 +259,7 @@ def test_tool_interrupt_payload_and_recorder(
         "mode": "single_choice",
         "question": "TTL=1 时会发生什么？",
         "options": ["A. 直接转发", "B. 回 ICMP Time Exceeded"],
+        "answer": {"correct_option": "B"},
     }
     assert captured["response_schema"] is AskStudentResume
     assert len(recorder.calls) == 1
@@ -306,3 +324,37 @@ def test_tool_recorder_failure_does_not_break_interrupt(
     assert "学生答案：因为要匹配原始探测包" in result
     assert "参考答案：为了匹配原始探测包" in result
     assert "题库记录失败" in result
+
+
+def test_tool_short_answer_payload_contains_reference_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent.tools.ask_student as ask_student_module
+
+    captured: dict[str, object] = {}
+
+    def fake_interrupt(
+        payload: dict[str, object],
+        *,
+        response_schema: type[AskStudentResume],
+    ) -> AskStudentResume:
+        captured["payload"] = payload
+        return AskStudentResume(answer="因为要匹配原始探测包")
+
+    monkeypatch.setattr(ask_student_module, "interrupt", fake_interrupt)
+    tool_obj = cast(_ToolWithFunc, make_ask_student(recorder=_FakeRecorder()))
+
+    tool_obj.func(
+        mode="short_answer",
+        question="为什么？",
+        primary_knowledge_point_id="4.4.1",
+        reference_answer="为了匹配原始探测包",
+        runtime=_runtime(),
+    )
+
+    assert captured["payload"] == {
+        "type": "ask_student",
+        "mode": "short_answer",
+        "question": "为什么？",
+        "answer": {"reference_answer": "为了匹配原始探测包"},
+    }

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Response
 from fastapi.responses import JSONResponse
 
 from app.api.dependencies import SessionDep, SettingsDep, UserIdDep
-from app.api.schemas.sandbox import SandboxResponse
+from app.api.schemas.sandbox import SandboxDeleteResponse, SandboxResponse
 from app.services import sandbox_service
 
 router = APIRouter(prefix="/sandbox", tags=["sandbox"])
@@ -84,7 +84,12 @@ def pause_sandbox(
     return _to_response(info)
 
 
-@router.delete("", status_code=204, summary="销毁账户沙箱")
+@router.delete(
+    "",
+    status_code=204,
+    responses={202: {"model": SandboxDeleteResponse}},
+    summary="销毁账户沙箱",
+)
 def delete_sandbox(
     session: SessionDep,
     user_id: UserIdDep,
@@ -96,7 +101,10 @@ def delete_sandbox(
         settings=settings,
     )
     if deleted is sandbox_service.DeleteResult.STOPPING:
-        return JSONResponse(status_code=202, content={"status": "stopping"})
+        return JSONResponse(
+            status_code=202,
+            content=SandboxDeleteResponse(status="stopping").model_dump(),
+        )
     return Response(status_code=204)
 
 

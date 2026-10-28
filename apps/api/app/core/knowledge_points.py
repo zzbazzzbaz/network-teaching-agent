@@ -21,14 +21,21 @@ class KnowledgePoint:
 
 
 @lru_cache
-def _load() -> dict[str, KnowledgePoint]:
+def _load_payload() -> dict[str, object]:
     try:
         payload = json.loads(KNOWLEDGE_POINTS_PATH.read_text(encoding="utf-8"))
     except FileNotFoundError as e:
         raise RuntimeError(f"知识点文件不存在：{KNOWLEDGE_POINTS_PATH}") from e
     except json.JSONDecodeError as e:
         raise RuntimeError(f"知识点文件不是合法 JSON：{KNOWLEDGE_POINTS_PATH}") from e
+    if not isinstance(payload, dict):
+        raise RuntimeError("知识点文件根节点必须是对象")
+    return payload
 
+
+@lru_cache
+def _load() -> dict[str, KnowledgePoint]:
+    payload = _load_payload()
     nodes = payload.get("nodes")
     if not isinstance(nodes, list):
         raise RuntimeError("知识点文件缺少 nodes 数组")
@@ -51,6 +58,17 @@ def _load() -> dict[str, KnowledgePoint]:
         if node.parent_id is not None and node.parent_id not in result:
             raise RuntimeError(f"知识点 {node.id} 的父节点 {node.parent_id} 不存在")
     return result
+
+
+def knowledge_points_payload() -> dict[str, object]:
+    return _load_payload()
+
+
+def has_knowledge_point_prefix(prefix: str) -> bool:
+    return any(
+        node.id == prefix or node.id.startswith(f"{prefix}.")
+        for node in _load().values()
+    )
 
 
 def get_knowledge_point(knowledge_point_id: str) -> KnowledgePoint | None:
@@ -89,3 +107,4 @@ def validate_knowledge_points(
 def clear_cache() -> None:
     """仅供测试或教材改版后显式刷新。"""
     _load.cache_clear()
+    _load_payload.cache_clear()

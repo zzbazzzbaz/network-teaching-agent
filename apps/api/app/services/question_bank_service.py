@@ -11,18 +11,28 @@ from sqlalchemy.orm import Session
 from app.api.schemas.question_bank import (
     AskStudentRecordResponse,
     KnowledgePointRef,
+    KnowledgePointsResponse,
     QuestionDetail,
+    QuestionDetailResponse,
     QuestionInput,
     QuestionReference,
     QuestionSearchItem,
-    QuestionSearchResponse,
     QuestionType,
 )
-from app.core.exceptions import ConflictError, UnprocessableError
+from app.core.exceptions import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    UnprocessableError,
+)
 from app.core.knowledge_points import (
+    get_knowledge_point,
+    has_knowledge_point_prefix,
     knowledge_point_title,
+    knowledge_points_payload,
     validate_knowledge_points,
 )
+from app.core.pagination import PageRequest, PageResult
 from app.models.question import Question, QuestionAttempt
 from app.repositories.question_repository import question_repository
 
@@ -80,6 +90,116 @@ class QuestionBankService:
             session.rollback()
             raise
         session.refresh(question)
+        return question
+
+    def get_detail(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_id: uuid.UUID,
+    ) -> QuestionDetailResponse:
+        question = question_repository.get_question(session, question_id)
+        if question is None or (
+            question.owner_id is not None and question.owner_id != user_id
+        ):
+            raise NotFoundError("题目不存在")
+
+        last_attempt_at = None
+        if question.owner_id is not None:
+            last_attempt_at = question_repository.last_attempt_times(
+                session,
+                user_id=user_id,
+                question_ids=[question.question_id],
+            ).get(question.question_id)
+        return self._to_detail(question, last_attempt_at=last_attempt_at)
+
+    def update_question(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_id: uuid.UUID,
+        payload: QuestionInput,
+    ) -> QuestionDetailResponse:
+        question = self._get_owned_private_question(
+            session,
+            user_id=user_id,
+            question_id=question_id,
+            action="编辑",
+        )
+        _validate(payload)
+        try:
+            question_repository.update_question(session, question, payload=payload)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        session.refresh(question)
+
+        last_attempt_at = question_repository.last_attempt_times(
+            session,
+            user_id=user_id,
+            question_ids=[question.question_id],
+        ).get(question.question_id)
+        return self._to_detail(question, last_attempt_at=last_attempt_at)
+
+    def delete_question(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_id: uuid.UUID,
+    ) -> None:
+        question = self._get_owned_private_question(
+            session,
+            user_id=user_id,
+            question_id=question_id,
+            action="删除",
+        )
+        if question_repository.count_attempts(session, question.question_id) > 0:
+            raise ConflictError("题目已有作答记录，不能删除")
+        try:
+            question_repository.delete_question(session, question)
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            raise ConflictError("题目已有作答记录，不能删除") from None
+        except Exception:
+            session.rollback()
+            raise
+
+    def knowledge_points(self) -> KnowledgePointsResponse:
+        return KnowledgePointsResponse.model_validate(knowledge_points_payload())
+
+    def validate_public_search_filters(
+        self,
+        *,
+        knowledge_point_id: str | None,
+        knowledge_point_prefix: str | None,
+    ) -> None:
+        if knowledge_point_id is not None and get_knowledge_point(knowledge_point_id) is None:
+            raise UnprocessableError(f"知识点不存在：{knowledge_point_id}")
+        if knowledge_point_prefix is not None and not has_knowledge_point_prefix(
+            knowledge_point_prefix
+        ):
+            raise UnprocessableError(f"知识点前缀不存在：{knowledge_point_prefix}")
+
+    def _get_owned_private_question(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_id: uuid.UUID,
+        action: str,
+    ) -> Question:
+        question = question_repository.get_question(session, question_id)
+        if question is None:
+            raise NotFoundError("题目不存在")
+        if question.owner_id is None:
+            raise ForbiddenError(f"公共题不能{action}")
+        if question.owner_id != user_id:
+            raise NotFoundError("题目不存在")
         return question
 
     def record_ask_student(
@@ -169,17 +289,16 @@ class QuestionBankService:
         question_type: QuestionType | None,
         knowledge_point_id: str | None,
         knowledge_point_prefix: str | None,
-        limit: int,
-        offset: int,
+        page: PageRequest,
         detail: QuestionDetail,
-    ) -> QuestionSearchResponse:
+    ) -> PageResult[QuestionSearchItem]:
         if knowledge_point_prefix and not _PREFIX_PATTERN.fullmatch(knowledge_point_prefix):
             raise UnprocessableError("knowledge_point_prefix 必须使用目录编号，如 5 或 5.8")
 
-        if detail == "full" and limit > 3:
-            limit = 3
+        if detail == "full" and page.limit > 3:
+            page = PageRequest(limit=3, offset=page.offset)
 
-        questions, total = question_repository.search(
+        result = question_repository.search(
             session,
             user_id=user_id,
             scope=scope,
@@ -187,13 +306,12 @@ class QuestionBankService:
             question_type=question_type,
             knowledge_point_id=knowledge_point_id,
             knowledge_point_prefix=knowledge_point_prefix,
-            limit=limit,
-            offset=offset,
+            page=page,
         )
 
         last_attempts: dict[uuid.UUID, datetime] = {}
         if scope != "public":
-            mine_ids = [q.question_id for q in questions if q.owner_id is not None]
+            mine_ids = [q.question_id for q in result.items if q.owner_id is not None]
             last_attempts = question_repository.last_attempt_times(
                 session,
                 user_id=user_id,
@@ -206,13 +324,41 @@ class QuestionBankService:
                 detail=detail,
                 last_attempt_at=last_attempts.get(question.question_id),
             )
-            for question in questions
+            for question in result.items
         ]
-        return QuestionSearchResponse(
-            total=total,
-            limit=limit,
-            offset=offset,
+        return PageResult(
             items=items,
+            total=result.total,
+            limit=result.limit,
+            offset=result.offset,
+        )
+
+    def search_for_student(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        scope: str,
+        query: str | None,
+        question_type: QuestionType | None,
+        knowledge_point_id: str | None,
+        knowledge_point_prefix: str | None,
+        page: PageRequest,
+    ) -> PageResult[QuestionSearchItem]:
+        self.validate_public_search_filters(
+            knowledge_point_id=knowledge_point_id,
+            knowledge_point_prefix=knowledge_point_prefix,
+        )
+        return self.search(
+            session,
+            user_id=user_id,
+            scope=scope,
+            query=query,
+            question_type=question_type,
+            knowledge_point_id=knowledge_point_id,
+            knowledge_point_prefix=knowledge_point_prefix,
+            page=page,
+            detail="summary",
         )
 
     def _to_item(
@@ -240,6 +386,32 @@ class QuestionBankService:
             correct_option=question.correct_option if detail == "full" else None,
             reference_answer=question.reference_answer if detail == "full" else None,
             primary_knowledge_point=primary,
+            secondary_knowledge_points=secondary,
+            last_attempt_at=last_attempt_at,
+        )
+
+    def _to_detail(
+        self,
+        question: Question,
+        *,
+        last_attempt_at: datetime | None,
+    ) -> QuestionDetailResponse:
+        secondary = [
+            KnowledgePointRef(id=kp_id, title=knowledge_point_title(kp_id))
+            for kp_id in question.secondary_knowledge_point_ids
+        ]
+        return QuestionDetailResponse(
+            question_id=question.question_id,
+            origin="public" if question.owner_id is None else "mine",
+            question_type=cast(QuestionType, question.question_type),
+            stem=question.stem,
+            options=question.options,
+            correct_option=question.correct_option,
+            reference_answer=question.reference_answer,
+            primary_knowledge_point=KnowledgePointRef(
+                id=question.primary_knowledge_point_id,
+                title=knowledge_point_title(question.primary_knowledge_point_id),
+            ),
             secondary_knowledge_points=secondary,
             last_attempt_at=last_attempt_at,
         )

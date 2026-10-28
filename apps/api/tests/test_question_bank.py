@@ -295,7 +295,7 @@ def test_create_private_question(
         json=_question_payload(),
         headers=_headers(user),
     )
-    assert response.status_code == 200, response.text
+    assert response.status_code == 201, response.text
     question_id = response.json()["question_id"]
 
     with cast(FastAPI, client.app).state.session_factory() as session:
@@ -482,3 +482,212 @@ def test_replace_public_questions_aborts_on_public_attempt(
             assert "公共题存在作答记录" in str(e)
         else:
             raise AssertionError("expected UnprocessableError")
+
+
+PUBLIC_QUESTIONS = "/api/v1/question-bank/questions"
+PUBLIC_KNOWLEDGE_POINTS = "/api/v1/question-bank/knowledge-points"
+
+
+def _login_headers(
+    client: TestClient,
+    username: str = "alice",
+    password: str = "password123",
+) -> dict[str, str]:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"username": username, "password": password},
+    )
+    assert response.status_code == 200, response.text
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def test_public_question_routes_require_auth(client: TestClient) -> None:
+    assert client.get(PUBLIC_QUESTIONS).status_code == 401
+    assert client.get(PUBLIC_KNOWLEDGE_POINTS).status_code == 401
+
+
+def test_public_question_search_and_detail(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user()
+    headers = _login_headers(client)
+    public_id = _create_public(client)
+    private = client.post(
+        PUBLIC_QUESTIONS,
+        json=_question_payload(stem="我的私有题"),
+        headers=headers,
+    )
+    assert private.status_code == 201, private.text
+    private_id = private.json()["question_id"]
+
+    public_list = client.get(
+        PUBLIC_QUESTIONS,
+        params={"scope": "public"},
+        headers=headers,
+    )
+    assert public_list.status_code == 200, public_list.text
+    public_body = public_list.json()
+    assert public_body["total"] == 1
+    item = public_body["items"][0]
+    assert item["question_id"] == str(public_id)
+    assert item["origin"] == "public"
+    assert "stem" not in item
+    assert "options" not in item
+    assert "correct_option" not in item
+    assert "reference_answer" not in item
+    assert item["last_attempt_at"] is None
+
+    mine_list = client.get(
+        PUBLIC_QUESTIONS,
+        params={"scope": "mine"},
+        headers=headers,
+    )
+    assert mine_list.status_code == 200
+    assert mine_list.json()["items"][0]["question_id"] == private_id
+
+    all_list = client.get(
+        PUBLIC_QUESTIONS,
+        params={"scope": "all"},
+        headers=headers,
+    )
+    assert all_list.status_code == 200
+    assert all_list.json()["total"] == 2
+
+    detail = client.get(f"{PUBLIC_QUESTIONS}/{public_id}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    detail_body = detail.json()
+    assert detail_body["origin"] == "public"
+    assert detail_body["correct_option"] == "B"
+    assert detail_body["reference_answer"] is None
+    assert detail_body["stem"] == _question_payload()["stem"]
+
+
+def test_public_knowledge_points(client: TestClient, create_user: Callable[..., Users]) -> None:
+    create_user()
+    headers = _login_headers(client)
+
+    response = client.get(PUBLIC_KNOWLEDGE_POINTS, headers=headers)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["version"] == 1
+    assert body["course"] == "computer-networks"
+    assert any(node["id"] == "5.8.2" for node in body["nodes"])
+
+    invalid_id = client.get(
+        PUBLIC_QUESTIONS,
+        params={"knowledge_point_id": "9.9.9"},
+        headers=headers,
+    )
+    assert invalid_id.status_code == 422
+
+    invalid_prefix = client.get(
+        PUBLIC_QUESTIONS,
+        params={"knowledge_point_prefix": "9.9"},
+        headers=headers,
+    )
+    assert invalid_prefix.status_code == 422
+
+
+def test_public_create_update_and_delete_private_question(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    headers = _login_headers(client)
+
+    created = client.post(
+        PUBLIC_QUESTIONS,
+        json=_question_payload(),
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    question_id = created.json()["question_id"]
+
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        question = session.get(Question, uuid.UUID(question_id))
+        assert question is not None
+        assert question.owner_id == user.user_id
+
+    updated = client.put(
+        f"{PUBLIC_QUESTIONS}/{question_id}",
+        json=_question_payload(
+            question_type="short_answer",
+            stem="修改后的题干",
+            options=None,
+            correct_option=None,
+            reference_answer="参考答案",
+            primary_knowledge_point_id="5.8.3",
+            secondary_knowledge_point_ids=["5.8.2"],
+        ),
+        headers=headers,
+    )
+    assert updated.status_code == 200, updated.text
+    updated_body = updated.json()
+    assert updated_body["question_id"] == question_id
+    assert updated_body["question_type"] == "short_answer"
+    assert updated_body["stem"] == "修改后的题干"
+    assert updated_body["correct_option"] is None
+    assert updated_body["reference_answer"] == "参考答案"
+
+    deleted = client.delete(f"{PUBLIC_QUESTIONS}/{question_id}", headers=headers)
+    assert deleted.status_code == 204
+    assert client.get(f"{PUBLIC_QUESTIONS}/{question_id}", headers=headers).status_code == 404
+
+
+def test_public_question_cannot_be_modified(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user()
+    headers = _login_headers(client)
+    public_id = _create_public(client)
+
+    update = client.put(
+        f"{PUBLIC_QUESTIONS}/{public_id}",
+        json=_question_payload(),
+        headers=headers,
+    )
+    assert update.status_code == 403
+    delete = client.delete(f"{PUBLIC_QUESTIONS}/{public_id}", headers=headers)
+    assert delete.status_code == 403
+
+
+def test_other_users_private_question_is_hidden(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user("alice", "password123")
+    create_user("bob", "password456")
+    alice = _login_headers(client, "alice", "password123")
+    bob = _login_headers(client, "bob", "password456")
+
+    created = client.post(PUBLIC_QUESTIONS, json=_question_payload(), headers=alice)
+    assert created.status_code == 201, created.text
+    question_id = created.json()["question_id"]
+
+    assert client.get(f"{PUBLIC_QUESTIONS}/{question_id}", headers=bob).status_code == 404
+    assert (
+        client.put(
+            f"{PUBLIC_QUESTIONS}/{question_id}",
+            json=_question_payload(),
+            headers=bob,
+        ).status_code
+        == 404
+    )
+    assert client.delete(f"{PUBLIC_QUESTIONS}/{question_id}", headers=bob).status_code == 404
+
+
+def test_delete_private_question_with_attempt_conflicts(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    headers = _login_headers(client)
+    created = client.post(PUBLIC_QUESTIONS, json=_question_payload(), headers=headers)
+    assert created.status_code == 201, created.text
+    question_id = uuid.UUID(created.json()["question_id"])
+    _create_private_attempt(client, user_id=user.user_id, public_question_id=question_id)
+
+    response = client.delete(f"{PUBLIC_QUESTIONS}/{question_id}", headers=headers)
+    assert response.status_code == 409

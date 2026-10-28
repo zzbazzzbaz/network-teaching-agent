@@ -44,15 +44,20 @@ class JWTSettings(_Base):
     jwks_url: str
 
 
+class ServerSettings(_Base):
+    model_config = SettingsConfigDict(env_prefix="SERVER_")
+
+    auth_token: str
+    api_base_url: str
+    timeout_seconds: int
+
+
 class Settings(_Base):
     deepseek: DeepSeekSettings = Field(default_factory=DeepSeekSettings)
+    server: ServerSettings = Field(default_factory=ServerSettings)
     langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
     e2b: E2BSettings = Field(default_factory=E2BSettings)
     jwt: JWTSettings = Field(default_factory=JWTSettings)
-
-    agent_api_base_url: str
-    agent_internal_token: str
-    agent_api_timeout_seconds: int
 
 
 @lru_cache

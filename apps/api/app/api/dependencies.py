@@ -62,7 +62,7 @@ def _require_internal_token(request: Request, settings: SettingsDep) -> None:
     token = request.headers.get("X-Internal-Token")
     if not token:
         raise HTTPException(status_code=401, detail="缺少内部凭证")
-    if not secrets.compare_digest(token, settings.agent_internal_token):
+    if not secrets.compare_digest(token, settings.server.auth_token):
         raise HTTPException(status_code=403, detail="内部凭证无效")
 
 

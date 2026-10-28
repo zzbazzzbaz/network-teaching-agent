@@ -1,18 +1,18 @@
 import uuid
 
-from pydantic import BaseModel
+from app.api.schemas.base import ApiRequest, ApiResponse
 
 
-class LoginBody(BaseModel):
+class LoginBody(ApiRequest):
     username: str
     password: str
 
 
-class RefreshBody(BaseModel):
+class RefreshBody(ApiRequest):
     refresh_token: str
 
 
-class AuthResponse(BaseModel):
+class AuthResponse(ApiResponse):
     user_id: uuid.UUID
     username: str
     access_token: str
@@ -21,6 +21,6 @@ class AuthResponse(BaseModel):
     expires_in: int
 
 
-class UserResponse(BaseModel):
+class UserResponse(ApiResponse):
     user_id: uuid.UUID
     username: str

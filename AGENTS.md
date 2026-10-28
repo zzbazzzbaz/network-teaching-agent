@@ -59,6 +59,6 @@ cd apps/agent-ui && npm run lint && npm run build && npm run test:e2e
 
 1. 平台 `session_id` 就是 LangGraph 的 `thread_id`。打开会话前用 `ensureLangGraphThread` 幂等补建；删除会话时同步删线程。
 2. 用户身份只来自 JWT `sub`。前端不向 LangGraph 的 `configurable` 写 `sandbox_id`；Agent 用 `X-Internal-Token` 调 `POST /internal/sandbox/ensure` 获取沙箱。
-3. API 与 Agent 共享 `AGENT_INTERNAL_TOKEN`，轮换时必须同时重启两者。
+3. API 与 Agent 共享 `SERVER_AUTH_TOKEN`，轮换时必须同时重启两者。
 4. 聊天内容只有纯文本，不要假设附件或多模态。
 5. 真实模型调用很慢。E2E 的 180s 超时、60s 断言超时是刻意设置，不要调小。

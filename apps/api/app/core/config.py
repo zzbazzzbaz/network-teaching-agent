@@ -67,15 +67,23 @@ class JWTSettings(_Base):
         return str(path if path.is_absolute() else API_DIR / path)
 
 
+class ServerSettings(_Base):
+    model_config = SettingsConfigDict(env_prefix="SERVER_")
+
+    auth_token: str
+    agent_base_url: str
+    timeout_seconds: int
+
+
 class Settings(_Base):
     e2b: E2BSettings = Field(default_factory=E2BSettings)
+    server: ServerSettings = Field(default_factory=ServerSettings)
     ags: AGSSettings = Field(default_factory=AGSSettings)
     scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
     db: DBSettings = Field(default_factory=DBSettings)
     jwt: JWTSettings = Field(default_factory=JWTSettings)
 
     cors_origins: str
-    agent_internal_token: str = Field(min_length=1)
 
     @property
     def cors_origins_list(self) -> list[str]:

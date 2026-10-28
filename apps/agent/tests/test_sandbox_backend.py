@@ -27,9 +27,11 @@ def test_ensure_sandbox_id_posts_internal_token(
         sandbox_api,
         "get_settings",
         lambda: SimpleNamespace(
-            agent_api_base_url="http://api:8000/",
-            agent_internal_token="secret",
-            agent_api_timeout_seconds=3,
+            server=SimpleNamespace(
+                api_base_url="http://api:8000/",
+                auth_token="secret",
+                timeout_seconds=3,
+            ),
         ),
     )
     monkeypatch.setattr(sandbox_api.httpx, "post", fake_post)
@@ -58,9 +60,11 @@ def test_ensure_sandbox_id_surfaces_api_error(
         sandbox_api,
         "get_settings",
         lambda: SimpleNamespace(
-            agent_api_base_url="http://api:8000",
-            agent_internal_token="wrong",
-            agent_api_timeout_seconds=3,
+            server=SimpleNamespace(
+                api_base_url="http://api:8000",
+                auth_token="wrong",
+                timeout_seconds=3,
+            ),
         ),
     )
     monkeypatch.setattr(sandbox_api.httpx, "post", fake_post)

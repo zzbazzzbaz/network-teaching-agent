@@ -6,14 +6,15 @@ from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     SerializerFunctionWrapHandler,
     field_validator,
     model_serializer,
     model_validator,
 )
+
+from app.api.schemas.base import ApiRequest, ApiResponse
+from app.api.schemas.pagination import Page, PageQuery
 
 QuestionType = Literal["single_choice", "short_answer"]
 QuestionScope = Literal["all", "public", "mine"]
@@ -22,9 +23,23 @@ QuestionDetail = Literal["summary", "full"]
 _OPTION_PATTERN = re.compile(r"^(?P<letter>[A-F])[.、)）]\s*(?P<body>.+)$")
 
 
-class QuestionInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class QuestionPageQuery(PageQuery):
+    limit: int = Field(default=10, ge=1, le=20)
 
+
+class QuestionSearchQuery(QuestionPageQuery):
+    scope: QuestionScope = "all"
+    query: str | None = Field(default=None, min_length=1, max_length=100)
+    question_type: QuestionType | None = None
+    knowledge_point_id: str | None = Field(default=None, max_length=16)
+    knowledge_point_prefix: str | None = Field(default=None, max_length=16)
+
+
+class InternalQuestionSearchQuery(QuestionSearchQuery):
+    detail: QuestionDetail = "summary"
+
+
+class QuestionInput(ApiRequest):
     question_type: QuestionType
     stem: str = Field(min_length=1, max_length=4000)
     options: list[str] | None = None
@@ -112,9 +127,7 @@ class QuestionInput(BaseModel):
         return self
 
 
-class AskStudentRecordRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class AskStudentRecordRequest(ApiRequest):
     thread_id: str | None = Field(default=None, max_length=64)
     tool_call_id: str = Field(min_length=1, max_length=128)
     question: QuestionInput
@@ -133,27 +146,31 @@ class QuestionCreateRequest(QuestionInput):
     pass
 
 
-class QuestionReference(BaseModel):
+class QuestionUpdateRequest(QuestionInput):
+    pass
+
+
+class QuestionReference(ApiResponse):
     correct_option: str | None
     reference_answer: str | None
 
 
-class AskStudentRecordResponse(BaseModel):
+class AskStudentRecordResponse(ApiResponse):
     question_id: UUID
     attempt_id: UUID
     reference: QuestionReference
 
 
-class QuestionCreateResponse(BaseModel):
+class QuestionCreateResponse(ApiResponse):
     question_id: UUID
 
 
-class KnowledgePointRef(BaseModel):
+class KnowledgePointRef(ApiResponse):
     id: str
     title: str
 
 
-class QuestionSearchItem(BaseModel):
+class QuestionSearchItem(ApiResponse):
     question_id: UUID
     origin: Literal["public", "mine"]
     question_type: QuestionType
@@ -178,8 +195,31 @@ class QuestionSearchItem(BaseModel):
         return data
 
 
-class QuestionSearchResponse(BaseModel):
-    total: int
-    limit: int
-    offset: int
-    items: list[QuestionSearchItem]
+class QuestionSearchResponse(Page[QuestionSearchItem]):
+    pass
+
+
+class QuestionDetailResponse(ApiResponse):
+    question_id: UUID
+    origin: Literal["public", "mine"]
+    question_type: QuestionType
+    stem: str
+    options: list[str] | None = None
+    correct_option: str | None = None
+    reference_answer: str | None = None
+    primary_knowledge_point: KnowledgePointRef
+    secondary_knowledge_points: list[KnowledgePointRef]
+    last_attempt_at: datetime | None = None
+
+
+class KnowledgePointNode(ApiResponse):
+    id: str
+    title: str
+    parent_id: str | None
+    level: int
+
+
+class KnowledgePointsResponse(ApiResponse):
+    version: int
+    course: str
+    nodes: list[KnowledgePointNode]

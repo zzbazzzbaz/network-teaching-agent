@@ -150,7 +150,7 @@ def _settings(client: TestClient) -> Settings:
 
 def _internal_headers(client: TestClient, user_id: UUID | str) -> dict[str, str]:
     return {
-        "X-Internal-Token": _settings(client).agent_internal_token,
+        "X-Internal-Token": _settings(client).server.auth_token,
         "X-User-Id": str(user_id),
     }
 

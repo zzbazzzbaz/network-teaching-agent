@@ -86,10 +86,27 @@ class _QuestionDisplayFields(BaseModel):
         return self
 
 
+class AskStudentAnswer(BaseModel):
+    correct_option: str | None = None
+    reference_answer: str | None = None
+
+
 class AskStudentPayload(_QuestionDisplayFields):
-    """中断时发送给前端的 payload，不含答案和知识点。"""
+    """中断时发送给前端的 payload，包含答案供前端本地隐藏。"""
 
     type: Literal["ask_student"] = "ask_student"
+    answer: AskStudentAnswer
+
+    @model_validator(mode="after")
+    def _validate_answer(self) -> Self:
+        if self.mode == "single_choice":
+            if self.answer.correct_option is None:
+                raise ValueError("single_choice 的 answer 必须包含 correct_option")
+            if self.answer.reference_answer is not None:
+                raise ValueError("single_choice 的 answer 不能包含 reference_answer")
+        elif self.answer.correct_option is not None:
+            raise ValueError("short_answer 的 answer 不能包含 correct_option")
+        return self
 
 
 class TeachAskStudentToolInput(_QuestionDisplayFields):

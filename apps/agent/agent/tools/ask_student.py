@@ -13,6 +13,7 @@ from agent.infra.question_bank_api import (
     user_id_from_config,
 )
 from agent.tools.schemas.ask_student import (
+    AskStudentAnswer,
     AskStudentMode,
     AskStudentPayload,
     AskStudentResume,
@@ -67,6 +68,10 @@ def make_ask_student(*, recorder: AskStudentRecorder) -> BaseTool:
             question=question,
             options=options if mode == "single_choice" else None,
             placeholder=placeholder if mode == "short_answer" else None,
+            answer=AskStudentAnswer(
+                correct_option=correct_option if mode == "single_choice" else None,
+                reference_answer=reference_answer if mode == "short_answer" else None,
+            ),
         )
         result = interrupt(
             payload.model_dump(mode="json", exclude_none=True),

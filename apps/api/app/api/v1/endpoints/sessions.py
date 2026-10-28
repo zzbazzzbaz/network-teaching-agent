@@ -4,20 +4,44 @@
 """
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 
 from app.api.dependencies import SessionDep, UserIdDep
-from app.api.schemas.session import CreateSessionBody, SessionResponse, UpdateSessionBody
+from app.api.schemas.session import (
+    CreateSessionBody,
+    SessionListQuery,
+    SessionPageResponse,
+    SessionResponse,
+    UpdateSessionBody,
+)
+from app.core.pagination import PageRequest
 from app.models.session import ChatSession
 from app.services import session_service
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
-@router.get("", response_model=list[SessionResponse], summary="列出我的会话")
-def list_sessions(session: SessionDep, user_id: UserIdDep) -> list[ChatSession]:
-    return session_service.list_sessions(owner_id=user_id, session=session)
+@router.get("", response_model=SessionPageResponse, summary="列出我的会话")
+def list_sessions(
+    params: Annotated[SessionListQuery, Query()],
+    session: SessionDep,
+    user_id: UserIdDep,
+) -> SessionPageResponse:
+    page = PageRequest(limit=params.limit, offset=params.offset)
+    result = session_service.list_sessions(
+        owner_id=user_id,
+        session=session,
+        page=page,
+        agent_id=params.agent_id,
+    )
+    return SessionPageResponse(
+        items=[_to_response(item) for item in result.items],
+        total=result.total,
+        limit=result.limit,
+        offset=result.offset,
+    )
 
 
 @router.post("", response_model=SessionResponse, status_code=201, summary="创建会话")
@@ -25,12 +49,18 @@ def create_session(
     body: CreateSessionBody,
     session: SessionDep,
     user_id: UserIdDep,
-) -> ChatSession:
+) -> SessionResponse:
     """为当前用户创建新会话。
 
-    标题为空时使用默认标题；返回创建的会话及 201 状态。
+    标题为空时使用默认标题；`agent_id` 必须显式指定，返回创建的会话及 201 状态。
     """
-    return session_service.create_session(owner_id=user_id, title=body.title, session=session)
+    chat_session = session_service.create_session(
+        owner_id=user_id,
+        agent_id=body.agent_id,
+        title=body.title,
+        session=session,
+    )
+    return _to_response(chat_session)
 
 
 @router.get("/{session_id}", response_model=SessionResponse, summary="获取会话")
@@ -38,11 +68,13 @@ def get_session(
     session_id: uuid.UUID,
     session: SessionDep,
     user_id: UserIdDep,
-) -> ChatSession:
-    return session_service.get_owned_session(
-        owner_id=user_id,
-        session_id=session_id,
-        session=session,
+) -> SessionResponse:
+    return _to_response(
+        session_service.get_owned_session(
+            owner_id=user_id,
+            session_id=session_id,
+            session=session,
+        )
     )
 
 
@@ -52,12 +84,14 @@ def rename_session(
     body: UpdateSessionBody,
     session: SessionDep,
     user_id: UserIdDep,
-) -> ChatSession:
-    return session_service.rename_session(
-        owner_id=user_id,
-        session_id=session_id,
-        title=body.title,
-        session=session,
+) -> SessionResponse:
+    return _to_response(
+        session_service.rename_session(
+            owner_id=user_id,
+            session_id=session_id,
+            title=body.title,
+            session=session,
+        )
     )
 
 
@@ -79,3 +113,7 @@ def delete_session(
 ) -> Response:
     session_service.delete_session(owner_id=user_id, session_id=session_id, session=session)
     return Response(status_code=204)
+
+
+def _to_response(chat_session: ChatSession) -> SessionResponse:
+    return SessionResponse.model_validate(chat_session)

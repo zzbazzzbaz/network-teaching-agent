@@ -46,7 +46,7 @@ class AskStudentRecorder(Protocol):
 def _headers(user_id: str) -> dict[str, str]:
     settings = get_settings()
     return {
-        "X-Internal-Token": settings.agent_internal_token,
+        "X-Internal-Token": settings.server.auth_token,
         "X-User-Id": user_id,
     }
 
@@ -73,7 +73,7 @@ def _request(
     timeout: float | None = None,
 ) -> dict[str, Any]:
     settings = get_settings()
-    base_url = settings.agent_api_base_url.rstrip("/")
+    base_url = settings.server.api_base_url.rstrip("/")
     try:
         response = httpx.request(
             method,
@@ -81,7 +81,7 @@ def _request(
             params=params,
             json=json,
             headers=_headers(user_id),
-            timeout=timeout if timeout is not None else settings.agent_api_timeout_seconds,
+            timeout=timeout if timeout is not None else settings.server.timeout_seconds,
         )
         response.raise_for_status()
         payload = response.json()
@@ -161,7 +161,7 @@ def _record_request(
             },
             "answer": answer,
         },
-        timeout=min(settings.agent_api_timeout_seconds, 5),
+        timeout=min(settings.server.timeout_seconds, 5),
     )
     question_id = payload.get("question_id")
     attempt_id = payload.get("attempt_id")

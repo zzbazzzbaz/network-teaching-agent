@@ -1,11 +1,11 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
-
+from app.api.schemas.base import ApiResponse
 from app.models.user_sandbox import SandboxStatus
 
 
-class SandboxResponse(BaseModel):
+class SandboxResponse(ApiResponse):
     sandbox_id: str
     status: SandboxStatus
     vscode_url: str | None
@@ -15,3 +15,7 @@ class SandboxResponse(BaseModel):
     paused_at: datetime | None
     hard_destroy_at: datetime
     heartbeat_seconds: int
+
+
+class SandboxDeleteResponse(ApiResponse):
+    status: Literal["stopping"]

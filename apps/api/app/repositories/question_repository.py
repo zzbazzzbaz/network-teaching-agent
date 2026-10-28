@@ -7,6 +7,7 @@ from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.api.schemas.question_bank import QuestionInput
+from app.core.pagination import PageRequest, PageResult
 from app.models.question import Question, QuestionAttempt
 
 
@@ -34,6 +35,36 @@ class QuestionRepository:
 
     def get_question(self, session: Session, question_id: uuid.UUID) -> Question | None:
         return session.get(Question, question_id)
+
+    def update_question(
+        self,
+        session: Session,
+        question: Question,
+        *,
+        payload: QuestionInput,
+    ) -> Question:
+        question.question_type = payload.question_type
+        question.stem = payload.stem
+        question.options = payload.options
+        question.correct_option = payload.correct_option
+        question.reference_answer = payload.reference_answer
+        question.primary_knowledge_point_id = payload.primary_knowledge_point_id
+        question.secondary_knowledge_point_ids = payload.secondary_knowledge_point_ids
+        session.flush()
+        return question
+
+    def count_attempts(self, session: Session, question_id: uuid.UUID) -> int:
+        return int(
+            session.scalar(
+                select(func.count())
+                .select_from(QuestionAttempt)
+                .where(QuestionAttempt.question_id == question_id)
+            )
+            or 0
+        )
+
+    def delete_question(self, session: Session, question: Question) -> None:
+        session.delete(question)
 
     def get_attempt_by_tool_call(
         self,
@@ -100,9 +131,8 @@ class QuestionRepository:
         question_type: str | None,
         knowledge_point_id: str | None,
         knowledge_point_prefix: str | None,
-        limit: int,
-        offset: int,
-    ) -> tuple[list[Question], int]:
+        page: PageRequest,
+    ) -> PageResult[Question]:
         conditions = []
         if scope == "public":
             conditions.append(Question.owner_id.is_(None))
@@ -153,11 +183,16 @@ class QuestionRepository:
         items = list(
             session.scalars(
                 base.order_by(Question.created_at.desc(), Question.question_id.desc())
-                .limit(limit)
-                .offset(offset)
+                .limit(page.limit)
+                .offset(page.offset)
             )
         )
-        return items, int(total or 0)
+        return PageResult(
+            items=items,
+            total=int(total or 0),
+            limit=page.limit,
+            offset=page.offset,
+        )
 
     def has_public_attempts(self, session: Session) -> bool:
         return (

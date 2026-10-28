@@ -10,16 +10,16 @@ class SandboxApiError(RuntimeError):
 def ensure_sandbox_id(user_id: str) -> str:
     """调用 API 确保用户沙箱可用，并返回当前 sandbox_id。"""
     settings = get_settings()
-    base_url = settings.agent_api_base_url.rstrip("/")
+    base_url = settings.server.api_base_url.rstrip("/")
 
     try:
         response = httpx.post(
             f"{base_url}/internal/sandbox/ensure",
             headers={
-                "X-Internal-Token": settings.agent_internal_token,
+                "X-Internal-Token": settings.server.auth_token,
                 "X-User-Id": user_id,
             },
-            timeout=settings.agent_api_timeout_seconds,
+            timeout=settings.server.timeout_seconds,
         )
         response.raise_for_status()
         payload = response.json()

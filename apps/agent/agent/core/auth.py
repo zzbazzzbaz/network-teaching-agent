@@ -1,4 +1,7 @@
 import asyncio
+import secrets
+import uuid
+from collections.abc import Mapping
 from functools import lru_cache
 from typing import Any
 
@@ -10,6 +13,38 @@ from agent.core.config import get_settings
 from agent.core.constants import JWT_AUDIENCE, JWT_ISSUER
 
 auth = Auth()
+
+
+def _header(headers: Mapping[bytes, bytes], name: bytes) -> str | None:
+    value = headers.get(name)
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return None
+
+
+def _is_store_path(path: str) -> bool:
+    return path == "/store" or path.startswith("/store/")
+
+
+def _internal_identity(
+    headers: Mapping[bytes, bytes],
+    *,
+    path: str,
+) -> str | None:
+    """校验 API 到 Agent 的内部服务凭证；非 /store 请求返回 None。"""
+    if not _is_store_path(path):
+        return None
+
+    token = _header(headers, b"x-internal-token")
+    user_id = _header(headers, b"x-user-id")
+    if not token or not user_id:
+        raise Auth.exceptions.HTTPException(status_code=401, detail="缺少内部凭证")
+    if not secrets.compare_digest(token, get_settings().server.auth_token):
+        raise Auth.exceptions.HTTPException(status_code=403, detail="内部凭证无效")
+    try:
+        return str(uuid.UUID(user_id))
+    except ValueError as e:
+        raise Auth.exceptions.HTTPException(status_code=401, detail="X-User-Id 无效") from e
 
 
 @lru_cache
@@ -35,8 +70,14 @@ def _verify(token: str) -> dict[str, Any]:
 
 @auth.authenticate
 async def authenticate(
+    headers: Mapping[bytes, bytes] | None = None,
+    path: str = "",
     authorization: str | None = None,
 ) -> Auth.types.MinimalUserDict:
+    internal_identity = _internal_identity(headers or {}, path=path)
+    if internal_identity is not None:
+        return {"identity": internal_identity}
+
     if not authorization or not authorization.lower().startswith("bearer "):
         raise Auth.exceptions.HTTPException(status_code=401)
     token = authorization[7:].strip()
@@ -94,6 +135,38 @@ async def filter_own_threads(
     value: Auth.types.on.threads.value,
 ) -> dict[str, str]:
     return {"owner": ctx.user.identity}
+
+
+def _deny_store(detail: str) -> None:
+    raise Auth.exceptions.HTTPException(status_code=403, detail=detail)
+
+
+@auth.on.store
+async def scope_store(
+    ctx: Auth.types.AuthContext,
+    value: dict[str, Any],
+) -> None:
+    """记忆 Store 只读，且只能访问当前用户的 memory namespace。"""
+    if ctx.action not in {"get", "search"}:
+        _deny_store(f"记忆 Store 不支持 {ctx.action}")
+
+    expected = ("users", ctx.user.identity, "memory")
+    namespace = value.get("namespace")
+    if not isinstance(namespace, (list, tuple)) or tuple(namespace) != expected:
+        _deny_store("只允许访问当前用户的记忆 namespace")
+
+    if ctx.action == "get":
+        key = value.get("key")
+        if (
+            not isinstance(key, str)
+            or not key.startswith("/")
+            or "\\" in key
+            or "\x00" in key
+            or ".." in key.split("/")
+        ):
+            _deny_store("非法记忆文件路径")
+
+    value["namespace"] = expected
 
 
 @auth.on
