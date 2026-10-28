@@ -3,7 +3,7 @@ import secrets
 import uuid
 from collections.abc import Mapping
 from functools import lru_cache
-from typing import Any
+from typing import Any, NoReturn
 
 import jwt
 from jwt import PyJWKClient
@@ -15,57 +15,10 @@ from agent.core.constants import JWT_AUDIENCE, JWT_ISSUER
 auth = Auth()
 
 
-def _header(headers: Mapping[bytes, bytes], name: bytes) -> str | None:
-    value = headers.get(name)
-    if isinstance(value, bytes):
-        return value.decode("utf-8")
-    return None
-
-
-def _is_store_path(path: str) -> bool:
-    return path == "/store" or path.startswith("/store/")
-
-
-def _internal_identity(
-    headers: Mapping[bytes, bytes],
-    *,
-    path: str,
-) -> str | None:
-    """校验 API 到 Agent 的内部服务凭证；非 /store 请求返回 None。"""
-    if not _is_store_path(path):
-        return None
-
-    token = _header(headers, b"x-internal-token")
-    user_id = _header(headers, b"x-user-id")
-    if not token or not user_id:
-        raise Auth.exceptions.HTTPException(status_code=401, detail="缺少内部凭证")
-    if not secrets.compare_digest(token, get_settings().server.auth_token):
-        raise Auth.exceptions.HTTPException(status_code=403, detail="内部凭证无效")
-    try:
-        return str(uuid.UUID(user_id))
-    except ValueError as e:
-        raise Auth.exceptions.HTTPException(status_code=401, detail="X-User-Id 无效") from e
-
-
 @lru_cache
 def _jwks_client() -> PyJWKClient:
     settings = get_settings()
     return PyJWKClient(settings.jwt.jwks_url, cache_keys=True, lifespan=300)
-
-
-def _verify(token: str) -> dict[str, Any]:
-    signing_key = _jwks_client().get_signing_key_from_jwt(token)
-    payload = jwt.decode(
-        token,
-        signing_key.key,
-        algorithms=["RS256"],
-        audience=JWT_AUDIENCE,
-        issuer=JWT_ISSUER,
-        options={"require": ["exp", "iat", "sub"]},
-    )
-    if payload.get("typ") != "access":
-        raise jwt.InvalidTokenError("令牌类型不正确")
-    return payload
 
 
 @auth.authenticate
@@ -137,16 +90,14 @@ async def filter_own_threads(
     return {"owner": ctx.user.identity}
 
 
-def _deny_store(detail: str) -> None:
-    raise Auth.exceptions.HTTPException(status_code=403, detail=detail)
-
-
 @auth.on.store
 async def scope_store(
     ctx: Auth.types.AuthContext,
     value: dict[str, Any],
 ) -> None:
-    """记忆 Store 只读，且只能访问当前用户的 memory namespace。"""
+    def _deny_store(detail: str) -> NoReturn:
+        raise Auth.exceptions.HTTPException(status_code=403, detail=detail)
+
     if ctx.action not in {"get", "search"}:
         _deny_store(f"记忆 Store 不支持 {ctx.action}")
 
@@ -172,3 +123,47 @@ async def scope_store(
 @auth.on
 async def deny_unhandled(ctx: Auth.types.AuthContext, value: object) -> None:
     raise Auth.exceptions.HTTPException(status_code=403, detail="禁止访问该资源")
+
+
+def _verify(token: str) -> dict[str, Any]:
+    signing_key = _jwks_client().get_signing_key_from_jwt(token)
+    payload = jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256"],
+        audience=JWT_AUDIENCE,
+        issuer=JWT_ISSUER,
+        options={"require": ["exp", "iat", "sub"]},
+    )
+    if payload.get("typ") != "access":
+        raise jwt.InvalidTokenError("令牌类型不正确")
+    return payload
+
+
+def _internal_identity(
+    headers: Mapping[bytes, bytes],
+    *,
+    path: str,
+) -> str | None:
+    def _header(headers: Mapping[bytes, bytes], name: bytes) -> str | None:
+        value = headers.get(name)
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return None
+
+    def _is_store_path(path: str) -> bool:
+        return path == "/store" or path.startswith("/store/")
+
+    if not _is_store_path(path):
+        return None
+
+    token = _header(headers, b"x-internal-token")
+    user_id = _header(headers, b"x-user-id")
+    if not token or not user_id:
+        raise Auth.exceptions.HTTPException(status_code=401, detail="缺少内部凭证")
+    if not secrets.compare_digest(token, get_settings().server.auth_token):
+        raise Auth.exceptions.HTTPException(status_code=403, detail="内部凭证无效")
+    try:
+        return str(uuid.UUID(user_id))
+    except ValueError as e:
+        raise Auth.exceptions.HTTPException(status_code=401, detail="X-User-Id 无效") from e
