@@ -266,7 +266,7 @@ def test_session_agent_migration_backfills_existing_sessions(
             row = connection.execute(
                 text(
                     """
-                    SELECT agent_id
+                    SELECT agent_id, title_source
                     FROM sessions
                     WHERE session_id = :session_id
                     """
@@ -274,6 +274,7 @@ def test_session_agent_migration_backfills_existing_sessions(
                 {"session_id": session_id},
             ).one()
         assert row.agent_id == "exp_agent"
+        assert row.title_source == "user"
     finally:
         get_settings.cache_clear()
 

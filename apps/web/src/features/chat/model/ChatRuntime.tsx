@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useEffect, useRef, type ReactNode } from "react"
 import {
   AssistantRuntimeProvider,
   useExternalMessageConverter,
@@ -6,7 +6,9 @@ import {
   type AppendMessage,
 } from "@assistant-ui/react"
 import { convertLangChainBaseMessage } from "@assistant-ui/react-langchain"
+import { useQueryClient } from "@tanstack/react-query"
 
+import { DEFAULT_SESSION_TITLE, sessionKeys } from "@/features/sessions"
 import type { Session } from "@/shared/api/types"
 
 import { useChatSession, type ChatStream } from "./useChatSession"
@@ -23,17 +25,36 @@ function messageText(message: AppendMessage): string {
 
 export function ChatRuntime({
   session,
-  onUserMessage,
   children,
 }: {
   session: Session
-  onUserMessage?: (text: string) => void
   children: (stream: ChatStream) => ReactNode
 }) {
   const stream = useChatSession({
     agentId: session.agent_id,
     threadId: session.session_id,
   })
+  const queryClient = useQueryClient()
+  const wasRunning = useRef(false)
+
+  useEffect(() => {
+    const finished = wasRunning.current && !stream.isLoading
+    wasRunning.current = stream.isLoading
+    if (!finished) return
+    if ((session.title || DEFAULT_SESSION_TITLE) !== DEFAULT_SESSION_TITLE) return
+    void queryClient.invalidateQueries({
+      queryKey: sessionKeys.detail(session.session_id),
+    })
+    void queryClient.invalidateQueries({
+      queryKey: sessionKeys.list(session.agent_id),
+    })
+  }, [
+    stream.isLoading,
+    session.session_id,
+    session.agent_id,
+    session.title,
+    queryClient,
+  ])
 
   const messages = useExternalMessageConverter({
     callback: convertLangChainBaseMessage,
@@ -47,7 +68,6 @@ export function ChatRuntime({
     onNew: async (message: AppendMessage) => {
       const text = messageText(message)
       if (!text) return
-      onUserMessage?.(text)
       await stream.submit({
         messages: [{ type: "human", content: text }],
       })

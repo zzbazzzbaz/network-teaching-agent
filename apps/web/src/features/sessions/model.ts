@@ -1,5 +1,7 @@
 import type { AgentId, Mode, Session } from "@/shared/api/types"
 
+export const DEFAULT_SESSION_TITLE = "新会话"
+
 export const MODES = {
   learn: {
     id: "learn",

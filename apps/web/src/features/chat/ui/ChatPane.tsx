@@ -172,14 +172,12 @@ function ChatSurface({
 export function ChatPane({
   session,
   mode,
-  onUserMessage,
 }: {
   session: Session
   mode: Mode
-  onUserMessage?: (text: string) => void
 }) {
   return (
-    <ChatRuntime session={session} onUserMessage={onUserMessage}>
+    <ChatRuntime session={session}>
       {(stream) => <ChatSurface mode={mode} stream={stream} />}
     </ChatRuntime>
   )

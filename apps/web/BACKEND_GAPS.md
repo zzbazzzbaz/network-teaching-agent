@@ -8,9 +8,8 @@
 - `GET /api/v1/sessions` 只返回 `session_id / agent_id / title / created_at / updated_at`，没有最后一条消息摘要和消息数。
   - 当前前端：侧栏只展示标题与最后活跃时间，不伪造摘要或数量。
   - 建议：列表 DTO 增加 `last_message_preview`、`message_count`，或提供单独的 session summary。
-- 新建会话没有服务端自动标题。后端不会在首轮结束后生成标题。
-  - 当前前端：首次发送消息时在客户端用消息前 30 个字符调用 PATCH 重命名（仅在标题仍为「新会话」时）；这不是服务端语义标题。
-  - 建议：Agent/API 在首轮结束后生成并 PATCH 标题，或返回标题建议。
+- 新建会话自动标题已实现：Agent 首轮生成 + API 内部接口落库；前端在 run 结束刷新 detail/list。
+  - 说明：前端不再做截断重命名；标题由 Agent 生成，手动改名受 `title_source` 保护。见 `docs/chat/10.29/session-auto-title-v1-spec.md`。
 - 发送消息不会自动刷新 `sessions.updated_at`；前端只在打开会话时调用 `POST /sessions/{id}/touch`。
   - 建议：Agent run 完成后由 API 或前端统一 touch；若由前端统一处理，需要避免和聊天层耦合。
 

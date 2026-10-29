@@ -8,6 +8,7 @@ export {
   touchSession,
 } from "./api"
 export {
+  DEFAULT_SESSION_TITLE,
   MODES,
   agentForMode,
   isSessionForMode,

@@ -68,6 +68,7 @@ task
 - `ask-question` 与 `computer-networks-textbook` 只在 `teach_agent` 可见；`ask-question/bank.md` 是题库检索、录题和知识点编号的细则。
 - `diagrams` 挂在 `common/`，两个 graph 共用；`base.md` 里只有一句触发条件，选型和语法约束都在 skill 里。
 - 两个 graph 都在 `langgraph.json` 注册，入口是 `agent/main.py`。
+- 两个 graph 都挂 `SessionTitleMiddleware`：首轮 `after_agent` 生成会话标题，调 API `/internal/sessions/{id}/title` 写回；失败不阻塞聊天。
 
 ## 记忆 Store
 

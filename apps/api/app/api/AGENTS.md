@@ -43,6 +43,7 @@ app/api/
 - 列表分页：`GET /sessions` 和题库搜索返回 `Page[T]`；
 - 会话创建 / 删除同步管理 LangGraph thread；打开会话时调 `POST /sessions/{id}/ensure-thread`；
 - 记忆只读 BFF 在 `/api/v1/memory/*`，API 通过 `AgentDep` 调 Agent 的 `/store/*`；
+- 自动标题回写接口在 `/internal/sessions/{id}/title`，只允许 Agent 用内部 token 调用；
 - 内部接口放在 `internal/` 包，由 `internal/router.py` 汇总，使用 `/internal/*` 前缀，直接挂到 `app/main.py`，不挂 `/api/v1`，并设置 `include_in_schema=False`；
 - 内部接口不能经过 nginx 公网转发。
 

@@ -189,10 +189,21 @@ def test_exp_graph_has_no_ask_student(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "task" in tools
 
 
+def test_both_graphs_mount_session_title_middleware(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    exp = _build_exp_graph(monkeypatch)
+    teach = _build_teach_graph(monkeypatch)
+
+    assert "session_title.after_agent" in exp.nodes
+    assert "session_title.after_agent" in teach.nodes
+
+
 def test_prompt_and_skill_layout() -> None:
     assert (RESOURCE_DIR / "prompt" / "base.md").is_file()
     assert (RESOURCE_DIR / "prompt" / "lab.md").is_file()
     assert (RESOURCE_DIR / "prompt" / "teaching.md").is_file()
+    assert (RESOURCE_DIR / "prompt" / "title.md").is_file()
     assert not (RESOURCE_DIR / "prompt" / "system.md").exists()
 
     assert (RESOURCE_DIR / "skills" / "teaching" / "ask-question" / "SKILL.md").is_file()

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 
@@ -8,7 +8,6 @@ import {
   panelLabel,
   sessionQueryOptions,
   touchSession,
-  useRenameSession,
 } from "@/features/sessions"
 import { Button } from "@/shared/ui/button"
 import { cn } from "@/shared/lib/utils"
@@ -59,22 +58,10 @@ export function SessionPage({
   const search = useSearch({ strict: false }) as SessionSearch
   const sessionQuery = useQuery(sessionQueryOptions(sessionId))
   const session = sessionQuery.data
-  const rename = useRenameSession()
-  const autoTitleDone = useRef(false)
 
   useEffect(() => {
-    autoTitleDone.current = false
     void touchSession(sessionId).catch(() => undefined)
   }, [sessionId])
-
-  function handleUserMessage(text: string) {
-    if (!session || autoTitleDone.current) return
-    autoTitleDone.current = true
-    if (session.title && session.title !== "新会话") return
-    const title = text.replace(/\s+/g, " ").trim().slice(0, 30)
-    if (title.length < 4) return
-    rename.mutate({ sessionId, title })
-  }
 
   if (!session) {
     return (
@@ -160,7 +147,6 @@ export function SessionPage({
               key={session.session_id}
               session={session}
               mode={mode}
-              onUserMessage={handleUserMessage}
             />
           )}
         </Suspense>
