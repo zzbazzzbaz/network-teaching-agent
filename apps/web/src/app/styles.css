@@ -328,6 +328,19 @@ body,
   color: var(--ink);
 }
 
+.prose-chat img,
+.prose-note img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1em auto;
+}
+
+.prose-chat a:has(> img),
+.prose-note a:has(> img) {
+  display: block;
+}
+
 .prose-chat a {
   color: var(--link);
   text-decoration: underline;
@@ -402,8 +415,10 @@ body,
 }
 
 .mermaid-diagram svg {
+  display: block;
   max-width: 100%;
   height: auto;
+  margin-inline: auto;
 }
 
 /* Markdown tables: an explicit outer border and readable cell separation. */
