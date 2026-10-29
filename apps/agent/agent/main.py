@@ -6,7 +6,6 @@ from langgraph.graph.state import CompiledStateGraph
 
 from agent.core.observability import get_langfuse_handler
 from agent.infra.model import get_llm
-from agent.infra.question_bank_api import QuestionBankRecorder
 from agent.runtime.backends import build_exp_backend, build_teaching_backend
 from agent.runtime.memory import exp_memory_permissions, teach_memory_permissions
 from agent.runtime.paths import memory_paths, skill_paths
@@ -34,7 +33,7 @@ def build_teach_agent(config: RunnableConfig) -> CompiledStateGraph[Any]:
         model=get_llm(),
         system_prompt=load_prompt("base", "teaching"),
         tools=[
-            make_ask_student(recorder=QuestionBankRecorder()),
+            make_ask_student(),
             *make_question_bank_tools(),
         ],
         backend=build_teaching_backend(),

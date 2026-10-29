@@ -5,7 +5,7 @@
     {
       "question_type": "single_choice",
       "stem": "互联网由大量网络通过路由器互连而成，这种结构通常被称为什么？",
-      "options": ["A. 网络的网络", "B. 电路交换网", "C. 广播网", "D. 总线网"],
+      "options": ["网络的网络", "电路交换网", "广播网", "总线网"],
       "correct_option": "A",
       "reference_answer": null,
       "primary_knowledge_point_id": "1.2.1",
@@ -23,7 +23,7 @@
     {
       "question_type": "single_choice",
       "stem": "某无噪声信道带宽为 4 kHz，采用 8 种离散信号状态。按奈奎斯特定理，最大数据率是多少？",
-      "options": ["A. 8 kb/s", "B. 12 kb/s", "C. 24 kb/s", "D. 32 kb/s"],
+      "options": ["8 kb/s", "12 kb/s", "24 kb/s", "32 kb/s"],
       "correct_option": "C",
       "reference_answer": null,
       "primary_knowledge_point_id": "2.2.3",
@@ -41,7 +41,7 @@
     {
       "question_type": "single_choice",
       "stem": "数据链路层需要解决的基本问题不包括下列哪一项？",
-      "options": ["A. 封装成帧", "B. 透明传输", "C. 差错检测", "D. 端到端拥塞控制"],
+      "options": ["封装成帧", "透明传输", "差错检测", "端到端拥塞控制"],
       "correct_option": "D",
       "reference_answer": null,
       "primary_knowledge_point_id": "3.1.2",
@@ -59,7 +59,7 @@
     {
       "question_type": "single_choice",
       "stem": "在交换机上划分 VLAN 的主要作用是什么？",
-      "options": ["A. 扩大冲突域", "B. 隔离广播域", "C. 提高链路带宽上限", "D. 替代 IP 路由"],
+      "options": ["扩大冲突域", "隔离广播域", "提高链路带宽上限", "替代 IP 路由"],
       "correct_option": "B",
       "reference_answer": null,
       "primary_knowledge_point_id": "3.4.3",
@@ -69,10 +69,10 @@
       "question_type": "single_choice",
       "stem": "一个 IPv4 数据报的 TTL 字段为 1。它到达第一台路由器时，路由器通常会做什么？",
       "options": [
-        "A. 直接把数据报转发给目标",
-        "B. 将 TTL 减为 0，丢弃并回 ICMP Time Exceeded",
-        "C. 回 ICMP Port Unreachable",
-        "D. 静默丢弃，不回任何报文"
+        "直接把数据报转发给目标",
+        "将 TTL 减为 0，丢弃并回 ICMP Time Exceeded",
+        "回 ICMP Port Unreachable",
+        "静默丢弃，不回任何报文"
       ],
       "correct_option": "B",
       "reference_answer": null,
@@ -91,7 +91,7 @@
     {
       "question_type": "single_choice",
       "stem": "路由表中同时存在 10.0.0.0/8 和 10.1.0.0/16。目的地址为 10.1.2.3 的分组应匹配哪条路由？",
-      "options": ["A. 10.0.0.0/8", "B. 10.1.0.0/16", "C. 两条都匹配，随机选择", "D. 两条都不匹配"],
+      "options": ["10.0.0.0/8", "10.1.0.0/16", "两条都匹配，随机选择", "两条都不匹配"],
       "correct_option": "B",
       "reference_answer": null,
       "primary_knowledge_point_id": "4.3.2",
@@ -100,7 +100,7 @@
     {
       "question_type": "single_choice",
       "stem": "UDP 首部的固定长度是多少字节？",
-      "options": ["A. 4 字节", "B. 8 字节", "C. 12 字节", "D. 20 字节"],
+      "options": ["4 字节", "8 字节", "12 字节", "20 字节"],
       "correct_option": "B",
       "reference_answer": null,
       "primary_knowledge_point_id": "5.2.2",
@@ -119,10 +119,10 @@
       "question_type": "single_choice",
       "stem": "TCP 三次握手中，客户端发送的第三个报文（ACK）的主要作用是什么？",
       "options": [
-        "A. 确认服务器的 SYN，并表明客户端已具备接收能力",
-        "B. 请求立即释放连接",
-        "C. 重置服务器连接",
-        "D. 开始慢开始算法"
+        "确认服务器的 SYN，并表明客户端已具备接收能力",
+        "请求立即释放连接",
+        "重置服务器连接",
+        "开始慢开始算法"
       ],
       "correct_option": "A",
       "reference_answer": null,
@@ -133,10 +133,10 @@
       "question_type": "single_choice",
       "stem": "客户端向本地域名服务器发出递归查询后，本地域名服务器通常如何继续解析？",
       "options": [
-        "A. 直接返回根域名服务器地址，让客户端自己查",
-        "B. 代替客户端向根、顶级和权威域名服务器进行迭代查询",
-        "C. 向所有 DNS 服务器广播",
-        "D. 只查本地缓存，不再查询其他服务器"
+        "直接返回根域名服务器地址，让客户端自己查",
+        "代替客户端向根、顶级和权威域名服务器进行迭代查询",
+        "向所有 DNS 服务器广播",
+        "只查本地缓存，不再查询其他服务器"
       ],
       "correct_option": "B",
       "reference_answer": null,
@@ -155,7 +155,7 @@
     {
       "question_type": "single_choice",
       "stem": "A 要向 B 发送一条只有 B 能解密的消息。A 应该使用谁的公钥加密？",
-      "options": ["A. A 的公钥", "B. B 的公钥", "C. A 的私钥", "D. B 的私钥"],
+      "options": ["A 的公钥", "B 的公钥", "A 的私钥", "B 的私钥"],
       "correct_option": "B",
       "reference_answer": null,
       "primary_knowledge_point_id": "7.2.2",
@@ -173,7 +173,7 @@
     {
       "question_type": "single_choice",
       "stem": "RTP 首部中哪个字段主要用于接收端按序重组并检测丢包？",
-      "options": ["A. 时间戳", "B. 序列号", "C. SSRC", "D. 载荷类型"],
+      "options": ["时间戳", "序列号", "SSRC", "载荷类型"],
       "correct_option": "B",
       "reference_answer": null,
       "primary_knowledge_point_id": "8.3.3",
@@ -192,10 +192,10 @@
       "question_type": "single_choice",
       "stem": "802.11 无线局域网为什么采用 CSMA/CA，而不是以太网使用的 CSMA/CD？",
       "options": [
-        "A. 无线站点难以在发送时可靠检测冲突，且不能简单实现全双工冲突检测",
-        "B. 无线帧没有 MAC 地址",
-        "C. 无线网络不需要确认机制",
-        "D. 无线网络不使用帧"
+        "无线站点难以在发送时可靠检测冲突，且不能简单实现全双工冲突检测",
+        "无线帧没有 MAC 地址",
+        "无线网络不需要确认机制",
+        "无线网络不使用帧"
       ],
       "correct_option": "A",
       "reference_answer": null,

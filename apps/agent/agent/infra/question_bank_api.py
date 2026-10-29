@@ -1,53 +1,67 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Literal
+from uuid import UUID
 
 import httpx
+from pydantic import BaseModel
 
 from agent.core.config import get_settings
-from agent.tools.schemas.ask_student import GeneratedQuestion
-from agent.tools.schemas.question_bank import SaveQuestionInput, SearchQuestionsInput
+from agent.runtime.context import ToolContext
+from agent.tools.schemas.question import Question
+from agent.tools.schemas.question_bank import SearchQuestionsInput
 
 
-class QuestionBankApiError(RuntimeError):
+class QuestionBankError(RuntimeError):
     """题库 API 不可用或返回错误。"""
 
-    def __init__(self, message: str, *, status_code: int | None = None) -> None:
-        super().__init__(message)
-        self.status_code = status_code
+
+class KnowledgePointRef(BaseModel):
+    id: str
+    title: str
 
 
-class QuestionBankAuthError(QuestionBankApiError):
-    """当前运行没有可用的用户身份。"""
+class QuestionReference(BaseModel):
+    correct_option: str | None = None
+    reference_answer: str | None = None
 
 
-@dataclass(frozen=True)
-class AskStudentRecordResult:
-    question_id: str
-    attempt_id: str
-    correct_option: str | None
-    reference_answer: str | None
+class AskStudentRecordResponse(BaseModel):
+    question_id: UUID
+    attempt_id: UUID
+    reference: QuestionReference
 
 
-class AskStudentRecorder(Protocol):
-    def record_ask_student(
-        self,
-        *,
-        user_id: str,
-        thread_id: str | None,
-        tool_call_id: str,
-        question: GeneratedQuestion,
-        answer: str,
-    ) -> AskStudentRecordResult: ...
+class SearchItem(BaseModel):
+    question_id: UUID
+    origin: Literal["public", "mine"]
+    question_type: Literal["single_choice", "short_answer"]
+    stem_preview: str
+    stem: str | None = None
+    options: list[str] | None = None
+    correct_option: str | None = None
+    reference_answer: str | None = None
+    primary_knowledge_point: KnowledgePointRef
+    secondary_knowledge_points: list[KnowledgePointRef]
+    last_attempt_at: str | None = None
 
 
-def _headers(user_id: str) -> dict[str, str]:
+class SearchResponse(BaseModel):
+    items: list[SearchItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class SaveQuestionResponse(BaseModel):
+    question_id: UUID
+
+
+def _headers(context: ToolContext) -> dict[str, str]:
     settings = get_settings()
     return {
         "X-Internal-Token": settings.server.auth_token,
-        "X-User-Id": user_id,
+        "X-User-Id": context.user_id,
     }
 
 
@@ -56,22 +70,37 @@ def _detail(response: httpx.Response) -> str:
         payload = response.json()
     except ValueError:
         return ""
-    if isinstance(payload, dict):
-        detail = payload.get("detail")
-        if isinstance(detail, str):
-            return detail
+    if not isinstance(payload, dict):
+        return ""
+    detail = payload.get("detail")
+    if isinstance(detail, str):
+        return detail
+    if isinstance(detail, list):
+        parts: list[str] = []
+        for item in detail:
+            if not isinstance(item, dict):
+                continue
+            loc = ".".join(
+                str(part)
+                for part in item.get("loc", ())
+                if part not in {"body", "query", "path"}
+            )
+            message = str(item.get("msg", ""))
+            parts.append(f"{loc}: {message}" if loc else message)
+        return "；".join(parts)
     return ""
 
 
-def _request(
+def _request[T: BaseModel](
     method: str,
     path: str,
     *,
-    user_id: str,
+    context: ToolContext,
+    response_model: type[T],
     params: dict[str, Any] | None = None,
     json: dict[str, Any] | None = None,
     timeout: float | None = None,
-) -> dict[str, Any]:
+) -> T:
     settings = get_settings()
     base_url = settings.server.api_base_url.rstrip("/")
     try:
@@ -80,173 +109,81 @@ def _request(
             f"{base_url}{path}",
             params=params,
             json=json,
-            headers=_headers(user_id),
+            headers=_headers(context),
             timeout=timeout if timeout is not None else settings.server.timeout_seconds,
         )
         response.raise_for_status()
-        payload = response.json()
+        return response_model.model_validate(response.json())
     except httpx.HTTPStatusError as e:
         detail = _detail(e.response)
         suffix = f"：{detail}" if detail else ""
-        raise QuestionBankApiError(
-            f"题库服务返回 {e.response.status_code}{suffix}",
-            status_code=e.response.status_code,
-        ) from e
+        raise QuestionBankError(f"题库服务返回 {e.response.status_code}{suffix}") from e
     except (httpx.HTTPError, ValueError) as e:
-        raise QuestionBankApiError("题库服务暂不可用，请稍后重试") from e
-
-    if not isinstance(payload, dict):
-        raise QuestionBankApiError("题库服务返回格式错误")
-    return payload
+        raise QuestionBankError("题库服务暂不可用，请稍后重试") from e
 
 
-def _configurable(config: Mapping[str, Any]) -> dict[str, Any]:
-    value = config.get("configurable")
-    return value if isinstance(value, dict) else {}
+def _question_payload(question: Question) -> dict[str, Any]:
+    return {
+        "question_type": question.mode,
+        "stem": question.stem,
+        "options": question.options,
+        "correct_option": question.correct_option,
+        "reference_answer": question.reference_answer,
+        "primary_knowledge_point_id": question.primary_knowledge_point_id,
+        "secondary_knowledge_point_ids": question.secondary_knowledge_point_ids,
+    }
 
 
-def user_id_from_config(config: Mapping[str, Any]) -> str:
-    user_id = _configurable(config).get("langgraph_auth_user_id")
-    if not isinstance(user_id, str) or not user_id:
-        raise QuestionBankAuthError("未认证，无法访问题库")
-    return user_id
-
-
-def thread_id_from_config(config: Mapping[str, Any]) -> str | None:
-    configurable = _configurable(config)
-    thread_id = configurable.get("thread_id")
-    if isinstance(thread_id, str) and thread_id:
-        return thread_id
-    metadata = config.get("metadata")
-    if isinstance(metadata, dict):
-        value = metadata.get("thread_id")
-        if isinstance(value, str) and value:
-            return value
-    return None
-
-
-def tool_call_id_from_config(config: Mapping[str, Any]) -> str | None:
-    metadata = config.get("metadata")
-    if isinstance(metadata, dict):
-        value = metadata.get("tool_call_id")
-        if isinstance(value, str) and value:
-            return value
-    return None
-
-
-def _record_request(
+def record_ask_student(
     *,
-    user_id: str,
-    thread_id: str | None,
-    tool_call_id: str,
-    question: GeneratedQuestion,
+    context: ToolContext,
+    question: Question,
     answer: str,
-) -> AskStudentRecordResult:
-    settings = get_settings()
-    payload = _request(
+) -> AskStudentRecordResponse:
+    return _request(
         "POST",
         "/internal/question-bank/ask-student/record",
-        user_id=user_id,
+        context=context,
         json={
-            "thread_id": thread_id,
-            "tool_call_id": tool_call_id,
-            "question": {
-                "question_type": question.mode,
-                "stem": question.question,
-                "options": question.options,
-                "correct_option": question.correct_option,
-                "reference_answer": question.reference_answer,
-                "primary_knowledge_point_id": question.primary_knowledge_point_id,
-                "secondary_knowledge_point_ids": question.secondary_knowledge_point_ids,
-            },
+            "thread_id": context.thread_id,
+            "tool_call_id": context.tool_call_id,
+            "question": _question_payload(question),
             "answer": answer,
         },
-        timeout=min(settings.server.timeout_seconds, 5),
-    )
-    question_id = payload.get("question_id")
-    attempt_id = payload.get("attempt_id")
-    reference = payload.get("reference")
-    if not isinstance(question_id, str) or not isinstance(attempt_id, str):
-        raise QuestionBankApiError("题库服务未返回 question_id / attempt_id")
-    if not isinstance(reference, dict):
-        raise QuestionBankApiError("题库服务未返回参考答案")
-    correct_option = reference.get("correct_option")
-    reference_answer = reference.get("reference_answer")
-    return AskStudentRecordResult(
-        question_id=question_id,
-        attempt_id=attempt_id,
-        correct_option=correct_option if isinstance(correct_option, str) else None,
-        reference_answer=reference_answer if isinstance(reference_answer, str) else None,
+        response_model=AskStudentRecordResponse,
+        timeout=min(get_settings().server.timeout_seconds, 5),
     )
 
 
-class QuestionBankRecorder:
-    """真实 API recorder；网络/5xx 最多重试一次，4xx 不重试。"""
-
-    def record_ask_student(
-        self,
-        *,
-        user_id: str,
-        thread_id: str | None,
-        tool_call_id: str,
-        question: GeneratedQuestion,
-        answer: str,
-    ) -> AskStudentRecordResult:
-        try:
-            return _record_request(
-                user_id=user_id,
-                thread_id=thread_id,
-                tool_call_id=tool_call_id,
-                question=question,
-                answer=answer,
-            )
-        except QuestionBankApiError as e:
-            if e.status_code is not None and e.status_code < 500:
-                raise
-        return _record_request(
-            user_id=user_id,
-            thread_id=thread_id,
-            tool_call_id=tool_call_id,
-            question=question,
-            answer=answer,
-        )
-
-
-def search_questions(user_id: str, query: SearchQuestionsInput) -> dict[str, Any]:
+def search_questions(context: ToolContext, query: SearchQuestionsInput) -> SearchResponse:
     params: dict[str, Any] = {
         "scope": query.scope,
         "limit": query.limit,
         "offset": query.offset,
         "detail": query.detail,
     }
-    if query.query is not None:
+    if query.query:
         params["query"] = query.query
-    if query.question_type is not None:
+    if query.question_type:
         params["question_type"] = query.question_type
-    if query.knowledge_point_id is not None:
+    if query.knowledge_point_id:
         params["knowledge_point_id"] = query.knowledge_point_id
-    if query.knowledge_point_prefix is not None:
+    if query.knowledge_point_prefix:
         params["knowledge_point_prefix"] = query.knowledge_point_prefix
     return _request(
         "GET",
         "/internal/question-bank/questions",
-        user_id=user_id,
+        context=context,
         params=params,
+        response_model=SearchResponse,
     )
 
 
-def save_question(user_id: str, question: SaveQuestionInput) -> dict[str, Any]:
+def save_question(context: ToolContext, question: Question) -> SaveQuestionResponse:
     return _request(
         "POST",
         "/internal/question-bank/questions",
-        user_id=user_id,
-        json={
-            "question_type": question.question_type,
-            "stem": question.stem,
-            "options": question.options,
-            "correct_option": question.correct_option,
-            "reference_answer": question.reference_answer,
-            "primary_knowledge_point_id": question.primary_knowledge_point_id,
-            "secondary_knowledge_point_ids": question.secondary_knowledge_point_ids,
-        },
+        context=context,
+        json=_question_payload(question),
+        response_model=SaveQuestionResponse,
     )

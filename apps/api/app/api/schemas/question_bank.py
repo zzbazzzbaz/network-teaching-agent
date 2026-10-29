@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
@@ -19,8 +18,6 @@ from app.api.schemas.pagination import Page, PageQuery
 QuestionType = Literal["single_choice", "short_answer"]
 QuestionScope = Literal["all", "public", "mine"]
 QuestionDetail = Literal["summary", "full"]
-
-_OPTION_PATTERN = re.compile(r"^(?P<letter>[A-F])[.、)）]\s*(?P<body>.+)$")
 
 
 class QuestionPageQuery(PageQuery):
@@ -42,7 +39,10 @@ class InternalQuestionSearchQuery(QuestionSearchQuery):
 class QuestionInput(ApiRequest):
     question_type: QuestionType
     stem: str = Field(min_length=1, max_length=4000)
-    options: list[str] | None = None
+    options: list[str] | None = Field(
+        default=None,
+        description="单选题选项，2–6 个纯文本；前端按顺序渲染 A/B/C。",
+    )
     correct_option: str | None = None
     reference_answer: str | None = Field(default=None, max_length=8000)
     primary_knowledge_point_id: str = Field(min_length=1, max_length=16)
@@ -97,20 +97,10 @@ class QuestionInput(ApiRequest):
         if self.question_type == "single_choice":
             if self.options is None or not 2 <= len(self.options) <= 6:
                 raise ValueError("single_choice 必须提供 2–6 个 options")
-            bodies: set[str] = set()
-            for index, option in enumerate(self.options):
-                expected_letter = chr(ord("A") + index)
-                match = _OPTION_PATTERN.fullmatch(option)
-                if match is None:
-                    raise ValueError(f"选项 {option!r} 必须以 {expected_letter}. 开头")
-                if match.group("letter") != expected_letter:
-                    raise ValueError(
-                        f"选项 {option!r} 的字母必须是 {expected_letter}，并按 A、B、C… 顺序排列"
-                    )
-                body = match.group("body").strip()
-                if body in bodies:
-                    raise ValueError(f"选项内容重复：{body!r}")
-                bodies.add(body)
+            if any(not option for option in self.options):
+                raise ValueError("选项内容不能为空")
+            if len(set(self.options)) != len(self.options):
+                raise ValueError("选项内容不能重复")
             if self.correct_option is None:
                 raise ValueError("single_choice 必须提供 correct_option")
             if self.correct_option not in {

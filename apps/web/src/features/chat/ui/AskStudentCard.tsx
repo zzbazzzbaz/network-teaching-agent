@@ -41,13 +41,8 @@ function parsePayload(value: unknown): AskStudentPayload | undefined {
   return parsed.success ? parsed.data : undefined
 }
 
-function optionLetter(option: string): string {
-  const match = /^\s*([A-Za-z])\s*[.、)）]/.exec(option)
-  return match?.[1]?.toUpperCase() ?? option.trim().slice(0, 1)
-}
-
-function optionBody(option: string): string {
-  return option.replace(/^\s*[A-Za-z]\s*[.、)）]\s*/, "")
+function optionLetter(index: number): string {
+  return String.fromCharCode(65 + index)
 }
 
 /** 即使 payload 不合法，也不在作答前把答案渲染出来。 */
@@ -146,7 +141,7 @@ export function AskStudentCard({
             disabled={submitting || submitted}
           >
             {payload.options.map((option, index) => {
-              const letter = optionLetter(option)
+              const letter = optionLetter(index)
               const id = `${uid}-${index}`
               return (
                 <label
@@ -164,7 +159,7 @@ export function AskStudentCard({
                     className="mt-0.5 border-signal/45 data-[state=checked]:border-signal data-[state=checked]:bg-signal"
                   />
                   <span className="text-[13px] leading-5 text-ink">
-                    {letter}. {optionBody(option)}
+                    {letter}. {option}
                   </span>
                 </label>
               )

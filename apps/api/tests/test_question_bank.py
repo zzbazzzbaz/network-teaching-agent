@@ -35,7 +35,7 @@ def _question_payload(**overrides: object) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "question_type": "single_choice",
         "stem": "TTL=1 时第一台路由器会做什么？",
-        "options": ["A. 直接转发", "B. 回 ICMP Time Exceeded"],
+        "options": ["直接转发", "回 ICMP Time Exceeded"],
         "correct_option": "B",
         "reference_answer": None,
         "primary_knowledge_point_id": "4.2.5",
@@ -302,6 +302,42 @@ def test_create_private_question(
         question = session.get(Question, uuid.UUID(question_id))
         assert question is not None
         assert question.owner_id == user.user_id
+
+
+def test_private_question_keeps_plain_text_options(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    options = ["直接转发", "回 ICMP Time Exceeded"]
+    response = client.post(
+        QUESTIONS,
+        json=_question_payload(options=options),
+        headers=_headers(user),
+    )
+    assert response.status_code == 201, response.text
+
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        question = session.get(Question, uuid.UUID(response.json()["question_id"]))
+        assert question is not None
+        assert question.options == options
+
+
+def test_validation_error_detail_is_readable(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    response = client.post(
+        QUESTIONS,
+        json=_question_payload(options=["", "回 ICMP Time Exceeded"]),
+        headers=_headers(user),
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert isinstance(detail, str)
+    assert "选项内容不能为空" in detail
 
 
 def test_search_scope_and_detail(

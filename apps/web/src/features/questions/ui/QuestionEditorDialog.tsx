@@ -31,8 +31,6 @@ import {
   REFERENCE_MAX_LENGTH,
   STEM_MAX_LENGTH,
   knowledgePointIndent,
-  optionBody,
-  optionLetter,
   questionErrorMessage,
   validateQuestionDraft,
   type QuestionEditorDraft,
@@ -90,14 +88,12 @@ export function QuestionEditorDialog({
   const [stem, setStem] = useState(question?.stem ?? "")
   const [optionTexts, setOptionTexts] = useState<string[]>(() =>
     question?.question_type === "single_choice" && question.options?.length
-      ? question.options.map(optionBody)
+      ? question.options
       : ["", "", "", ""],
   )
   const [correctIndex, setCorrectIndex] = useState(() => {
-    if (!question?.options || !question.correct_option) return 0
-    const index = question.options.findIndex(
-      (option) => optionLetter(option) === question.correct_option,
-    )
+    if (!question?.correct_option) return 0
+    const index = LETTERS.findIndex((letter) => letter === question.correct_option)
     return index >= 0 ? index : 0
   })
   const [referenceAnswer, setReferenceAnswer] = useState(

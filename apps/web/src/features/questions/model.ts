@@ -50,23 +50,14 @@ export function originLabel(origin: "public" | "mine"): string {
   return origin === "public" ? "公共" : "我的"
 }
 
-const OPTION_PREFIX = /^[A-F][.、)）]\s*/
-
-export function optionLetter(option: string): string {
-  return option.charAt(0)
-}
-
-export function optionBody(option: string): string {
-  return option.replace(OPTION_PREFIX, "").trim()
+export function optionLetter(index: number): string {
+  return String.fromCharCode(65 + index)
 }
 
 export function correctOptionText(question: QuestionDetail): string | null {
   if (!question.options || !question.correct_option) return null
-  return (
-    question.options.find(
-      (option) => optionLetter(option) === question.correct_option,
-    ) ?? null
-  )
+  const index = question.correct_option.charCodeAt(0) - 65
+  return question.options[index] ?? null
 }
 
 export function knowledgePointIndent(level: number): string {
@@ -125,7 +116,7 @@ export type QuestionDraftValidation = {
 
 /**
  * 与后端 QuestionInput 的校验保持一致：
- * - 单选：2–6 个选项，格式固定为「A. ...」，正确答案必须是已填写项；
+ * - 单选：2–6 个纯文本选项，正确答案必须是已填写项；
  * - 简答：options / correct_option 必须为 null，参考答案可选。
  */
 export function validateQuestionDraft(
@@ -174,9 +165,7 @@ export function validateQuestionDraft(
       payload = {
         question_type: "single_choice",
         stem,
-        options: filled.map(
-          (item, index) => `${LETTERS[index]}. ${item.text}`,
-        ),
+        options: filled.map((item) => item.text),
         correct_option: LETTERS[correctPosition],
         reference_answer: null,
         primary_knowledge_point_id: primaryKnowledgePointId,

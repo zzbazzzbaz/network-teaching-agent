@@ -54,9 +54,9 @@ metadata:
 
 要求：
 
-- 2–6 个选项；
-- 一个最佳答案；
-- 每个选项字符串都必须自带 `A.`、`B.`、`C.`… 前缀；工具不会自动补字母；
+- 2–6 个纯文本选项；
+- 一个最佳答案；`correct_option` 用字母 `A`–`F`；
+- 不要把 `A.`、`B.` 字母写进选项字符串；前端会按顺序渲染字母；
 - 选项保持纯文本，不放 Markdown、图片或 Mermaid；
 - 干扰项来自学生真实可能犯的错误，不要随机凑；
 - 正确答案位置不要固定。
@@ -112,7 +112,7 @@ metadata:
 
 单选题的质量主要取决于干扰项。
 
-- `options` 里的每个字符串都要自带 `A.`、`B.`、`C.`… 前缀，例如 `"A. 8 kb/s"`；字母前缀是字符串的一部分，不是前端自动加的；
+- `options` 只写选项内容，例如 `"8 kb/s"`；不要自带 `A.`、`B.` 前缀，前端会按顺序渲染字母；
 - 正确项：概念上正确，且不是靠措辞 tricks；
 - 干扰项：对应真实误解，例如把 TTL 当时间、把外层 IP 当内层、忘记 `header_len * 4`；
 - 所有选项长度、语法尽量平行；
@@ -179,28 +179,29 @@ sequenceDiagram
 
 ## 8. 好例子
 
+`ask_student` 的参数是 `{"question": {...}}`；下面展示 `question` 对象的内容。
+
 ### 8.1 单选题：TTL=1
 
 ````text
-mode: single_choice
 question:
-下图是一次 traceroute 的路径。**TTL=1** 时，第一台路由器收到探测包后会做什么？
+  mode: single_choice
+  stem: |
+    下图是一次 traceroute 的路径。**TTL=1** 时，第一台路由器收到探测包后会做什么？
 
-```mermaid
-graph LR
-  A[你的电脑] --> B[路由器 1]
-  B --> C[目标]
-```
-
-options:
-A. 直接把包转发给目标
-B. 把 TTL 减到 0，丢弃并回 ICMP Time Exceeded
-C. 回 ICMP Port Unreachable
-D. 静默丢弃，不回任何包
-
-correct_option: B
-primary_knowledge_point_id: 4.2.5
-secondary_knowledge_point_ids: [4.4.1]
+    ```mermaid
+    graph LR
+      A[你的电脑] --> B[路由器 1]
+      B --> C[目标]
+    ```
+  options:
+    - 直接把包转发给目标
+    - 把 TTL 减到 0，丢弃并回 ICMP Time Exceeded
+    - 回 ICMP Port Unreachable
+    - 静默丢弃，不回任何包
+  correct_option: B
+  primary_knowledge_point_id: 4.2.5
+  secondary_knowledge_point_ids: [4.4.1]
 ````
 
 为什么好：
@@ -212,12 +213,12 @@ secondary_knowledge_point_ids: [4.4.1]
 ### 8.2 简答题：ICMP 引用原始包
 
 ```text
-mode: short_answer
 question:
-为什么 ICMP 错误包里要带内层 IPv4 + UDP？如果只带路由器自己的 IP 和 ICMP 头，发送方会缺什么信息？
-placeholder: 用一句话说明原因
-reference_answer: 发送方需要靠原始探测包的源/目的地址、协议和端口匹配到自己的探测，缺少内层包就无法定位是哪一次探测触发了错误。
-primary_knowledge_point_id: 4.4.1
+  mode: short_answer
+  stem: 为什么 ICMP 错误包里要带内层 IPv4 + UDP？如果只带路由器自己的 IP 和 ICMP 头，发送方会缺什么信息？
+  placeholder: 用一句话说明原因
+  reference_answer: 发送方需要靠原始探测包的源/目的地址、协议和端口匹配到自己的探测，缺少内层包就无法定位是哪一次探测触发了错误。
+  primary_knowledge_point_id: 4.4.1
 ```
 
 为什么好：
@@ -229,7 +230,7 @@ primary_knowledge_point_id: 4.4.1
 ## 9. 坏例子
 
 - 一次调用里问三个问题：学生不知道先回答哪个。
-- 选项只写内容、不写 `A.`/`B.` 前缀：工具会拒绝，模型应补全前缀后重试。
+- 选项自带 `A.`/`B.` 前缀：前端会显示成 `A. A. …`，字母只由前端渲染。
 - 选项里放 Mermaid 图：前端按纯文本显示，图会变成源码。
 - 正确答案写在题干：没有诊断价值。
 - 选项是“以上都对/以上都错”：容易靠排除法猜。
@@ -277,7 +278,7 @@ primary_knowledge_point_id: 4.4.1
 
 - [ ] 这个问题只检查一个概念吗？
 - [ ] 它对齐当前单元和学生刚完成的思路/代码吗？
-- [ ] 单选题有 2–6 个自带 `A.`–`F.` 前缀的选项、一个最佳答案吗？
+- [ ] 单选题有 2–6 个纯文本选项、一个最佳答案吗？
 - [ ] 干扰项来自真实误解吗？
 - [ ] 选项是纯文本吗？
 - [ ] 简答题没有传 `options` 吗？

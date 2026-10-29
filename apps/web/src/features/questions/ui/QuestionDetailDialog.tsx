@@ -35,7 +35,6 @@ import {
 import {
   correctOptionText,
   isNotFoundError,
-  optionBody,
   optionLetter,
   originLabel,
   questionErrorMessage,
@@ -49,8 +48,7 @@ import {
 
 function answerText(question: QuestionDetail): string {
   if (question.question_type === "single_choice") {
-    const correct = correctOptionText(question)
-    return correct ? optionBody(correct) : "暂无正确答案。"
+    return correctOptionText(question) ?? "暂无正确答案。"
   }
   return question.reference_answer?.trim() || "暂无参考答案。"
 }
@@ -149,8 +147,8 @@ export function QuestionDetailDialog({
               {question.question_type === "single_choice" &&
                 question.options && (
                   <ol className="mt-1 space-y-2">
-                    {question.options.map((option) => {
-                      const letter = optionLetter(option)
+                    {question.options.map((option, index) => {
+                      const letter = optionLetter(index)
                       const isCorrect =
                         revealed && question.correct_option === letter
                       return (
@@ -173,7 +171,7 @@ export function QuestionDetailDialog({
                               {letter}
                             </span>
                           )}
-                          <span className="min-w-0 break-words">{optionBody(option)}</span>
+                          <span className="min-w-0 break-words">{option}</span>
                         </li>
                       )
                     })}
