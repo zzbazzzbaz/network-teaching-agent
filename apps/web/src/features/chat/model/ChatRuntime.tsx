@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, type ReactNode } from "react"
 import {
   AssistantRuntimeProvider,
   useExternalMessageConverter,
@@ -8,6 +8,7 @@ import {
 import { convertLangChainBaseMessage } from "@assistant-ui/react-langchain"
 import { useQueryClient } from "@tanstack/react-query"
 
+import { ImageAttachmentAdapter } from "@/features/files/attachment"
 import { DEFAULT_SESSION_TITLE, sessionKeys } from "@/features/sessions"
 import type { Session } from "@/shared/api/types"
 
@@ -36,6 +37,7 @@ export function ChatRuntime({
   })
   const queryClient = useQueryClient()
   const wasRunning = useRef(false)
+  const attachmentAdapter = useMemo(() => new ImageAttachmentAdapter(), [])
 
   useEffect(() => {
     const finished = wasRunning.current && !stream.isLoading
@@ -65,11 +67,31 @@ export function ChatRuntime({
   const runtime = useExternalStoreRuntime({
     messages,
     isRunning: stream.isLoading,
+    adapters: { attachments: attachmentAdapter },
     onNew: async (message: AppendMessage) => {
       const text = messageText(message)
-      if (!text) return
+      const attachments = message.attachments ?? []
+      const markers = attachments.map(
+        (attachment) => `[图片] ${attachment.name} (file_id=${attachment.id})`,
+      )
+      const content = [text, ...markers].filter(Boolean).join("\n\n")
+      if (!content) return
+
       await stream.submit({
-        messages: [{ type: "human", content: text }],
+        messages: [
+          {
+            type: "human",
+            id: crypto.randomUUID(),
+            content,
+            additional_kwargs: {
+              attachments: attachments.map((attachment) => ({
+                file_id: attachment.id,
+                name: attachment.name,
+                mime: attachment.contentType ?? "",
+              })),
+            },
+          },
+        ],
       })
     },
     onCancel: async () => {

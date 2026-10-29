@@ -60,6 +60,10 @@ cd apps/web && npm run typecheck && npm run lint && npm run build
 1. 平台 `session_id` 就是 LangGraph 的 `thread_id`。API 在创建/删除会话时同步创建/删除 thread；打开会话时前端调 `POST /api/v1/sessions/{id}/ensure-thread` 幂等补建。
 2. 用户身份只来自 JWT `sub`。前端不向 LangGraph 的 `configurable` 写 `sandbox_id`；Agent 用 `X-Internal-Token` 调 `POST /internal/sandbox/ensure` 获取沙箱。
 3. API 与 Agent 共享 `SERVER_AUTH_TOKEN`，轮换时必须同时重启两者。
-4. 聊天内容只有纯文本，不要假设附件或多模态。
+4. 消息持久化内容只有纯文本和 `file_id` 引用；图片字节只存在 API 存储，不进入 checkpoint、Store 或 SSE。
 5. 真实模型调用很慢。E2E 的 180s 超时、60s 断言超时是刻意设置，不要调小。
 6. 浏览器只在聊天运行时直连 `/agent`；thread 生命周期和其他业务能力走 API BFF。
+7. 图片只能通过 API 的 `/api/v1/files/*`（浏览器）和 `/internal/files/*`（Agent）访问；Agent 不直连对象存储，也不把图片写进 state。
+8. `file_id` 只从 `HumanMessage.additional_kwargs.attachments` 和当前用户轮次的 `ToolMessage.artifact` 读取；不扫描任意文本。
+9. 图片注入只修改模型请求副本（`request.override(messages=...)`），原始消息和 checkpoint 永远不包含图片字节。
+10. 图片 base64 不写入业务日志或 trace metadata；Langfuse 依赖 SDK 默认 media 处理，不在应用侧自定义 mask。

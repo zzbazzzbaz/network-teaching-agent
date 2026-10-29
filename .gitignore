@@ -21,6 +21,9 @@ venv/
 # Local agent state
 .langgraph_api/
 
+# Local uploaded files
+apps/api/.data/
+
 # Personal chat notes (never tracked)
 docs/chat/
 

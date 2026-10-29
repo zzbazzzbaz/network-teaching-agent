@@ -39,8 +39,8 @@ apps/agent/
 
 | Agent | 提示词 | Skill | 工具 | 后端 |
 |---|---|---|---|---|
-| `exp_agent` | `base.md` + `lab.md` | `memory-maintenance`、`diagrams`、`traceroute-lab` | 默认工具；无 `ask_student` | `AgsBackend` |
-| `teach_agent` | `base.md` + `teaching.md` | `memory-maintenance`、`diagrams`、`ask-question`、`computer-networks-textbook` | 默认工具 + `ask_student`、`search_questions`、`save_question` | `StateBackend` |
+| `exp_agent` | `base.md` + `lab.md` | `memory-maintenance`、`diagrams`、`traceroute-lab` | 默认工具 + `view_image`；无 `ask_student` | `AgsBackend` |
+| `teach_agent` | `base.md` + `teaching.md` | `memory-maintenance`、`diagrams`、`ask-question`、`computer-networks-textbook` | 默认工具 + `ask_student`、`search_questions`、`save_question`、`view_image` | `StateBackend` |
 
 默认工具：
 
@@ -69,6 +69,9 @@ task
 - `diagrams` 挂在 `common/`，两个 graph 共用；`base.md` 里只有一句触发条件，选型和语法约束都在 skill 里。
 - 两个 graph 都在 `langgraph.json` 注册，入口是 `agent/main.py`。
 - 两个 graph 都挂 `SessionTitleMiddleware`：首轮 `after_agent` 生成会话标题，调 API `/internal/sessions/{id}/title` 写回；失败不阻塞聊天。
+- 两个 graph 都挂 `ImageAttachmentMiddleware`：每次模型调用前，读最近 3 个用户轮次的 `additional_kwargs.attachments` 和当前轮 `ToolMessage.artifact`，调 `/internal/files/*` 取图，转 base64 注入请求副本；只改本次请求，不写回 state。
+- 两个 graph 都挂 `view_image`；工具返回 `ToolMessage.artifact`，图片本身由中间件在下一次模型调用时注入。图片说明写在共享的 `base.md`，`lab.md` 额外补充实验截图场景。
+- 图片失败不能中断 run：404 显示“图片不可用”，超时/5xx 显示“图片加载失败”，超预算显示“图片过大，未加载”。
 
 ## 记忆 Store
 

@@ -5,14 +5,25 @@ import {
   type ToolCallMessagePartComponent,
 } from "@assistant-ui/react"
 
+import { parseImageMarkers } from "@/features/files/markers"
+import { UserImages } from "@/features/files/ui/UserImages"
 import { cn } from "@/shared/lib/utils"
 
 import { MarkdownText } from "./markdown"
 import { ToolCallCard } from "./ToolCallCard"
 
-const PlainText: TextMessagePartComponent = ({ text }) => (
-  <p className="whitespace-pre-wrap">{text}</p>
-)
+const UserText: TextMessagePartComponent = ({ text }) => {
+  const parsed = parseImageMarkers(text)
+  if (parsed.images.length === 0) {
+    return <p className="whitespace-pre-wrap">{text}</p>
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {parsed.text && <p className="whitespace-pre-wrap">{parsed.text}</p>}
+      <UserImages images={parsed.images} />
+    </div>
+  )
+}
 
 const ToolPart: ToolCallMessagePartComponent = (props) => (
   <ToolCallCard {...props} />
@@ -22,7 +33,7 @@ export function UserMessage() {
   return (
     <MessagePrimitive.Root className="thread-message relative flex justify-end pl-0">
       <div className="ml-auto w-fit max-w-[86%] rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-[14px] leading-7 break-words text-ink">
-        <MessagePrimitive.Parts components={{ Text: PlainText }} />
+        <MessagePrimitive.Parts components={{ Text: UserText }} />
       </div>
     </MessagePrimitive.Root>
   )

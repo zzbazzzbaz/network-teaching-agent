@@ -52,3 +52,5 @@ npm run api:types     # 需要 api 已启动在 :8000
 - 题库面板是「左侧知识点树 + 右侧题目列表」；URL 的 `kp` 是教材目录编号（如 `5.8`），列表用 `knowledge_point_match=primary` 只按主知识点筛选。
 - 后端缺口记录在 `BACKEND_GAPS.md`。
 - 不提交 `.env`、token、记忆内容或私有题库缓存。
+- 附件只允许 JPEG/PNG/WebP；消息里只放 `[图片] <name> (file_id=<uuid>)` marker 和 `additional_kwargs.attachments`，不把 base64 放进消息或 React state。
+- 历史缩略图走 `/api/v1/files/{id}/thumb`，点开大图走 `/raw`；两者都用 `authedFetch` 拉 blob + `URL.createObjectURL`，卸载时 revoke。

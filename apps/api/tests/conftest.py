@@ -24,8 +24,10 @@ INTERNAL_TOKEN = "test-internal-token"
 
 
 @pytest.fixture(autouse=True)
-def internal_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def internal_token(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("SERVER_AUTH_TOKEN", INTERNAL_TOKEN)
+    monkeypatch.setenv("FILES_ROOT", str(tmp_path / "files"))
+    monkeypatch.setenv("FILES_MAX_BYTES", "10485760")
 
 
 @pytest.fixture(scope="session")

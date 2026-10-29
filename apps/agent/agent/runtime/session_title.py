@@ -33,7 +33,7 @@ class SessionTitleState(DeepAgentState):
     session_title_generated: NotRequired[bool]
 
 
-class SessionTitleMiddleware(AgentMiddleware[SessionTitleState, None, None]):
+class SessionTitleMiddleware(AgentMiddleware[SessionTitleState, None, Any]):
     name = "session_title"
     state_schema = SessionTitleState
 

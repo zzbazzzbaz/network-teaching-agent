@@ -31,8 +31,11 @@ services:
       <<: *api-env
       SERVER_AGENT_BASE_URL: "http://agent:8000"
       SERVER_TIMEOUT_SECONDS: "15"
+      FILES_ROOT: "/data/files"
+      FILES_MAX_BYTES: "10485760"
     volumes:
       - ./secrets/jwt:/app/.keys:ro
+      - files-data:/data/files
     ports: ["127.0.0.1:8082:8000"]
     mem_limit: 512m
     depends_on:
@@ -118,4 +121,5 @@ services:
 
 volumes:
   pg-data:
+  files-data:
   langgraph-pg-data:

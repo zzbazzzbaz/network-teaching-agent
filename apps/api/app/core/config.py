@@ -75,6 +75,19 @@ class ServerSettings(_Base):
     timeout_seconds: int
 
 
+class FilesSettings(_Base):
+    model_config = SettingsConfigDict(env_prefix="FILES_")
+
+    root: str
+    max_bytes: int
+
+    @field_validator("root")
+    @classmethod
+    def _resolve_root(cls, value: str) -> str:
+        path = Path(value).expanduser()
+        return str(path if path.is_absolute() else API_DIR / path)
+
+
 class Settings(_Base):
     e2b: E2BSettings = Field(default_factory=E2BSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
@@ -82,6 +95,7 @@ class Settings(_Base):
     scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
     db: DBSettings = Field(default_factory=DBSettings)
     jwt: JWTSettings = Field(default_factory=JWTSettings)
+    files: FilesSettings = Field(default_factory=FilesSettings)
 
     cors_origins: str
 

@@ -79,6 +79,14 @@ def test_lab_prompt_keeps_sandbox_and_experiment_skill() -> None:
     assert "ask_student" not in text
 
 
+def test_image_prompt_is_shared_by_both_agents() -> None:
+    base = load_prompt("base")
+
+    assert "view_image" in base
+    assert "[图片]" in base
+    assert "实验截图" in load_prompt("base", "lab")
+
+
 def test_prompts_do_not_leak_implementation_details() -> None:
     texts = {
         name: load_prompt("base", name) for name in ("lab", "teaching")
@@ -174,6 +182,7 @@ def test_teach_graph_uses_default_and_question_bank_tools(
     assert "ask_student" in tools
     assert "search_questions" in tools
     assert "save_question" in tools
+    assert "view_image" in tools
     assert "read_file" in tools
     assert "write_file" in tools
     assert "delete" in tools
@@ -185,6 +194,7 @@ def test_exp_graph_has_no_ask_student(monkeypatch: pytest.MonkeyPatch) -> None:
     tools = _tool_names(_build_exp_graph(monkeypatch))
 
     assert "ask_student" not in tools
+    assert "view_image" in tools
     assert "execute" in tools
     assert "task" in tools
 

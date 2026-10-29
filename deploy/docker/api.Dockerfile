@@ -19,7 +19,8 @@ COPY --from=builder /app/migrations /app/migrations
 # uid 10001 与服务器 secrets/jwt 属主一致
 RUN groupadd -g 10001 app \
  && useradd -u 10001 -g 10001 -M -s /usr/sbin/nologin app \
- && chown -R 10001:10001 /app
+ && mkdir -p /data/files \
+ && chown -R 10001:10001 /app /data/files
 USER 10001:10001
 EXPOSE 8000
 CMD ["fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000", \

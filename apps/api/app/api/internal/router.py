@@ -6,9 +6,10 @@
 
 from fastapi import APIRouter
 
-from app.api.internal import question_bank, sandbox, sessions
+from app.api.internal import files, question_bank, sandbox, sessions
 
 router = APIRouter(prefix="/internal", include_in_schema=False)
 router.include_router(sandbox.router, prefix="/sandbox")
 router.include_router(question_bank.router, prefix="/question-bank")
 router.include_router(sessions.router, prefix="/sessions")
+router.include_router(files.router, prefix="/files")
