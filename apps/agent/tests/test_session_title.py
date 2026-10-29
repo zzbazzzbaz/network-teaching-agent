@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Sequence
 from types import SimpleNamespace
 from typing import cast
@@ -99,9 +100,7 @@ def _config(
 
 
 def _run(middleware: SessionTitleMiddleware, state: SessionTitleState) -> object:
-    return asyncio.run(
-        middleware.aafter_agent(state, cast(Runtime[None], SimpleNamespace()))
-    )
+    return asyncio.run(middleware.aafter_agent(state, cast(Runtime[None], SimpleNamespace())))
 
 
 def test_title_generated_on_first_turn(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,7 +124,11 @@ def test_title_generated_on_first_turn(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result == {"session_title_generated": True}
     assert calls == [("user-1", "thread-1", "TCP 三次握手")]
-    assert llm.bind_kwargs == {"max_tokens": 32, "temperature": 0}
+    assert llm.bind_kwargs == {
+        "reasoning_effort": "none",
+        "max_tokens": 64,
+        "temperature": 0,
+    }
     assert len(llm.calls) == 1
     assert "TCP 为什么需要三次握手？" in llm.calls[0][1].text
 
@@ -347,9 +350,7 @@ def test_compiled_graph_invokes_session_title(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(session_title_module, "set_session_title", fake_set_session_title)
 
     graph = create_deep_agent(
-        model=_FakeAgentModel(
-            responses=[AIMessage(content="三次握手是为了确认双方的收发能力。")]
-        ),
+        model=_FakeAgentModel(responses=[AIMessage(content="三次握手是为了确认双方的收发能力。")]),
         system_prompt="你是计算机网络老师。",
         middleware=[SessionTitleMiddleware()],
     )
@@ -383,3 +384,31 @@ def test_sanitize_title_rejects_default_and_empty() -> None:
 
 def test_sanitize_title_truncates_long_output() -> None:
     assert _sanitize_title("x" * 40) == "x" * 24
+
+
+def test_empty_title_is_logged_and_not_written(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    llm = _FakeLLM("")
+
+    async def unexpected_set_session_title(
+        *,
+        user_id: str,
+        thread_id: str,
+        title: str,
+    ) -> SessionTitleResult:
+        raise AssertionError("标题为空时不应该写入")
+
+    _config(monkeypatch)
+    monkeypatch.setattr(session_title_module, "get_llm", lambda: llm)
+    monkeypatch.setattr(
+        session_title_module,
+        "set_session_title",
+        unexpected_set_session_title,
+    )
+
+    with caplog.at_level(logging.WARNING, logger=session_title_module.__name__):
+        result = _run(SessionTitleMiddleware(), _state())
+
+    assert result is None
+    assert "会话标题为空或无效" in caplog.text

@@ -118,7 +118,12 @@ async def _generate_title(
     config: RunnableConfig,
 ) -> str | None:
     payload = _title_payload(human_text, assistant_text)
-    llm = get_llm().bind(max_tokens=32, temperature=0)
+    # 标题只是短文本，关掉思考：否则 reasoning 会吃掉 max_tokens，正文为空。
+    llm = get_llm().bind(
+        reasoning_effort="none",
+        max_tokens=64,
+        temperature=0,
+    )
 
     try:
         response = await asyncio.wait_for(
@@ -139,7 +144,19 @@ async def _generate_title(
         )
         return None
 
-    return _sanitize_title(response.text)
+    title = _sanitize_title(response.text)
+    if title is None:
+        metadata = response.response_metadata or {}
+        usage = metadata.get("token_usage") or {}
+        details = usage.get("completion_tokens_details") or {}
+        logger.warning(
+            "会话标题为空或无效 thread_id=%s finish=%s raw_len=%s reasoning_tokens=%s",
+            thread_id,
+            metadata.get("finish_reason"),
+            len(response.text or ""),
+            details.get("reasoning_tokens"),
+        )
+    return title
 
 
 def _title_payload(human_text: str, assistant_text: str) -> str:
