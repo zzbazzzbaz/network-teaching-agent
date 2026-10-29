@@ -126,13 +126,21 @@ export function QuestionDetailDialog({
                   >
                     {originLabel(question.origin)}
                   </Badge>
-                  <span className="max-w-full truncate text-[11px] text-ink-muted">
-                    {question.primary_knowledge_point.title}
-                  </span>
                 </div>
                 <DialogTitle className="mt-1.5 pr-5 text-[15px] leading-7 font-medium">
                   {question.stem}
                 </DialogTitle>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10.5px] text-ink-muted">知识点</span>
+                  <Badge variant="outline">
+                    {question.primary_knowledge_point.title}
+                  </Badge>
+                  {question.secondary_knowledge_points.map((point) => (
+                    <Badge key={point.id} variant="outline">
+                      {point.title}
+                    </Badge>
+                  ))}
+                </div>
                 <DialogDescription className="sr-only">
                   题目详情与答案
                 </DialogDescription>
