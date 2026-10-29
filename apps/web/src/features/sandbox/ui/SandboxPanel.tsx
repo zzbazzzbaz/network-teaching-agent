@@ -31,6 +31,10 @@ import {
 } from "@/shared/ui/alert-dialog"
 import { Badge } from "@/shared/ui/badge"
 import { Button } from "@/shared/ui/button"
+import {
+  WorkspaceHeader,
+  workspaceContentClass,
+} from "@/shared/ui/workspace-header"
 
 import {
   useDestroySandbox,
@@ -132,39 +136,39 @@ export function SandboxPanel() {
   }
 
   return (
-    <div className="scroll-slim h-full overflow-y-auto">
-      <div className="mx-auto w-full max-w-[960px] px-5 py-7 lg:px-10 lg:py-9">
-        <h2 className="text-[24px] leading-tight font-semibold tracking-[-0.015em] text-ink">
-          实验沙盒
-        </h2>
+    <div className="flex h-full min-h-0 flex-col">
+      <WorkspaceHeader title="实验沙盒" />
 
-        <div className="mt-6 max-w-[760px]">
-          {query.isPending ? (
-            <SandboxLoading />
-          ) : query.isError && query.data === undefined ? (
-            <SandboxError
-              error={query.error}
-              onRetry={() => void query.refetch()}
-            />
-          ) : sandbox ? (
-            <SandboxDetails
-              sandbox={sandbox}
-              busy={busy}
-              starting={start.isPending}
-              pausing={pause.isPending}
-              destroying={destroy.isPending}
-              onStart={() => void handleStart()}
-              onPause={() => void handlePause()}
-              onDestroy={() => setConfirmDestroy(true)}
-            />
-          ) : (
-            <SandboxIdle
-              starting={start.isPending}
-              onStart={() => void handleStart()}
-            />
-          )}
+      <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
+        <div className={cn(workspaceContentClass, "py-5 lg:py-6")}>
+          <div className="w-full">
+            {query.isPending ? (
+              <SandboxLoading />
+            ) : query.isError && query.data === undefined ? (
+              <SandboxError
+                error={query.error}
+                onRetry={() => void query.refetch()}
+              />
+            ) : sandbox ? (
+              <SandboxDetails
+                sandbox={sandbox}
+                busy={busy}
+                starting={start.isPending}
+                pausing={pause.isPending}
+                destroying={destroy.isPending}
+                onStart={() => void handleStart()}
+                onPause={() => void handlePause()}
+                onDestroy={() => setConfirmDestroy(true)}
+              />
+            ) : (
+              <SandboxIdle
+                starting={start.isPending}
+                onStart={() => void handleStart()}
+              />
+            )}
 
-          <AccountNote />
+            <AccountNote />
+          </div>
         </div>
       </div>
 

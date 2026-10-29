@@ -131,8 +131,11 @@ export function SessionPage({
   return (
     <div className="flex h-dvh flex-col">
       <WorkspaceBar
-        title={panelTitle ? `${panelTitle} · ${session.title || "新会话"}` : session.title || "新会话"}
-        subtitle={panelTitle ? `${MODES[mode].label}模式 · ${panelTitle}` : `${MODES[mode].label}模式`}
+        title={
+          panelTitle
+            ? `${panelTitle} · ${session.title || "新会话"}`
+            : session.title || "新会话"
+        }
         onBack={panel ? closePanel : undefined}
       />
 
@@ -148,7 +151,10 @@ export function SessionPage({
           ) : panel === "sandbox" ? (
             <SandboxPanel />
           ) : panel === "memory" ? (
-            <MemoryPanel path={search.path} onPathChange={selectMemoryPath} />
+            <MemoryPanel
+              path={search.path}
+              onPathChange={selectMemoryPath}
+            />
           ) : (
             <ChatPane
               key={session.session_id}

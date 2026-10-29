@@ -3,6 +3,7 @@ import { AlertCircle } from "lucide-react"
 
 import type { Mode, Session } from "@/shared/api/types"
 import { LayerMark } from "@/shared/ui/brand"
+import { workspaceContentClass } from "@/shared/ui/workspace-header"
 import { cn } from "@/shared/lib/utils"
 
 import { ChatRuntime } from "../model/ChatRuntime"
@@ -96,12 +97,13 @@ function ChatSurface({
   const pending = pendingInterrupt(stream)
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col bg-surface">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
       <ThreadPrimitive.Root className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <ThreadPrimitive.Viewport className="scroll-slim min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
           <div
             className={cn(
-              "mx-auto w-full max-w-[1080px] px-4 py-5 lg:px-8 lg:py-7 xl:px-10",
+              workspaceContentClass,
+              "py-5 lg:py-6",
               empty && "flex min-h-full flex-col justify-center",
             )}
           >

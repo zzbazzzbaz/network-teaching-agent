@@ -4,6 +4,10 @@ import { useMemo, useState } from "react"
 import type { QuestionDetail, QuestionScope } from "@/shared/api/types"
 import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
+import {
+  WorkspaceHeader,
+  workspaceContentClass,
+} from "@/shared/ui/workspace-header"
 import { Input } from "@/shared/ui/input"
 import {
   Select,
@@ -107,27 +111,27 @@ export function QuestionPanel({
   }
 
   return (
-    <div className="scroll-slim h-full overflow-y-auto">
-      <div className="mx-auto w-full max-w-[960px] px-4 py-6 sm:px-5 sm:py-7 lg:px-10 lg:py-9">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.015em] text-ink sm:text-[24px]">
-              题库
-            </h2>
-            <p className="mt-1 text-[11.5px] leading-5 text-ink-muted">
-              公共题库只读，我的私有题可以编辑和删除。
-            </p>
-          </div>
-          <Button
-            className="h-10 w-full gap-1.5 sm:w-auto"
-            onClick={openCreate}
-          >
+    <div className="flex h-full min-h-0 flex-col">
+      <WorkspaceHeader
+        title="题库"
+        actions={
+          <Button className="h-9 gap-1.5" onClick={openCreate}>
             <Plus className="size-4" aria-hidden="true" />
             新建私有题
           </Button>
-        </div>
+        }
+      />
 
-        <div className="mt-6 border-b border-line pb-2.5">
+      <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
+        <div className={cn(workspaceContentClass, "py-5 lg:py-6")}>
+          <div className="mb-4 flex justify-end lg:hidden">
+            <Button className="h-10 w-full gap-1.5" onClick={openCreate}>
+              <Plus className="size-4" aria-hidden="true" />
+              新建私有题
+            </Button>
+          </div>
+
+          <div className="border-b border-line pb-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <div
               role="group"
@@ -286,6 +290,7 @@ export function QuestionPanel({
             </div>
           </>
         )}
+        </div>
       </div>
 
       {selectedQuestionId && (

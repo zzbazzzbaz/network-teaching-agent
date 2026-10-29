@@ -2,6 +2,11 @@ import { FileText } from "lucide-react"
 import { useEffect, useMemo } from "react"
 
 import { useMediaQuery } from "@/shared/lib/hooks"
+import { cn } from "@/shared/lib/utils"
+import {
+  WorkspaceHeader,
+  workspaceContentClass,
+} from "@/shared/ui/workspace-header"
 
 import { buildMemoryTree, DEFAULT_MEMORY_FILE } from "../model/tree"
 import { useMemoryTree } from "../queries"
@@ -46,16 +51,15 @@ export function MemoryPanel({ path, onPathChange }: MemoryPanelProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-line bg-surface">
-        <div className="mx-auto w-full max-w-[960px] px-5 py-5 lg:px-10 lg:py-6">
-          <h2 className="text-[24px] leading-tight font-semibold tracking-[-0.015em] text-ink">
-            记忆
-          </h2>
-        </div>
-      </div>
+      <WorkspaceHeader title="记忆" />
 
       <div className="min-h-0 flex-1">
-        <div className="mx-auto flex h-full min-h-0 w-full max-w-[960px] flex-col px-5 pb-5 lg:px-10 lg:pb-6">
+        <div
+          className={cn(
+            workspaceContentClass,
+            "flex h-full min-h-0 flex-col py-5 lg:py-6",
+          )}
+        >
           <div className="grid h-full min-h-0 w-full gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
             {showTree ? (
               <MemoryTree

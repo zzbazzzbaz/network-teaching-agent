@@ -7,12 +7,10 @@ import { useShell } from "./context"
 
 export function WorkspaceBar({
   title,
-  subtitle,
   onBack,
   className,
 }: {
   title: string
-  subtitle?: string
   onBack?: () => void
   className?: string
 }) {
@@ -37,9 +35,6 @@ export function WorkspaceBar({
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-semibold text-ink">{title}</p>
-        {subtitle && (
-          <p className="truncate text-[10px] text-ink-muted">{subtitle}</p>
-        )}
       </div>
 
       {onBack && (
