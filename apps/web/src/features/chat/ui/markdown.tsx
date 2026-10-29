@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, isValidElement, type ReactNode } from "react"
+import { useEffect, useId, useRef, useState, isValidElement, type ReactNode } from "react"
 import DOMPurify from "dompurify"
 import type { MermaidConfig } from "mermaid"
 import ReactMarkdown, { type Components } from "react-markdown"
@@ -64,22 +64,24 @@ function MermaidRender({
   className?: string
 }) {
   const reactId = useId()
-  const renderId = useMemo(
-    () => `mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`,
-    [reactId],
-  )
+  const renderSequence = useRef(0)
   const [svg, setSvg] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
+    const baseId = `mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`
+    // StrictMode 会重复执行 effect；每次渲染使用独立临时 ID，避免同一节点被并发清理。
+    const renderId = `${baseId}-${renderSequence.current++}`
     let cancelled = false
     void (async () => {
       try {
         const mermaid = await loadMermaid(theme)
         const result = await mermaid.render(renderId, code)
         if (!cancelled) setSvg(sanitizeSvg(result.svg))
-      } catch {
-        if (!cancelled) setFailed(true)
+      } catch (error) {
+        if (cancelled) return
+        console.error("Mermaid 渲染失败", error)
+        setFailed(true)
       } finally {
         cleanupMermaidTempNodes(renderId)
       }
@@ -89,7 +91,7 @@ function MermaidRender({
       cancelled = true
       cleanupMermaidTempNodes(renderId)
     }
-  }, [code, renderId, theme])
+  }, [code, reactId, theme])
 
   if (failed) return <MermaidFallback code={code} />
   if (svg === null) {

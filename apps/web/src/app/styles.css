@@ -1,6 +1,20 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* 全应用隐藏浏览器原生滚动条，保留滚动行为。 */
+html,
+body,
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* ------------------------------------------------------------------
    链路 · 学生端设计令牌
    纸面是冷的，链路是青的，检查点是琥珀的。
@@ -197,8 +211,7 @@
 }
 
 @utility scroll-slim {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: none;
 }
 
 @utility trace-line {
