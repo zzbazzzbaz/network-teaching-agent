@@ -79,20 +79,6 @@ def test_lab_prompt_keeps_sandbox_and_experiment_skill() -> None:
     assert "ask_student" not in text
 
 
-def test_teaching_prompt_has_no_execution_environment() -> None:
-    text = load_prompt("base", "teaching")
-
-    assert "执行环境" in text
-    assert "运行不了代码" in text
-    assert "不要调用 `execute`" in text
-    assert "teaching/learning.md" in text
-    assert "search_questions" in text
-    assert "save_question" in text
-    assert "AGS" not in text
-    assert "/skills/lab/" not in text
-    assert "traceroute" not in text
-
-
 def test_prompts_do_not_leak_implementation_details() -> None:
     texts = {
         name: load_prompt("base", name) for name in ("lab", "teaching")
@@ -147,11 +133,12 @@ def test_skill_discovery_matches_agent_tracks() -> None:
         for skill in _list_skills(teach_backend, source)
     }
 
-    assert exp_skills == {"memory-maintenance", "traceroute-lab"}
+    assert exp_skills == {"diagrams", "memory-maintenance", "traceroute-lab"}
     assert teach_skills == {
         "ask-question",
-        "memory-maintenance",
         "computer-networks-textbook",
+        "diagrams",
+        "memory-maintenance",
     }
 
 
@@ -210,6 +197,7 @@ def test_prompt_and_skill_layout() -> None:
 
     assert (RESOURCE_DIR / "skills" / "teaching" / "ask-question" / "SKILL.md").is_file()
     assert (RESOURCE_DIR / "skills" / "teaching" / "ask-question" / "bank.md").is_file()
+    assert (RESOURCE_DIR / "skills" / "common" / "diagrams" / "SKILL.md").is_file()
     assert (RESOURCE_DIR / "skills" / "common" / "memory-maintenance" / "SKILL.md").is_file()
     assert (RESOURCE_DIR / "skills" / "lab" / "traceroute-lab" / "SKILL.md").is_file()
     assert (

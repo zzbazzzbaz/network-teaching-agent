@@ -125,45 +125,13 @@ metadata:
 
 ## 8. Markdown 与 Mermaid
 
-题干支持 Markdown。建议：
+题干支持 Markdown 和 Mermaid，学生看到的是渲染后的图。
 
-- 字段表：Markdown 表格；
-- 十六进制/代码：fenced code block；
-- 网络路径/拓扑：Mermaid `graph LR` 或 `flowchart`；
-- TTL/ICMP 时序：Mermaid `sequenceDiagram`；
-- 字节/头字段：Markdown 表格或代码块，不要用 Mermaid。
-
-路径图：
-
-````markdown
-```mermaid
-graph LR
-  A[你的电脑] --> B[路由器 1]
-  B --> C[路由器 2]
-  C --> D[目标]
-```
-````
-
-时序图：
-
-````markdown
-```mermaid
-sequenceDiagram
-  participant S as 发送方
-  participant R as 路由器
-  participant D as 目标
-  S->>R: UDP probe, TTL=1
-  R-->>S: ICMP Time Exceeded
-```
-````
-
-规则：
-
-- 图前后加一句文字说明，保证 Mermaid 失败回退时也能读懂；
-- 图不要太大、太密；一题一张图足够；
-- 不使用 raw HTML/SVG；
-- 不在选项里放图；
-- 不依赖外部图片 URL，优先 Mermaid 或 Markdown 表格。
+- 画图之前先读 `/skills/common/diagrams/SKILL.md`，选型、语法硬约束和文字配合都在那里，不要另写一套；
+- 字段、字节布局用 Markdown 表格，不要用图；
+- 图放在题干里，**选项永远不放图**，选项是纯文本；
+- 图前后各一句文字，保证渲染失败、只剩源码时也能读懂；
+- 一题最多一张图，不用 raw HTML/SVG，不依赖外部图片 URL。
 
 ## 9. 好例子
 
