@@ -394,29 +394,24 @@ export function ModeSidebar({
                               className="absolute top-2.5 bottom-2.5 left-0 w-[2px] rounded-full bg-link"
                             />
                           )}
-                          <span className="flex items-baseline gap-2">
+                          <span className="flex items-center pr-[4.25rem]">
                             <span
                               className={cn(
-                                "min-w-0 flex-1 truncate pr-9 text-[12.5px] leading-5",
+                                "min-w-0 flex-1 truncate text-[12.5px] leading-5",
                                 active ? "font-medium text-ink" : "text-ink-soft",
                               )}
                             >
                               {session.title || "新会话"}
                             </span>
                           </span>
-                          <span className="mt-0.5 flex items-center gap-2">
-                            <span className="min-w-0 flex-1 truncate text-[10.5px] leading-4 text-ink-muted">
-                              最后活跃
-                            </span>
-                            <time
-                              dateTime={session.updated_at}
-                              className="shrink-0 text-[9.5px] tabular-nums text-ink-muted"
-                            >
-                              {relativeDay(session.updated_at) === "今天"
-                                ? formatTime(session.updated_at)
-                                : formatDate(session.updated_at)}
-                            </time>
-                          </span>
+                          <time
+                            dateTime={session.updated_at}
+                            className="absolute top-1/2 right-2.5 -translate-y-1/2 text-[9.5px] tabular-nums text-ink-muted"
+                          >
+                            {relativeDay(session.updated_at) === "今天"
+                              ? formatTime(session.updated_at)
+                              : formatDate(session.updated_at)}
+                          </time>
                         </button>
 
                         <DropdownMenu>
@@ -424,7 +419,7 @@ export function ModeSidebar({
                             <button
                               type="button"
                               aria-label={`管理会话「${session.title || "新会话"}」`}
-                              className="absolute top-1.5 right-1 flex size-7 items-center justify-center rounded-sm text-ink-muted opacity-100 transition-opacity hover:bg-surface-3 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/30 lg:opacity-0 lg:group-hover/item:opacity-100"
+                              className="absolute top-1/2 right-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-ink-muted opacity-100 transition-opacity hover:bg-surface-3 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/30 lg:opacity-0 lg:group-hover/item:opacity-100"
                             >
                               <MoreHorizontal
                                 className="size-3.5"
