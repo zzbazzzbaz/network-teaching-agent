@@ -179,8 +179,9 @@ export function AskStudentCard({
                     value={letter}
                     className="mt-0.5 border-signal/45 data-[state=checked]:border-signal data-[state=checked]:bg-signal"
                   />
-                  <span className="text-[13px] leading-5 text-ink">
-                    {letter}. {option}
+                  <span className="min-w-0 text-[13px] leading-5 text-ink">
+                    <span className="sr-only">选项 {letter}：</span>
+                    {option}
                   </span>
                 </label>
               )

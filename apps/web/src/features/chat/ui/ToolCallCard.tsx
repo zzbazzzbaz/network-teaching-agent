@@ -9,7 +9,7 @@ import {
   Cloud,
   Wrench,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import type {
   ToolCallMessagePartComponent,
   ToolCallMessagePartProps,
@@ -72,6 +72,218 @@ function statusLabel(status: ToolCallMessagePartProps["status"], isError?: boole
   return "未完成"
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
+function asText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined
+}
+
+type AskQuestionData = {
+  mode?: "single_choice" | "short_answer"
+  question?: string
+  options: string[]
+  correctOption?: string
+  referenceAnswer?: string
+}
+
+/** ask_student 的参数既有早期的扁平结构，也有现在嵌套的 question 对象。 */
+function parseAskQuestion(args: unknown): AskQuestionData {
+  const root = asRecord(args) ?? {}
+  const nested = asRecord(root.question)
+  const source = nested ?? root
+  const rawMode = asText(source.mode) ?? asText(root.mode)
+  const optionsValue = Array.isArray(source.options)
+    ? source.options
+    : Array.isArray(root.options)
+      ? root.options
+      : []
+
+  return {
+    mode:
+      rawMode === "single_choice" || rawMode === "short_answer"
+        ? rawMode
+        : undefined,
+    question:
+      asText(source.stem) ??
+      asText(source.question) ??
+      asText(root.question),
+    options: optionsValue.filter((value): value is string => typeof value === "string"),
+    correctOption: asText(source.correct_option)?.toUpperCase(),
+    referenceAnswer: asText(source.reference_answer),
+  }
+}
+
+function parseAskResult(value: unknown): {
+  student?: string
+  reference?: string
+} {
+  const text = pretty(value)
+  return {
+    student: /学生答案[：:]\s*([\s\S]*?)(?=\n参考答案[：:]|\n（题库记录失败|$)/.exec(
+      text,
+    )?.[1]?.trim(),
+    reference: /参考答案[：:]\s*([\s\S]*?)(?=\n（题库记录失败|$)/.exec(
+      text,
+    )?.[1]?.trim(),
+  }
+}
+
+function optionLabel(
+  letter: string | undefined,
+  options: string[],
+): string | undefined {
+  if (!letter) return undefined
+  const index = letter.charCodeAt(0) - 65
+  if (index < 0 || index >= options.length) return letter
+  const option = options[index].trim()
+  return new RegExp(`^${letter}[.、\\s]`, "i").test(option)
+    ? option
+    : `${letter}. ${option}`
+}
+
+function AnswerRow({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className="flex gap-3 text-[11.5px] leading-5">
+      <span className="w-14 shrink-0 text-ink-muted">{label}</span>
+      <div className="min-w-0 flex-1 whitespace-pre-wrap text-ink-soft">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function AskStudentResult({
+  args,
+  result,
+}: {
+  args: unknown
+  result: unknown
+}) {
+  const [open, setOpen] = useState(true)
+  const question = parseAskQuestion(args)
+  const parsed = parseAskResult(result)
+  const isChoice =
+    question.mode === "single_choice" ||
+    (question.mode !== "short_answer" && question.options.length > 0)
+  const student = parsed.student
+  const reference = parsed.reference ?? question.referenceAnswer
+  const selectedLetter =
+    isChoice && student && /^[A-F]$/i.test(student)
+      ? student.toUpperCase()
+      : undefined
+  const correctLetter = (
+    question.correctOption ??
+    (isChoice && reference && /^[A-F]$/i.test(reference)
+      ? reference.toUpperCase()
+      : undefined)
+  )?.toUpperCase()
+  const selectedText =
+    optionLabel(selectedLetter, question.options) ?? student ?? "未记录"
+  const referenceText =
+    optionLabel(correctLetter, question.options) ??
+    reference ??
+    "未记录"
+  const questionText = question.question ?? "题目未记录"
+  const hasOptions = isChoice && question.options.length > 0
+
+  return (
+    <div className="w-full overflow-hidden rounded-lg border border-link-line bg-surface-2/70">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 border-b border-line px-4 py-2.5 text-left transition-colors hover:bg-surface-2"
+      >
+        <CheckCircle2 className="size-3.5 shrink-0 text-link" aria-hidden="true" />
+        <span className="shrink-0 text-[11px] text-ink-muted">已作答</span>
+        <span className="shrink-0 text-[10px] text-ink-muted/70">
+          {isChoice ? "单选题" : "简答题"}
+        </span>
+        {!open && (
+          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-muted">
+            {questionText}
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-[10px] text-ink-muted">
+          {open ? "收起" : "展开"}
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-3.5 shrink-0 text-ink-muted transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <div className="px-4 py-3">
+          <p className="whitespace-pre-wrap text-[12.5px] leading-5 text-ink-soft">
+            {questionText}
+          </p>
+          {hasOptions ? (
+            <div className="mt-3 space-y-1.5 border-t border-line/70 pt-3">
+              {question.options.map((option, index) => {
+                const letter = String.fromCharCode(65 + index)
+                const selected = selectedLetter === letter
+                const correct = correctLetter === letter
+                return (
+                  <div
+                    key={`${letter}-${option}`}
+                    className={cn(
+                      "rounded-md border px-3 py-2 text-[11.5px] leading-5",
+                      correct
+                        ? "border-link-line bg-link-soft/55"
+                        : selected
+                          ? "border-danger-line bg-danger-soft/55"
+                          : "border-line bg-surface",
+                    )}
+                  >
+                    {selected && <span className="sr-only">你的选择：</span>}
+                    {correct && <span className="sr-only">标准答案：</span>}
+                    <span className="block whitespace-pre-wrap text-ink">
+                      {option}
+                    </span>
+                  </div>
+                )
+              })}
+              {!selectedLetter && student && (
+                <p className="pt-1 text-[11px] leading-5 text-ink-muted">
+                  你的作答：{student}
+                </p>
+              )}
+              {!correctLetter && reference && (
+                <p className="pt-1 text-[11px] leading-5 text-ink-muted">
+                  参考答案：{reference}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2 border-t border-line/70 pt-3">
+              <AnswerRow label={isChoice ? "你的选择" : "你的作答"}>
+                {selectedText}
+              </AnswerRow>
+              <AnswerRow label={isChoice ? "标准答案" : "参考答案"}>
+                {referenceText}
+              </AnswerRow>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export const ToolCallCard: ToolCallMessagePartComponent = ({
   toolName,
   args,
@@ -86,32 +298,7 @@ export const ToolCallCard: ToolCallMessagePartComponent = ({
       return null
     }
     if (isError) return null
-    const question = argString(args, ["question"])
-    const resultText = pretty(result)
-    const answer = /学生答案[：:]\s*([\s\S]*?)(?:\n参考答案[：:]|\n（题库记录失败|$)/.exec(
-      resultText,
-    )?.[1]?.trim()
-    if (!question || !answer) return null
-    const preview = answer.length > 500 ? `${answer.slice(0, 500)}…` : answer
-    return (
-      <div className="w-full overflow-hidden rounded-lg border border-link-line bg-surface-2/70">
-        <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
-          <CheckCircle2 className="size-3.5 text-link" aria-hidden="true" />
-          <span className="text-[11px] text-ink-muted">已作答</span>
-          <span className="ml-auto font-mono text-[10px] text-ink-muted/70">
-            ask_student
-          </span>
-        </div>
-        <div className="px-4 py-3">
-          <p className="line-clamp-2 text-[12.5px] leading-5 text-ink-soft">
-            {question}
-          </p>
-          <p className="mt-2 max-h-40 overflow-y-auto text-[11.5px] leading-5 whitespace-pre-wrap text-ink-muted">
-            你的作答：{preview}
-          </p>
-        </div>
-      </div>
-    )
+    return <AskStudentResult args={args} result={result} />
   }
 
   const Icon = iconFor(toolName)
