@@ -6,6 +6,7 @@ import { Button } from "@/shared/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group"
 import { cn } from "@/shared/lib/utils"
 
+import { StaticMarkdown } from "./markdown"
 import type { ChatStream } from "../model/useChatSession"
 
 const answerSchema = z
@@ -146,10 +147,8 @@ export function AskStudentCard({
 
       {open && (
         <div id={`${uid}-body`}>
-          <div className="px-4 pt-3.5 pb-1">
-            <p className="text-[14px] leading-6 font-medium text-ink">
-              {payload.question}
-            </p>
+          <div className="px-4 pt-3.5 pb-1 font-medium">
+            <StaticMarkdown text={payload.question} />
           </div>
 
           {payload.mode === "single_choice" ? (

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState, isValidElement, type ReactNode } from "react"
 import DOMPurify from "dompurify"
 import type { MermaidConfig } from "mermaid"
 import ReactMarkdown, { type Components } from "react-markdown"
@@ -134,6 +134,25 @@ const mermaidComponents = {
   mermaid: { SyntaxHighlighter: MermaidDiagram },
 }
 
+/** 把 ```mermaid 代码块交给 MermaidDiagram，其余 pre 原样返回。 */
+function MarkdownPre({ children }: { children?: ReactNode }) {
+  const only =
+    Array.isArray(children) && children.length === 1 ? children[0] : children
+  if (isValidElement(only)) {
+    const { className, children: code } = only.props as {
+      className?: string
+      children?: ReactNode
+    }
+    if (
+      typeof className === "string" &&
+      className.split(/\s+/).includes("language-mermaid")
+    ) {
+      return <MermaidDiagram code={String(code ?? "")} />
+    }
+  }
+  return <pre>{children}</pre>
+}
+
 const commonComponents: Components = {
   h1: ({ children }) => <h2>{children}</h2>,
   a: ({ href, children }) => (
@@ -177,7 +196,7 @@ export function StaticMarkdown({
         urlTransform={safeUrlTransform}
         components={{
           ...commonComponents,
-          pre: ({ children }) => <pre>{children}</pre>,
+          pre: MarkdownPre,
         }}
       >
         {text}
