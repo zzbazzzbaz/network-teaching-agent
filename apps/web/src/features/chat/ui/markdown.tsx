@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, isValidElement, type ReactNode } fr
 import DOMPurify from "dompurify"
 import type { MermaidConfig } from "mermaid"
 import ReactMarkdown, { type Components } from "react-markdown"
+import remarkCjkFriendly from "remark-cjk-friendly"
 import remarkGfm from "remark-gfm"
 import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown"
 import type { SyntaxHighlighterProps } from "@assistant-ui/react-markdown"
@@ -177,7 +178,7 @@ export function MarkdownText() {
   return (
     <MarkdownTextPrimitive
       className="prose-chat"
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkCjkFriendly]}
       components={commonComponents}
       componentsByLanguage={blockComponents}
       urlTransform={safeUrlTransform}
@@ -199,7 +200,7 @@ export function StaticMarkdown({
   return (
     <div className={cn(tone === "chat" ? "prose-chat" : "prose-note", className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkCjkFriendly]}
         urlTransform={safeUrlTransform}
         skipHtml
         components={{
