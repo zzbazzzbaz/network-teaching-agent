@@ -13,7 +13,10 @@ from sqlalchemy import select
 
 from app.api.schemas.question_bank import QuestionInput
 from app.core.exceptions import UnprocessableError
-from app.core.knowledge_points import KNOWLEDGE_POINTS_PATH
+from app.core.knowledge_points import (
+    KNOWLEDGE_POINTS_PATH,
+    knowledge_point_parents,
+)
 from app.models.question import Question, QuestionAttempt
 from app.models.user import Users
 from app.repositories.question_repository import question_repository
@@ -522,6 +525,9 @@ def test_replace_public_questions_aborts_on_public_attempt(
 
 PUBLIC_QUESTIONS = "/api/v1/question-bank/questions"
 PUBLIC_KNOWLEDGE_POINTS = "/api/v1/question-bank/knowledge-points"
+PUBLIC_KNOWLEDGE_POINT_COUNTS = (
+    "/api/v1/question-bank/knowledge-points/counts"
+)
 
 
 def _login_headers(
@@ -540,6 +546,7 @@ def _login_headers(
 def test_public_question_routes_require_auth(client: TestClient) -> None:
     assert client.get(PUBLIC_QUESTIONS).status_code == 401
     assert client.get(PUBLIC_KNOWLEDGE_POINTS).status_code == 401
+    assert client.get(PUBLIC_KNOWLEDGE_POINT_COUNTS).status_code == 401
 
 
 def test_public_question_search_and_detail(
@@ -749,3 +756,351 @@ def test_delete_private_question_with_attempt_soft_deletes(
             )
         )
         assert len(attempts) == 1
+
+
+def test_public_knowledge_point_counts_empty(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user()
+    headers = _login_headers(client)
+    body = _get_counts(client, headers)
+    assert body["totals"] == {"all": 0, "public": 0, "mine": 0}
+    assert body["counts"] == {"all": {}, "public": {}, "mine": {}}
+
+
+def test_question_bank_openapi_includes_counts_and_match(
+    client: TestClient,
+) -> None:
+    schema = client.get("/openapi.json").json()
+    assert PUBLIC_KNOWLEDGE_POINT_COUNTS in schema["paths"]
+    parameters = schema["paths"][PUBLIC_QUESTIONS]["get"]["parameters"]
+    assert any(
+        parameter["name"] == "knowledge_point_match"
+        for parameter in parameters
+    )
+
+
+def _get_counts(
+    client: TestClient,
+    headers: dict[str, str],
+    **params: str | int,
+) -> dict[str, Any]:
+    response = client.get(
+        PUBLIC_KNOWLEDGE_POINT_COUNTS,
+        params=params,
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    return cast(dict[str, Any], response.json())
+
+
+def test_public_knowledge_point_counts_scope_and_rollup(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user("alice", "password123")
+    create_user("bob", "password456")
+    alice = _login_headers(client, "alice", "password123")
+    bob = _login_headers(client, "bob", "password456")
+
+    _create_public(
+        client,
+        _question_payload(
+            primary_knowledge_point_id="5.8.2",
+            secondary_knowledge_point_ids=["5.8.1"],
+        ),
+    )
+    alice_private = client.post(
+        PUBLIC_QUESTIONS,
+        json=_question_payload(
+            stem="Alice 的私有题",
+            primary_knowledge_point_id="5.8.3",
+            secondary_knowledge_point_ids=["5.9.1"],
+        ),
+        headers=alice,
+    )
+    assert alice_private.status_code == 201, alice_private.text
+    bob_private = client.post(
+        PUBLIC_QUESTIONS,
+        json=_question_payload(
+            stem="Bob 的私有题",
+            primary_knowledge_point_id="5.8.2",
+            secondary_knowledge_point_ids=[],
+        ),
+        headers=bob,
+    )
+    assert bob_private.status_code == 201, bob_private.text
+
+    body = _get_counts(client, alice)
+    assert body["totals"] == {"all": 2, "public": 1, "mine": 1}
+    assert body["counts"]["public"]["5.8.2"] == 1
+    assert body["counts"]["public"]["5.8"] == 1
+    assert body["counts"]["public"]["5"] == 1
+    assert "5.8.1" not in body["counts"]["public"]
+
+    assert body["counts"]["all"]["5.8.2"] == 1
+    assert body["counts"]["all"]["5.8.3"] == 1
+    assert body["counts"]["all"]["5.8"] == 2
+    assert body["counts"]["all"]["5"] == 2
+    assert "5.8.1" not in body["counts"]["all"]
+    assert "5.9.1" not in body["counts"]["all"]
+
+    assert body["counts"]["mine"] == {
+        "5.8.3": 1,
+        "5.8": 1,
+        "5": 1,
+    }
+
+    bob_body = _get_counts(client, bob)
+    assert bob_body["totals"] == {"all": 2, "public": 1, "mine": 1}
+    assert bob_body["counts"]["mine"]["5.8.2"] == 1
+    assert bob_body["counts"]["mine"]["5.8"] == 1
+
+    invalid = client.get(
+        PUBLIC_QUESTIONS,
+        params={"knowledge_point_prefix": "5.8", "knowledge_point_match": "bad"},
+        headers=alice,
+    )
+    assert invalid.status_code == 422
+
+
+def test_public_knowledge_point_counts_search_type_and_soft_delete(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user()
+    headers = _login_headers(client)
+
+    _create_public(
+        client,
+        _question_payload(
+            stem="TCP 拥塞控制",
+            primary_knowledge_point_id="5.8.2",
+            secondary_knowledge_point_ids=[],
+        ),
+    )
+    _create_public(
+        client,
+        _question_payload(
+            stem="TCP 三次握手",
+            question_type="short_answer",
+            options=None,
+            correct_option=None,
+            reference_answer="SYN / SYN-ACK / ACK",
+            primary_knowledge_point_id="5.8.3",
+            secondary_knowledge_point_ids=[],
+        ),
+    )
+    _create_public(
+        client,
+        _question_payload(
+            stem="DNS 查询",
+            primary_knowledge_point_id="4.2.5",
+            secondary_knowledge_point_ids=[],
+        ),
+    )
+    _create_public(
+        client,
+        _question_payload(
+            stem="100% 命中",
+            primary_knowledge_point_id="4.2.5",
+            secondary_knowledge_point_ids=[],
+        ),
+    )
+    _create_public(
+        client,
+        _question_payload(
+            stem="1000 命中",
+            primary_knowledge_point_id="4.2.5",
+            secondary_knowledge_point_ids=[],
+        ),
+    )
+
+    tcp = _get_counts(client, headers, query="TCP")
+    assert tcp["totals"]["all"] == 2
+    assert tcp["counts"]["all"]["5.8"] == 2
+    assert "4.2.5" not in tcp["counts"]["all"]
+
+    short = _get_counts(client, headers, question_type="short_answer")
+    assert short["totals"]["all"] == 1
+    assert short["counts"]["all"]["5.8.3"] == 1
+
+    percent = _get_counts(client, headers, query="100%")
+    assert percent["totals"]["all"] == 1
+    assert percent["counts"]["all"]["4.2.5"] == 1
+
+    created = client.post(
+        PUBLIC_QUESTIONS,
+        json=_question_payload(
+            stem="待删除的私有题",
+            primary_knowledge_point_id="5.8.2",
+            secondary_knowledge_point_ids=[],
+        ),
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    question_id = created.json()["question_id"]
+
+    before = _get_counts(client, headers)
+    assert before["totals"]["mine"] == 1
+    assert before["counts"]["mine"]["5.8.2"] == 1
+
+    deleted = client.delete(f"{PUBLIC_QUESTIONS}/{question_id}", headers=headers)
+    assert deleted.status_code == 204
+
+    after = _get_counts(client, headers)
+    assert after["totals"]["mine"] == 0
+    assert after["counts"]["mine"] == {}
+
+
+def test_public_question_knowledge_point_match_primary(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    headers = _login_headers(client)
+    _create_public(
+        client,
+        _question_payload(
+            primary_knowledge_point_id="5.9.1",
+            secondary_knowledge_point_ids=["5.8.2"],
+        ),
+    )
+
+    any_prefix = client.get(
+        PUBLIC_QUESTIONS,
+        params={"knowledge_point_prefix": "5.8"},
+        headers=headers,
+    )
+    assert any_prefix.status_code == 200, any_prefix.text
+    assert any_prefix.json()["total"] == 1
+
+    primary_prefix = client.get(
+        PUBLIC_QUESTIONS,
+        params={
+            "knowledge_point_prefix": "5.8",
+            "knowledge_point_match": "primary",
+        },
+        headers=headers,
+    )
+    assert primary_prefix.status_code == 200, primary_prefix.text
+    assert primary_prefix.json()["total"] == 0
+
+    primary_own_prefix = client.get(
+        PUBLIC_QUESTIONS,
+        params={
+            "knowledge_point_prefix": "5.9",
+            "knowledge_point_match": "primary",
+        },
+        headers=headers,
+    )
+    assert primary_own_prefix.status_code == 200, primary_own_prefix.text
+    assert primary_own_prefix.json()["total"] == 1
+
+    any_exact = client.get(
+        PUBLIC_QUESTIONS,
+        params={"knowledge_point_id": "5.8.2"},
+        headers=headers,
+    )
+    assert any_exact.status_code == 200, any_exact.text
+    assert any_exact.json()["total"] == 1
+
+    primary_exact = client.get(
+        PUBLIC_QUESTIONS,
+        params={
+            "knowledge_point_id": "5.8.2",
+            "knowledge_point_match": "primary",
+        },
+        headers=headers,
+    )
+    assert primary_exact.status_code == 200, primary_exact.text
+    assert primary_exact.json()["total"] == 0
+
+    internal_any = client.get(
+        QUESTIONS,
+        params={"knowledge_point_prefix": "5.8"},
+        headers=_headers(user),
+    )
+    assert internal_any.status_code == 200, internal_any.text
+    assert internal_any.json()["total"] == 1
+
+    internal_primary = client.get(
+        QUESTIONS,
+        params={
+            "knowledge_point_prefix": "5.8",
+            "knowledge_point_match": "primary",
+        },
+        headers=_headers(user),
+    )
+    assert internal_primary.status_code == 200, internal_primary.text
+    assert internal_primary.json()["total"] == 0
+
+
+def test_public_knowledge_point_counts_match_list_totals(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user()
+    headers = _login_headers(client)
+
+    _create_public(
+        client,
+        _question_payload(
+            primary_knowledge_point_id="5.8.2",
+            secondary_knowledge_point_ids=["5.8.1"],
+        ),
+    )
+    _create_public(
+        client,
+        _question_payload(
+            stem="另一道公共题",
+            primary_knowledge_point_id="4.2.5",
+            secondary_knowledge_point_ids=[],
+        ),
+    )
+    created = client.post(
+        PUBLIC_QUESTIONS,
+        json=_question_payload(
+            stem="用于口径校验的私有题",
+            primary_knowledge_point_id="5.8.3",
+            secondary_knowledge_point_ids=["5.9.1"],
+        ),
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+
+    body = _get_counts(client, headers)
+    for scope in ("all", "public", "mine"):
+        counts = cast(dict[str, int], body["counts"][scope])
+        for knowledge_point_id, count in counts.items():
+            listed = client.get(
+                PUBLIC_QUESTIONS,
+                params={
+                    "scope": scope,
+                    "knowledge_point_prefix": knowledge_point_id,
+                    "knowledge_point_match": "primary",
+                    "limit": 1,
+                },
+                headers=headers,
+            )
+            assert listed.status_code == 200, listed.text
+            assert listed.json()["total"] == count
+
+    parents = knowledge_point_parents()
+    roots = [node_id for node_id, parent_id in parents.items() if parent_id is None]
+    for scope in ("all", "public", "mine"):
+        root_sum = sum(
+            cast(dict[str, int], body["counts"][scope]).get(root_id, 0)
+            for root_id in roots
+        )
+        assert root_sum == body["totals"][scope]
+
+    all_counts = cast(dict[str, int], body["counts"]["all"])
+    public_counts = cast(dict[str, int], body["counts"]["public"])
+    mine_counts = cast(dict[str, int], body["counts"]["mine"])
+    for knowledge_point_id in set(all_counts) | set(public_counts) | set(mine_counts):
+        assert all_counts.get(knowledge_point_id, 0) == (
+            public_counts.get(knowledge_point_id, 0)
+            + mine_counts.get(knowledge_point_id, 0)
+        )

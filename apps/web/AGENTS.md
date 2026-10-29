@@ -49,5 +49,6 @@ npm run api:types     # 需要 api 已启动在 :8000
 - `session_id` 必须原样作为 LangGraph `thread_id`；打开会话前调用 API 的 `ensureSessionThread`。
 - 登录态只保存在浏览器；API/LangGraph 都走 `apiFetch` 的 JWT 注入与 401 刷新。
 - 题目答案在用户主动查看前不渲染。
+- 题库面板是「左侧知识点树 + 右侧题目列表」；URL 的 `kp` 是教材目录编号（如 `5.8`），列表用 `knowledge_point_match=primary` 只按主知识点筛选。
 - 后端缺口记录在 `BACKEND_GAPS.md`。
 - 不提交 `.env`、token、记忆内容或私有题库缓存。

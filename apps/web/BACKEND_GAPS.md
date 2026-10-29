@@ -21,9 +21,9 @@
 
 ## 3. 题库
 
-- 列表接口没有独立的 scope 计数接口。
-  - 当前前端：可按 scope 额外发起 `limit=1` 查询获取 total；这会产生额外请求。
-  - 建议：提供一个 counts 字段或单独的 counts 端点。
+- 知识点题量统计已补齐：`GET /api/v1/question-bank/knowledge-points/counts` 一次返回 `all/public/mine` 三个 scope 的知识点子树计数。
+  - 当前前端：题库树直接使用该接口，不再按 scope 额外发起 `limit=1` 查询。
+  - 列表支持 `knowledge_point_match=any|primary`，题库树固定使用 `primary`（只按主知识点）。
 - OpenAPI 中 `QuestionSearchItem` 被描述为宽松 object（Pydantic 动态裁字段导致）。
   - 当前前端：在 `src/shared/api/types.ts` 维护最小边界类型；详情仍使用生成的 DTO。
   - 建议：为 summary 定义独立 Pydantic response model，使 OpenAPI 精确。

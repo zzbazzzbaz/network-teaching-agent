@@ -8,6 +8,8 @@ from fastapi import APIRouter, Query, Response
 
 from app.api.dependencies import SessionDep, UserIdDep
 from app.api.schemas.question_bank import (
+    KnowledgePointCountsQuery,
+    KnowledgePointCountsResponse,
     KnowledgePointsResponse,
     QuestionCreateRequest,
     QuestionCreateResponse,
@@ -43,6 +45,7 @@ def search_questions(
         question_type=params.question_type,
         knowledge_point_id=params.knowledge_point_id,
         knowledge_point_prefix=params.knowledge_point_prefix,
+        knowledge_point_match=params.knowledge_point_match,
         page=page,
     )
     return QuestionSearchResponse(
@@ -68,6 +71,32 @@ def get_question(
         user_id=user_id,
         question_id=question_id,
     )
+
+
+@router.get(
+    "/knowledge-points/counts",
+    response_model=KnowledgePointCountsResponse,
+    summary="获取知识点题量统计",
+)
+def get_knowledge_point_counts(
+    params: Annotated[KnowledgePointCountsQuery, Query()],
+    session: SessionDep,
+    user_id: UserIdDep,
+) -> KnowledgePointCountsResponse:
+    result = question_bank_service.knowledge_point_counts(
+        session,
+        user_id=user_id,
+        query=params.query,
+        question_type=params.question_type,
+    )
+    logger.info(
+        "题库知识点统计 user_id=%s totals=%s has_query=%s question_type=%s",
+        user_id,
+        result.totals,
+        params.query is not None,
+        params.question_type,
+    )
+    return result
 
 
 @router.get(

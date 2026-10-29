@@ -40,6 +40,8 @@ app/api/
   - 公共题只读；
   - 私有题只允许 owner 新增、编辑、删除；
   - 不提供作答/attempt 接口；
+  - 知识点题量统计在 `GET /knowledge-points/counts`，一次返回 `all/public/mine`；
+  - 搜索支持 `knowledge_point_match=any|primary`，默认 `any` 保持 Agent 行为；
 - 列表分页：`GET /sessions` 和题库搜索返回 `Page[T]`；
 - 会话创建 / 删除同步管理 LangGraph thread；打开会话时调 `POST /sessions/{id}/ensure-thread`；
 - 记忆只读 BFF 在 `/api/v1/memory/*`，API 通过 `AgentDep` 调 Agent 的 `/store/*`；

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from datetime import datetime
@@ -10,12 +11,14 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas.question_bank import (
     AskStudentRecordResponse,
+    KnowledgePointCountsResponse,
     KnowledgePointRef,
     KnowledgePointsResponse,
     QuestionDetail,
     QuestionDetailResponse,
     QuestionInput,
     QuestionReference,
+    QuestionScope,
     QuestionSearchItem,
     QuestionType,
 )
@@ -28,6 +31,7 @@ from app.core.exceptions import (
 from app.core.knowledge_points import (
     get_knowledge_point,
     has_knowledge_point_prefix,
+    knowledge_point_parents,
     knowledge_point_title,
     knowledge_points_payload,
     validate_knowledge_points,
@@ -35,6 +39,8 @@ from app.core.knowledge_points import (
 from app.core.pagination import PageRequest, PageResult
 from app.models.question import Question, QuestionAttempt
 from app.repositories.question_repository import question_repository
+
+logger = logging.getLogger(__name__)
 
 _PREFIX_PATTERN = re.compile(r"^\d+(?:\.\d+)*$")
 
@@ -68,6 +74,23 @@ def _validate(payload: QuestionInput) -> None:
         payload.primary_knowledge_point_id,
         payload.secondary_knowledge_point_ids,
     )
+
+
+def _rollup(
+    rows: list[tuple[str, int]],
+    parents: dict[str, str | None],
+) -> tuple[dict[str, int], int]:
+    counts: dict[str, int] = {}
+    total = 0
+    for knowledge_point_id, count in rows:
+        total += count
+        node: str | None = knowledge_point_id
+        seen: set[str] = set()
+        while node is not None and node not in seen:
+            seen.add(node)
+            counts[node] = counts.get(node, 0) + count
+            node = parents.get(node)
+    return counts, total
 
 
 class QuestionBankService:
@@ -166,6 +189,55 @@ class QuestionBankService:
 
     def knowledge_points(self) -> KnowledgePointsResponse:
         return KnowledgePointsResponse.model_validate(knowledge_points_payload())
+
+    def knowledge_point_counts(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        query: str | None,
+        question_type: QuestionType | None,
+    ) -> KnowledgePointCountsResponse:
+        rows = question_repository.count_by_primary_knowledge_point(
+            session,
+            user_id=user_id,
+            query=query,
+            question_type=question_type,
+        )
+        parents = knowledge_point_parents()
+        unknown_ids = {knowledge_point_id for _, knowledge_point_id, _ in rows} - parents.keys()
+        if unknown_ids:
+            logger.warning(
+                "题库统计发现目录外主知识点 user_id=%s ids=%s",
+                user_id,
+                sorted(unknown_ids),
+            )
+
+        public_rows = [
+            (knowledge_point_id, count)
+            for is_public, knowledge_point_id, count in rows
+            if is_public
+        ]
+        mine_rows = [
+            (knowledge_point_id, count)
+            for is_public, knowledge_point_id, count in rows
+            if not is_public
+        ]
+        public_counts, public_total = _rollup(public_rows, parents)
+        mine_counts, mine_total = _rollup(mine_rows, parents)
+        all_counts, all_total = _rollup(public_rows + mine_rows, parents)
+
+        totals: dict[QuestionScope, int] = {
+            "all": all_total,
+            "public": public_total,
+            "mine": mine_total,
+        }
+        counts: dict[QuestionScope, dict[str, int]] = {
+            "all": all_counts,
+            "public": public_counts,
+            "mine": mine_counts,
+        }
+        return KnowledgePointCountsResponse(totals=totals, counts=counts)
 
     def validate_public_search_filters(
         self,
@@ -284,6 +356,7 @@ class QuestionBankService:
         question_type: QuestionType | None,
         knowledge_point_id: str | None,
         knowledge_point_prefix: str | None,
+        knowledge_point_match: str,
         page: PageRequest,
         detail: QuestionDetail,
     ) -> PageResult[QuestionSearchItem]:
@@ -301,6 +374,7 @@ class QuestionBankService:
             question_type=question_type,
             knowledge_point_id=knowledge_point_id,
             knowledge_point_prefix=knowledge_point_prefix,
+            knowledge_point_match=knowledge_point_match,
             page=page,
         )
 
@@ -338,6 +412,7 @@ class QuestionBankService:
         question_type: QuestionType | None,
         knowledge_point_id: str | None,
         knowledge_point_prefix: str | None,
+        knowledge_point_match: str,
         page: PageRequest,
     ) -> PageResult[QuestionSearchItem]:
         self.validate_public_search_filters(
@@ -352,6 +427,7 @@ class QuestionBankService:
             question_type=question_type,
             knowledge_point_id=knowledge_point_id,
             knowledge_point_prefix=knowledge_point_prefix,
+            knowledge_point_match=knowledge_point_match,
             page=page,
             detail="summary",
         )

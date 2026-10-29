@@ -70,7 +70,9 @@ export function QuestionDetailDialog({
     if (!isNotFoundError(detailQuery.error)) return
     // 详情已不存在时，顺手让列表和计数重新拉取。
     void queryClient.invalidateQueries({ queryKey: questionKeys.lists() })
-    void queryClient.invalidateQueries({ queryKey: questionKeys.counts() })
+    void queryClient.invalidateQueries({
+      queryKey: questionKeys.knowledgePointCountsRoot(),
+    })
   }, [detailQuery.error, queryClient])
 
   const question = detailQuery.data

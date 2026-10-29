@@ -57,7 +57,24 @@ def _load() -> dict[str, KnowledgePoint]:
     for node in result.values():
         if node.parent_id is not None and node.parent_id not in result:
             raise RuntimeError(f"知识点 {node.id} 的父节点 {node.parent_id} 不存在")
+
+    for node in result.values():
+        seen: set[str] = set()
+        current = node
+        while current.parent_id is not None:
+            if current.id in seen:
+                raise RuntimeError(f"知识点目录存在环：{node.id}")
+            seen.add(current.id)
+            parent = result.get(current.parent_id)
+            if parent is None:
+                break
+            current = parent
     return result
+
+
+@lru_cache
+def knowledge_point_parents() -> dict[str, str | None]:
+    return {node_id: node.parent_id for node_id, node in _load().items()}
 
 
 def knowledge_points_payload() -> dict[str, object]:
@@ -108,3 +125,4 @@ def clear_cache() -> None:
     """仅供测试或教材改版后显式刷新。"""
     _load.cache_clear()
     _load_payload.cache_clear()
+    knowledge_point_parents.cache_clear()

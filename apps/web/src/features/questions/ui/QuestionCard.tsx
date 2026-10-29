@@ -16,8 +16,19 @@ export function QuestionCard({
     <button
       type="button"
       onClick={() => onOpen(question.question_id)}
-      className="group flex min-h-[150px] w-full flex-col rounded-lg border border-line bg-surface p-4 text-left transition-colors outline-none hover:border-link-line focus-visible:ring-2 focus-visible:ring-ring/30"
+      className="group flex min-h-[160px] w-full flex-col rounded-lg border border-line bg-surface p-4 text-left transition-colors outline-none hover:border-link-line focus-visible:ring-2 focus-visible:ring-ring/30"
     >
+      <div className="mb-2 flex min-w-0 items-center gap-1.5 text-[10.5px] text-ink-muted">
+        <span className="shrink-0 font-mono text-[10px] tabular-nums">
+          {question.primary_knowledge_point.id}
+        </span>
+        <span
+          className="truncate"
+          title={question.primary_knowledge_point.title}
+        >
+          {question.primary_knowledge_point.title}
+        </span>
+      </div>
       <p className="line-clamp-3 text-[13.5px] leading-6 break-words text-ink">
         {question.stem_preview}
       </p>

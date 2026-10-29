@@ -5,6 +5,7 @@ from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import (
+    BaseModel,
     Field,
     SerializerFunctionWrapHandler,
     field_validator,
@@ -18,6 +19,7 @@ from app.api.schemas.pagination import Page, PageQuery
 QuestionType = Literal["single_choice", "short_answer"]
 QuestionScope = Literal["all", "public", "mine"]
 QuestionDetail = Literal["summary", "full"]
+KnowledgePointMatch = Literal["any", "primary"]
 
 
 class QuestionPageQuery(PageQuery):
@@ -30,10 +32,16 @@ class QuestionSearchQuery(QuestionPageQuery):
     question_type: QuestionType | None = None
     knowledge_point_id: str | None = Field(default=None, max_length=16)
     knowledge_point_prefix: str | None = Field(default=None, max_length=16)
+    knowledge_point_match: KnowledgePointMatch = "any"
 
 
 class InternalQuestionSearchQuery(QuestionSearchQuery):
     detail: QuestionDetail = "summary"
+
+
+class KnowledgePointCountsQuery(BaseModel):
+    query: str | None = Field(default=None, min_length=1, max_length=100)
+    question_type: QuestionType | None = None
 
 
 class QuestionInput(ApiRequest):
@@ -213,3 +221,8 @@ class KnowledgePointsResponse(ApiResponse):
     version: int
     course: str
     nodes: list[KnowledgePointNode]
+
+
+class KnowledgePointCountsResponse(ApiResponse):
+    totals: dict[QuestionScope, int]
+    counts: dict[QuestionScope, dict[str, int]]

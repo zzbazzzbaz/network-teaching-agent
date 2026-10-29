@@ -3,11 +3,13 @@
 import { apiFetch } from "@/shared/api/client"
 import type { components } from "@/shared/api/schema"
 import type {
+  KnowledgePointCounts,
   KnowledgePointsResponse,
   QuestionDetail,
   QuestionFilters,
   QuestionInput,
   QuestionSearchResponse,
+  QuestionType,
 } from "@/shared/api/types"
 
 import { PAGE_SIZE } from "./model"
@@ -30,6 +32,9 @@ export function listQuestions(
   if (filters.question_type) params.set("question_type", filters.question_type)
   if (filters.knowledge_point_prefix) {
     params.set("knowledge_point_prefix", filters.knowledge_point_prefix)
+  }
+  if (filters.knowledge_point_match) {
+    params.set("knowledge_point_match", filters.knowledge_point_match)
   }
 
   return apiFetch<QuestionSearchResponse>(
@@ -54,6 +59,22 @@ export function getKnowledgePoints(
   return apiFetch<KnowledgePointsResponse>("/question-bank/knowledge-points", {
     signal,
   })
+}
+
+export function getKnowledgePointCounts(
+  filters: { query?: string; question_type?: QuestionType },
+  signal?: AbortSignal,
+): Promise<KnowledgePointCounts> {
+  const params = new URLSearchParams()
+  const query = filters.query?.trim()
+  if (query) params.set("query", query)
+  if (filters.question_type) params.set("question_type", filters.question_type)
+  const queryString = params.toString()
+  const suffix = queryString ? `?${queryString}` : ""
+  return apiFetch<KnowledgePointCounts>(
+    `/question-bank/knowledge-points/counts${suffix}`,
+    { signal },
+  )
 }
 
 export function createQuestion(

@@ -5,10 +5,79 @@ from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.schemas.question_bank import QuestionInput
 from app.core.pagination import PageRequest, PageResult
 from app.models.question import Question, QuestionAttempt
+
+
+def _search_conditions(
+    *,
+    user_id: uuid.UUID,
+    scope: str,
+    query: str | None,
+    question_type: str | None,
+    knowledge_point_id: str | None = None,
+    knowledge_point_prefix: str | None = None,
+    knowledge_point_match: str = "any",
+) -> list[ColumnElement[bool]]:
+    conditions: list[ColumnElement[bool]] = [Question.deleted_at.is_(None)]
+    if scope == "public":
+        conditions.append(Question.owner_id.is_(None))
+    elif scope == "mine":
+        conditions.append(Question.owner_id == user_id)
+    else:
+        conditions.append(
+            or_(Question.owner_id.is_(None), Question.owner_id == user_id)
+        )
+
+    if query:
+        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        conditions.append(Question.stem.ilike(f"%{escaped}%", escape="\\"))
+    if question_type:
+        conditions.append(Question.question_type == question_type)
+
+    if knowledge_point_id:
+        if knowledge_point_match == "primary":
+            conditions.append(
+                Question.primary_knowledge_point_id == knowledge_point_id
+            )
+        else:
+            conditions.append(
+                or_(
+                    Question.primary_knowledge_point_id == knowledge_point_id,
+                    Question.secondary_knowledge_point_ids.contains([knowledge_point_id]),
+                )
+            )
+
+    if knowledge_point_prefix:
+        prefix_like = f"{knowledge_point_prefix}.%"
+        primary_matches = or_(
+            Question.primary_knowledge_point_id == knowledge_point_prefix,
+            Question.primary_knowledge_point_id.like(prefix_like),
+        )
+        if knowledge_point_match == "primary":
+            conditions.append(primary_matches)
+        else:
+            conditions.append(
+                or_(
+                    primary_matches,
+                    text(
+                        "EXISTS ("
+                        "SELECT 1 FROM jsonb_array_elements_text("
+                        "questions.secondary_knowledge_point_ids"
+                        ") AS secondary_kp "
+                        "WHERE secondary_kp = :kp_prefix "
+                        "OR secondary_kp LIKE :kp_prefix_like"
+                        ")"
+                    ).bindparams(
+                        kp_prefix=knowledge_point_prefix,
+                        kp_prefix_like=prefix_like,
+                    ),
+                )
+            )
+    return conditions
 
 
 class QuestionRepository:
@@ -137,50 +206,18 @@ class QuestionRepository:
         question_type: str | None,
         knowledge_point_id: str | None,
         knowledge_point_prefix: str | None,
+        knowledge_point_match: str,
         page: PageRequest,
     ) -> PageResult[Question]:
-        conditions = [Question.deleted_at.is_(None)]
-        if scope == "public":
-            conditions.append(Question.owner_id.is_(None))
-        elif scope == "mine":
-            conditions.append(Question.owner_id == user_id)
-        else:
-            conditions.append(
-                or_(Question.owner_id.is_(None), Question.owner_id == user_id)
-            )
-
-        if query:
-            escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            conditions.append(Question.stem.ilike(f"%{escaped}%", escape="\\"))
-        if question_type:
-            conditions.append(Question.question_type == question_type)
-        if knowledge_point_id:
-            conditions.append(
-                or_(
-                    Question.primary_knowledge_point_id == knowledge_point_id,
-                    Question.secondary_knowledge_point_ids.contains([knowledge_point_id]),
-                )
-            )
-        if knowledge_point_prefix:
-            prefix_like = f"{knowledge_point_prefix}.%"
-            conditions.append(
-                or_(
-                    Question.primary_knowledge_point_id == knowledge_point_prefix,
-                    Question.primary_knowledge_point_id.like(prefix_like),
-                    text(
-                        "EXISTS ("
-                        "SELECT 1 FROM jsonb_array_elements_text("
-                        "questions.secondary_knowledge_point_ids"
-                        ") AS secondary_kp "
-                        "WHERE secondary_kp = :kp_prefix "
-                        "OR secondary_kp LIKE :kp_prefix_like"
-                        ")"
-                    ).bindparams(
-                        kp_prefix=knowledge_point_prefix,
-                        kp_prefix_like=prefix_like,
-                    ),
-                )
-            )
+        conditions = _search_conditions(
+            user_id=user_id,
+            scope=scope,
+            query=query,
+            question_type=question_type,
+            knowledge_point_id=knowledge_point_id,
+            knowledge_point_prefix=knowledge_point_prefix,
+            knowledge_point_match=knowledge_point_match,
+        )
 
         base = select(Question).where(*conditions)
         total = session.scalar(
@@ -199,6 +236,41 @@ class QuestionRepository:
             limit=page.limit,
             offset=page.offset,
         )
+
+    def count_by_primary_knowledge_point(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        query: str | None,
+        question_type: str | None,
+    ) -> list[tuple[bool, str, int]]:
+        """返回 [(is_public, primary_knowledge_point_id, count)]。
+
+        只聚合主知识点；公共题和我的题一次查出，all 由 service 相加。
+        """
+        conditions = _search_conditions(
+            user_id=user_id,
+            scope="all",
+            query=query,
+            question_type=question_type,
+        )
+        rows = session.execute(
+            select(
+                Question.owner_id.is_(None),
+                Question.primary_knowledge_point_id,
+                func.count(),
+            )
+            .where(*conditions)
+            .group_by(
+                Question.owner_id.is_(None),
+                Question.primary_knowledge_point_id,
+            )
+        ).all()
+        return [
+            (bool(is_public), str(knowledge_point_id), int(count))
+            for is_public, knowledge_point_id, count in rows
+        ]
 
     def has_public_attempts(self, session: Session) -> bool:
         return (

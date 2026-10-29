@@ -182,6 +182,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/ensure-thread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 确保会话线程存在 */
+        post: operations["ensure_session_thread_api_v1_sessions__session_id__ensure_thread_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/question-bank/questions": {
         parameters: {
             query?: never;
@@ -214,6 +231,23 @@ export interface paths {
         post?: never;
         /** 删除私有题 */
         delete: operations["delete_question_api_v1_question_bank_questions__question_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/question-bank/knowledge-points/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 获取知识点题量统计 */
+        get: operations["get_knowledge_point_counts_api_v1_question_bank_knowledge_points_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -369,6 +403,19 @@ export interface components {
             /** Keys */
             keys: components["schemas"]["JwkResponse"][];
         };
+        /** KnowledgePointCountsResponse */
+        KnowledgePointCountsResponse: {
+            /** Totals */
+            totals: {
+                [key: string]: number;
+            };
+            /** Counts */
+            counts: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+        };
         /** KnowledgePointNode */
         KnowledgePointNode: {
             /** Id */
@@ -446,7 +493,10 @@ export interface components {
             question_type: "single_choice" | "short_answer";
             /** Stem */
             stem: string;
-            /** Options */
+            /**
+             * Options
+             * @description 单选题选项，2–6 个纯文本；前端按顺序渲染 A/B/C。
+             */
             options?: string[] | null;
             /** Correct Option */
             correct_option?: string | null;
@@ -519,7 +569,10 @@ export interface components {
             question_type: "single_choice" | "short_answer";
             /** Stem */
             stem: string;
-            /** Options */
+            /**
+             * Options
+             * @description 单选题选项，2–6 个纯文本；前端按顺序渲染 A/B/C。
+             */
             options?: string[] | null;
             /** Correct Option */
             correct_option?: string | null;
@@ -1033,6 +1086,35 @@ export interface operations {
             };
         };
     };
+    ensure_session_thread_api_v1_sessions__session_id__ensure_thread_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_questions_api_v1_question_bank_questions_get: {
         parameters: {
             query?: {
@@ -1043,6 +1125,7 @@ export interface operations {
                 question_type?: ("single_choice" | "short_answer") | null;
                 knowledge_point_id?: string | null;
                 knowledge_point_prefix?: string | null;
+                knowledge_point_match?: "any" | "primary";
             };
             header?: never;
             path?: never;
@@ -1186,6 +1269,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_knowledge_point_counts_api_v1_question_bank_knowledge_points_counts_get: {
+        parameters: {
+            query?: {
+                query?: string | null;
+                question_type?: ("single_choice" | "short_answer") | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgePointCountsResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

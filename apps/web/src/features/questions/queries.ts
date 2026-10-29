@@ -2,10 +2,10 @@
 
 import {
   infiniteQueryOptions,
+  keepPreviousData,
   queryOptions,
   useInfiniteQuery,
   useMutation,
-  useQueries,
   useQuery,
   useQueryClient,
   type QueryClient,
@@ -21,6 +21,7 @@ import type {
 import {
   createQuestion,
   deleteQuestion,
+  getKnowledgePointCounts,
   getKnowledgePoints,
   getQuestion,
   listQuestions,
@@ -28,8 +29,8 @@ import {
 } from "./api"
 import {
   PAGE_SIZE,
-  SCOPE_OPTIONS,
   type QuestionFilterState,
+  type TypeFilter,
 } from "./model"
 
 export const questionKeys = {
@@ -37,13 +38,19 @@ export const questionKeys = {
   lists: () => [...questionKeys.all, "list"] as const,
   list: (scope: QuestionScope, filters: QuestionFilterState) =>
     [...questionKeys.lists(), scope, filters] as const,
-  counts: () => [...questionKeys.all, "count"] as const,
-  count: (scope: QuestionScope, filters: QuestionFilterState) =>
-    [...questionKeys.counts(), scope, filters] as const,
+  knowledgePointCountsRoot: () =>
+    [...questionKeys.all, "knowledge-point-counts"] as const,
+  knowledgePointCounts: (filters: KnowledgePointCountFilters) =>
+    [...questionKeys.knowledgePointCountsRoot(), filters] as const,
   details: () => [...questionKeys.all, "detail"] as const,
   detail: (questionId: string) =>
     [...questionKeys.details(), questionId] as const,
   knowledgePoints: () => [...questionKeys.all, "knowledge-points"] as const,
+}
+
+export type KnowledgePointCountFilters = {
+  query: string
+  questionType: TypeFilter
 }
 
 function toApiFilters(
@@ -61,6 +68,8 @@ function toApiFilters(
       filters.questionType === "all" ? undefined : filters.questionType,
     knowledge_point_prefix:
       filters.knowledgePointId === "all" ? undefined : filters.knowledgePointId,
+    knowledge_point_match:
+      filters.knowledgePointId === "all" ? undefined : "primary",
   }
 }
 
@@ -86,36 +95,37 @@ export function questionsQueryOptions(
 export function useQuestions(
   scope: QuestionScope,
   filters: QuestionFilterState,
+  enabled = true,
 ) {
-  return useInfiniteQuery(questionsQueryOptions(scope, filters))
+  return useInfiniteQuery({
+    ...questionsQueryOptions(scope, filters),
+    enabled,
+  })
 }
 
-export type QuestionCounts = Partial<Record<QuestionScope, number>>
-
-/**
- * 后端没有 count 接口，用每个 scope 的 limit=1 查询拿到 total。
- * 计数跟随除 scope 以外的筛选条件。
- */
-export function useQuestionCounts(
-  filters: QuestionFilterState,
-): QuestionCounts {
-  const results = useQueries({
-    queries: SCOPE_OPTIONS.map((scope) =>
-      queryOptions({
-        queryKey: questionKeys.count(scope.id, filters),
-        queryFn: ({ signal }) =>
-          listQuestions(toApiFilters(scope.id, filters, 1, 0), signal),
-        staleTime: 30_000,
-      }),
-    ),
+export function knowledgePointCountsQueryOptions(
+  filters: KnowledgePointCountFilters,
+) {
+  return queryOptions({
+    queryKey: questionKeys.knowledgePointCounts(filters),
+    queryFn: ({ signal }) =>
+      getKnowledgePointCounts(
+        {
+          query: filters.query || undefined,
+          question_type:
+            filters.questionType === "all" ? undefined : filters.questionType,
+        },
+        signal,
+      ),
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   })
+}
 
-  const counts: QuestionCounts = {}
-  SCOPE_OPTIONS.forEach((scope, index) => {
-    const total = results[index]?.data?.total
-    if (typeof total === "number") counts[scope.id] = total
-  })
-  return counts
+export function useKnowledgePointCounts(
+  filters: KnowledgePointCountFilters,
+) {
+  return useQuery(knowledgePointCountsQueryOptions(filters))
 }
 
 export function knowledgePointsQueryOptions() {
@@ -141,7 +151,9 @@ export function questionDetailQueryOptions(questionId: string) {
 
 function invalidateQuestionLists(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: questionKeys.lists() })
-  void queryClient.invalidateQueries({ queryKey: questionKeys.counts() })
+  void queryClient.invalidateQueries({
+    queryKey: questionKeys.knowledgePointCountsRoot(),
+  })
 }
 
 export function useCreateQuestion() {

@@ -6,6 +6,7 @@ import {
   notFound,
   Outlet,
   redirect,
+  stringifySearchWith,
   useRouter,
   type ErrorComponentProps,
 } from "@tanstack/react-router"
@@ -118,9 +119,14 @@ function validateSessionSearch(search: Record<string, unknown>): SessionSearch {
     search.panel === "sandbox"
       ? search.panel
       : undefined
+  const kp =
+    typeof search.kp === "string" && /^\d+(?:\.\d+)*$/.test(search.kp)
+      ? search.kp
+      : undefined
   return {
     panel,
     question: typeof search.question === "string" ? search.question : undefined,
+    kp,
     path: typeof search.path === "string" ? search.path : undefined,
   }
 }
@@ -245,8 +251,25 @@ const routeTree = rootRoute.addChildren([
   labLayoutRoute.addChildren([labIndexRoute, labSessionRoute]),
 ])
 
+// 本项目 search 参数全部是字符串。默认实现会把 "5.8" 当成 JSON 数字，
+// 序列化成 kp=%225.8%22；这里关闭数值/JSON 推断，保证 /?kp=5.8 可读、可分享。
+function parseSearch(searchStr: string): Record<string, string> {
+  const normalized = searchStr.startsWith("?")
+    ? searchStr.slice(1)
+    : searchStr
+  const result: Record<string, string> = Object.create(null)
+  for (const [key, value] of new URLSearchParams(normalized)) {
+    result[key] = value
+  }
+  return result
+}
+
+const stringifySearch = stringifySearchWith(JSON.stringify)
+
 export const router = createRouter({
   routeTree,
+  parseSearch,
+  stringifySearch,
   defaultPendingComponent: RoutePending,
 })
 

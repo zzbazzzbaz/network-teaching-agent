@@ -112,6 +112,31 @@ export function knowledgePointAncestors(
   return ancestors
 }
 
+/**
+ * 按当前 scope 的题量过滤树。
+ * 选中节点即使变成 0 题也保留，避免筛选时树突然把用户甩回根节点。
+ */
+export function filterKnowledgePointTree(
+  nodes: KnowledgePointTreeNode[],
+  counts: Record<string, number>,
+  options: { showEmpty: boolean; keepId?: string },
+): KnowledgePointTreeNode[] {
+  if (options.showEmpty) return nodes
+
+  const result: KnowledgePointTreeNode[] = []
+  for (const node of nodes) {
+    const children = filterKnowledgePointTree(node.children, counts, options)
+    if (
+      (counts[node.id] ?? 0) > 0 ||
+      node.id === options.keepId ||
+      children.length > 0
+    ) {
+      result.push({ ...node, children })
+    }
+  }
+  return result
+}
+
 const VALUE_ERROR_PREFIX = /^Value error,\s*/i
 
 export function questionErrorMessage(error: unknown, fallback: string): string {

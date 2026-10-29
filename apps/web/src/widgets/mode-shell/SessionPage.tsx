@@ -44,6 +44,7 @@ function PanelPending() {
 export type SessionSearch = {
   panel?: "questions" | "memory" | "sandbox"
   question?: string
+  kp?: string
   path?: string
 }
 
@@ -104,11 +105,23 @@ export function SessionPage({
   }
 
   function selectQuestion(questionId: string | undefined) {
-    if (!questionId) {
-      updateSearch({ panel: "questions" })
-      return
-    }
-    updateSearch({ panel: "questions", question: questionId })
+    updateSearch({
+      panel: "questions",
+      kp: search.kp,
+      question: questionId,
+    })
+  }
+
+  function selectKnowledgePoint(
+    knowledgePointId: string | undefined,
+    options?: { replace?: boolean },
+  ) {
+    updateSearch(
+      knowledgePointId
+        ? { panel: "questions", kp: knowledgePointId }
+        : { panel: "questions" },
+      options?.replace,
+    )
   }
 
   function selectMemoryPath(path: string | undefined) {
@@ -133,7 +146,9 @@ export function SessionPage({
           {panel === "questions" ? (
             <QuestionPanel
               selectedQuestionId={search.question}
+              selectedKnowledgePointId={search.kp}
               onSelectQuestion={selectQuestion}
+              onSelectKnowledgePoint={selectKnowledgePoint}
             />
           ) : panel === "sandbox" ? (
             <SandboxPanel />

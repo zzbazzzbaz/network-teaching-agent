@@ -60,6 +60,7 @@ def search_questions(
         question_type=params.question_type,
         knowledge_point_id=params.knowledge_point_id,
         knowledge_point_prefix=params.knowledge_point_prefix,
+        knowledge_point_match=params.knowledge_point_match,
         page=page,
         detail=params.detail,
     )
