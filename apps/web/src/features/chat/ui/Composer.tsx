@@ -30,7 +30,7 @@ export function Composer({
     <div className="shrink-0 bg-surface px-4 pt-2 pb-[max(16px,env(safe-area-inset-bottom))] lg:px-8">
       <ComposerPrimitive.Root
         className={cn(
-          "mx-auto w-full max-w-[840px] rounded-lg border border-line-strong bg-surface transition-[border-color,box-shadow] focus-within:border-link focus-within:ring-2 focus-within:ring-ring/10",
+          "mx-auto w-full max-w-[1000px] rounded-lg border border-line-strong bg-surface transition-[border-color,box-shadow] focus-within:border-link focus-within:ring-2 focus-within:ring-ring/10",
           disabled && "opacity-60",
         )}
       >

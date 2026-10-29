@@ -392,3 +392,65 @@
   max-width: 100%;
   height: auto;
 }
+
+/* Markdown tables: an explicit outer border and readable cell separation. */
+.md-table-wrap {
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose-chat .md-table-wrap table,
+.prose-note .md-table-wrap table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.prose-chat .md-table-wrap th,
+.prose-chat .md-table-wrap td,
+.prose-note .md-table-wrap th,
+.prose-note .md-table-wrap td {
+  padding: 9px 12px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.prose-chat .md-table-wrap th,
+.prose-note .md-table-wrap th {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.prose-chat .md-table-wrap td,
+.prose-note .md-table-wrap td {
+  color: var(--ink-soft);
+}
+
+.prose-chat .md-table-wrap th:last-child,
+.prose-chat .md-table-wrap td:last-child,
+.prose-note .md-table-wrap th:last-child,
+.prose-note .md-table-wrap td:last-child {
+  border-right: 0;
+}
+
+.prose-chat .md-table-wrap tr:last-child td,
+.prose-note .md-table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.prose-chat .md-table-wrap tbody tr:nth-child(even),
+.prose-note .md-table-wrap tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}

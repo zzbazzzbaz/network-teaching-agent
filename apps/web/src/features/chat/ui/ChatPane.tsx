@@ -101,7 +101,7 @@ function ChatSurface({
         <ThreadPrimitive.Viewport className="scroll-slim min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
           <div
             className={cn(
-              "mx-auto w-full max-w-[904px] px-4 py-5 lg:px-8 lg:py-7",
+              "mx-auto w-full max-w-[1080px] px-4 py-5 lg:px-8 lg:py-7 xl:px-10",
               empty && "flex min-h-full flex-col justify-center",
             )}
           >
@@ -145,7 +145,7 @@ function ChatSurface({
 
         {pending ? (
           <div className="shrink-0 border-t border-line bg-surface px-4 py-3 lg:px-8">
-            <div className="mx-auto w-full max-w-[840px]">
+            <div className="mx-auto w-full max-w-[1000px]">
               <AskStudentCard
                 key={pending.id ?? "ask-student"}
                 interrupt={pending}

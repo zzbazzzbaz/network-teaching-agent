@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from "react"
 import DOMPurify from "dompurify"
 import type { MermaidConfig } from "mermaid"
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown"
 import type { SyntaxHighlighterProps } from "@assistant-ui/react-markdown"
@@ -134,11 +134,26 @@ const mermaidComponents = {
   mermaid: { SyntaxHighlighter: MermaidDiagram },
 }
 
+const commonComponents: Components = {
+  h1: ({ children }) => <h2>{children}</h2>,
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  ),
+  table: ({ children }) => (
+    <div className="md-table-wrap scroll-slim" tabIndex={0}>
+      <table>{children}</table>
+    </div>
+  ),
+}
+
 export function MarkdownText() {
   return (
     <MarkdownTextPrimitive
       className="prose-chat"
       remarkPlugins={[remarkGfm]}
+      components={commonComponents}
       componentsByLanguage={mermaidComponents}
       urlTransform={safeUrlTransform}
       defer
@@ -161,28 +176,8 @@ export function StaticMarkdown({
         remarkPlugins={[remarkGfm]}
         urlTransform={safeUrlTransform}
         components={{
-          h1: ({ children }) => <h2>{children}</h2>,
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer">
-              {children}
-            </a>
-          ),
+          ...commonComponents,
           pre: ({ children }) => <pre>{children}</pre>,
-          table: ({ children }) => (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[13px]">{children}</table>
-            </div>
-          ),
-          th: ({ children }) => (
-            <th className="border-b border-line px-2 py-1.5 text-left font-medium">
-              {children}
-            </th>
-          ),
-          td: ({ children }) => (
-            <td className="border-b border-line/60 px-2 py-1.5 align-top">
-              {children}
-            </td>
-          ),
         }}
       >
         {text}
