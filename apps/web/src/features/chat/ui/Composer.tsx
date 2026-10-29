@@ -10,15 +10,12 @@ import { cn } from "@/shared/lib/utils"
 export function Composer({
   mode,
   empty,
-  disabled = false,
 }: {
   mode: "learn" | "lab"
   empty: boolean
-  disabled?: boolean
 }) {
-  const placeholder = disabled
-    ? "先完成上方作答…"
-    : mode === "learn"
+  const placeholder =
+    mode === "learn"
       ? empty
         ? "先说说你看到的、你猜的…"
         : "继续追问，或说说你的想法…"
@@ -31,7 +28,6 @@ export function Composer({
       <ComposerPrimitive.Root
         className={cn(
           "mx-auto w-full max-w-[1000px] rounded-lg border border-line-strong bg-surface transition-[border-color,box-shadow] focus-within:border-link focus-within:ring-2 focus-within:ring-ring/10",
-          disabled && "opacity-60",
         )}
       >
         <label htmlFor="composer" className="sr-only">
@@ -42,13 +38,12 @@ export function Composer({
           name="message"
           rows={1}
           submitMode="enter"
-          disabled={disabled}
           placeholder={placeholder}
           className="block max-h-40 min-h-11 w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-[16px] leading-6 text-ink outline-none placeholder:text-ink-muted/70 lg:text-[14px]"
         />
 
         <div className="flex items-center justify-end gap-1 px-2.5 pb-2">
-          <AuiIf condition={(state) => state.thread.isRunning && !disabled}>
+          <AuiIf condition={(state) => state.thread.isRunning}>
             <ComposerPrimitive.Cancel asChild>
               <Button
                 type="button"
@@ -66,7 +61,6 @@ export function Composer({
               type="submit"
               size="icon"
               aria-label="发送消息"
-              disabled={disabled}
               className="size-10 rounded-md sm:size-8"
             >
               <ArrowUp className="size-4" aria-hidden="true" />

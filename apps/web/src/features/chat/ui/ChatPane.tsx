@@ -1,5 +1,6 @@
 import { useAui, useAuiState, AuiIf, ThreadPrimitive } from "@assistant-ui/react"
 import { AlertCircle } from "lucide-react"
+import { useEffect, useRef } from "react"
 
 import type { Mode, Session } from "@/shared/api/types"
 import { LayerMark } from "@/shared/ui/brand"
@@ -95,6 +96,13 @@ function ChatSurface({
 }) {
   const empty = useAuiState((state) => state.thread.isEmpty)
   const pending = pendingInterrupt(stream)
+  const pendingRef = useRef<HTMLDivElement>(null)
+  const pendingKey = pending?.id ?? (pending ? "ask-student" : undefined)
+
+  useEffect(() => {
+    if (!pendingKey) return
+    pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [pendingKey])
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
@@ -119,6 +127,16 @@ function ChatSurface({
                 }}
               />
             </div>
+
+            {pending ? (
+              <div ref={pendingRef} className="mt-5 pl-7 lg:pl-8">
+                <AskStudentCard
+                  key={pending.id ?? "ask-student"}
+                  interrupt={pending}
+                  stream={stream}
+                />
+              </div>
+            ) : null}
 
             {!pending ? (
               <AuiIf condition={(state) => state.thread.isRunning}>
@@ -145,19 +163,7 @@ function ChatSurface({
 
         <ErrorBanner stream={stream} />
 
-        {pending ? (
-          <div className="shrink-0 border-t border-line bg-surface px-4 py-3 lg:px-8">
-            <div className="mx-auto w-full max-w-[1000px]">
-              <AskStudentCard
-                key={pending.id ?? "ask-student"}
-                interrupt={pending}
-                stream={stream}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <Composer mode={mode} empty={empty} disabled={Boolean(pending)} />
+        {!pending && <Composer mode={mode} empty={empty} />}
       </ThreadPrimitive.Root>
     </div>
   )

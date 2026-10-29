@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2 } from "lucide-react"
+import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react"
 import { useId, useState } from "react"
 import { z } from "zod"
 
@@ -65,13 +65,14 @@ export function AskStudentCard({
   const [answer, setAnswer] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [open, setOpen] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const payload = parsePayload(interrupt.value)
 
   if (!payload) {
     return (
-      <section className="w-full max-w-[640px] overflow-hidden rounded-lg border border-signal-line bg-signal-soft/30">
+      <section className="w-full overflow-hidden rounded-lg border border-signal-line bg-signal-soft/30">
         <div className="flex items-center gap-2 border-b border-signal-line/60 px-4 py-2">
           <span className="size-1.5 rounded-full bg-signal" aria-hidden="true" />
           <span className="text-[11px] font-medium text-signal">Agent 暂停</span>
@@ -114,24 +115,44 @@ export function AskStudentCard({
 
   return (
     <section
-      className="w-full max-w-[640px] overflow-hidden rounded-lg border border-signal-line bg-signal-soft/35 text-left"
+      className="w-full overflow-hidden rounded-lg border border-signal-line bg-signal-soft/35 text-left"
       aria-label="作答检查点"
     >
-      <div className="flex items-center gap-2 border-b border-signal-line/60 px-4 py-2">
-        <span className="size-1.5 rounded-full bg-signal" aria-hidden="true" />
-        <span className="text-[11px] font-medium text-signal">作答检查点</span>
-        <span className="ml-auto font-mono text-[10px] text-signal/60">
-          ask_student
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={`${uid}-body`}
+        className="flex w-full items-center gap-2 border-b border-signal-line/60 px-4 py-2 text-left transition-colors hover:bg-signal-soft/35"
+      >
+        <span className="size-1.5 shrink-0 rounded-full bg-signal" aria-hidden="true" />
+        <span className="shrink-0 text-[11px] font-medium text-signal">作答检查点</span>
+        {!open && (
+          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-muted">
+            {payload.question}
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-[10px] text-signal/60">
+          {open ? "收起" : "展开"}
         </span>
-      </div>
+        <ChevronDown
+          className={cn(
+            "size-3.5 shrink-0 text-signal/70 transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden="true"
+        />
+      </button>
 
-      <div className="px-4 pt-3.5 pb-1">
-        <p className="text-[14px] leading-6 font-medium text-ink">
-          {payload.question}
-        </p>
-      </div>
+      {open && (
+        <div id={`${uid}-body`}>
+          <div className="px-4 pt-3.5 pb-1">
+            <p className="text-[14px] leading-6 font-medium text-ink">
+              {payload.question}
+            </p>
+          </div>
 
-      {payload.mode === "single_choice" ? (
+          {payload.mode === "single_choice" ? (
         <>
           <RadioGroup
             value={selected}
@@ -166,10 +187,7 @@ export function AskStudentCard({
             })}
           </RadioGroup>
 
-          <div className="flex items-center gap-3 border-t border-signal-line/50 px-4 py-3">
-            <span className="min-w-0 flex-1 text-[11px] leading-4 text-ink-muted">
-              提交后对话继续，也可以补充理由。
-            </span>
+          <div className="flex items-center justify-end gap-3 border-t border-signal-line/50 px-4 py-3">
             <Button
               type="button"
               disabled={!selected || submitting || submitted}
@@ -207,10 +225,7 @@ export function AskStudentCard({
             }}
             className="block min-h-24 w-full resize-y bg-transparent px-4 py-3 text-[16px] leading-6 text-ink outline-none placeholder:text-ink-muted/70 lg:text-[14px]"
           />
-          <div className="flex items-center gap-3 border-t border-signal-line/50 px-4 py-3">
-            <span className="min-w-0 flex-1 text-[11px] leading-4 text-ink-muted">
-              ⌘ / Ctrl + Enter 提交
-            </span>
+          <div className="flex items-center justify-end gap-3 border-t border-signal-line/50 px-4 py-3">
             <Button
               type="submit"
               disabled={!answer.trim() || submitting || submitted}
@@ -223,6 +238,8 @@ export function AskStudentCard({
             </Button>
           </div>
         </form>
+          )}
+        </div>
       )}
 
       {submitted && (

@@ -94,7 +94,7 @@ export const ToolCallCard: ToolCallMessagePartComponent = ({
     if (!question || !answer) return null
     const preview = answer.length > 500 ? `${answer.slice(0, 500)}…` : answer
     return (
-      <div className="w-full max-w-[640px] overflow-hidden rounded-lg border border-link-line bg-surface-2/70">
+      <div className="w-full overflow-hidden rounded-lg border border-link-line bg-surface-2/70">
         <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
           <CheckCircle2 className="size-3.5 text-link" aria-hidden="true" />
           <span className="text-[11px] text-ink-muted">已作答</span>
@@ -123,7 +123,7 @@ export const ToolCallCard: ToolCallMessagePartComponent = ({
   const complete = status.type === "complete" && !isError
 
   return (
-    <div className="w-full max-w-[640px] overflow-hidden rounded-md border border-line bg-surface-2/60">
+    <div className="w-full overflow-hidden rounded-md border border-line bg-surface-2/60">
       <button
         type="button"
         onClick={() => hasDetail && setOpen((value) => !value)}
