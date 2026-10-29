@@ -3,10 +3,41 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { LayerMark, Wordmark } from "@/components/brand"
+import { HandshakeDiagram } from "@/components/handshake-diagram"
 import { LayerDiagram } from "@/components/layer-diagram"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
+
+function LoginBrand({
+  className,
+  tone = "default",
+}: {
+  className?: string
+  tone?: "default" | "dark"
+}) {
+  const dark = tone === "dark"
+
+  return (
+    <div className={cn("flex items-center gap-3", className)}>
+      <Wordmark tone={tone} />
+      <span
+        aria-hidden="true"
+        className={dark ? "h-4 w-px bg-white/20" : "h-4 w-px bg-line"}
+      />
+      <span
+        className={
+          dark
+            ? "text-[12px] font-medium tracking-[0.06em] whitespace-nowrap text-white/55"
+            : "text-[12px] font-medium tracking-[0.06em] whitespace-nowrap text-ink-muted"
+        }
+      >
+        计算机网络教学智能体
+      </span>
+    </div>
+  )
+}
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -40,16 +71,35 @@ export function LoginPage() {
     <div className="h-dvh overflow-hidden overscroll-none bg-surface">
       <div className="grid h-full lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
         <aside className="relative hidden flex-col overflow-hidden bg-ink px-12 py-10 lg:flex xl:px-16">
+          <div
+            className="login-grid pointer-events-none absolute inset-0"
+            aria-hidden="true"
+          />
           <LayerMark className="pointer-events-none absolute -right-16 -bottom-16 size-80 text-white/[0.05]" />
 
-          <div className="relative">
-            <Wordmark tone="dark" />
-          </div>
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <LoginBrand tone="dark" />
 
-          <LayerDiagram
-            tone="dark"
-            className="relative my-auto max-w-[360px] opacity-80"
-          />
+            <div className="login-plate my-auto w-full max-w-[540px]">
+              <div className="login-handshake">
+                <div className="mb-3 flex items-center gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className="h-px w-4 bg-white/20"
+                  />
+                  <span className="font-mono text-[10px] tracking-[0.1em] text-white/40">
+                    TCP 三次握手
+                  </span>
+                </div>
+                <HandshakeDiagram tone="dark" />
+                <div className="mt-7 border-t border-white/10" />
+              </div>
+
+              <div className="pt-5">
+                <LayerDiagram tone="dark" />
+              </div>
+            </div>
+          </div>
         </aside>
 
         <main
@@ -57,7 +107,7 @@ export function LoginPage() {
           className="flex h-full min-h-0 flex-col justify-center overflow-hidden px-6 py-6 lg:px-12 lg:py-10 xl:px-16"
         >
           <div className="mx-auto w-full max-w-[342px]">
-            <Wordmark className="mb-10 lg:hidden" />
+            <LoginBrand className="mb-10 lg:hidden" />
 
             <h1 className="text-[26px] leading-tight font-semibold tracking-[-0.015em] text-ink">
               登录课程空间

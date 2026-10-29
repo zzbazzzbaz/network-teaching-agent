@@ -54,7 +54,7 @@ npm run screenshots
 
 | 路由 | 内容 |
 |---|---|
-| `/login` | 登录，桌面整页左右分栏（深色品牌面板 + 表单），移动端只保留表单；禁用滚轮 |
+| `/login` | 登录，桌面整页左右分栏（品牌 / 协议图版 + 表单），移动端只保留表单；禁用滚轮 |
 | `/` | 重定向到 `/learn` |
 | `/learn` | 重定向到该模式最近的会话 |
 | `/learn/$sessionId` | 学习工作台：对话 / 题库 / 记忆 |
@@ -91,6 +91,7 @@ src/
 │   ├── chat/            # 消息、Markdown、工具卡、检查点、Composer
 │   ├── panels/          # 题库页、记忆页、沙盒页、题目编辑器
 │   ├── brand.tsx
+│   ├── handshake-diagram.tsx
 │   └── layer-diagram.tsx
 ├── layout/              # 侧栏、工作台壳、移动端顶栏
 ├── lib/                 # mock 数据、内存 store、模式配置、工具函数

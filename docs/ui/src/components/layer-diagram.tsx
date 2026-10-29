@@ -14,11 +14,13 @@ export function LayerDiagram({
   tone?: "light" | "dark"
 }) {
   const dark = tone === "dark"
-  const line = dark ? "rgba(255,255,255,0.16)" : "var(--line-strong)"
-  const strong = dark ? "rgba(255,255,255,0.32)" : "var(--line-strong)"
-  const label = dark ? "rgba(255,255,255,0.48)" : "var(--ink-muted)"
-  const link = dark ? "#7fd8cb" : "var(--link)"
-  const soft = dark ? "rgba(127,216,203,0.14)" : "var(--link-soft)"
+  const line = dark ? "rgba(255,255,255,0.18)" : "var(--line-strong)"
+  const strong = dark ? "rgba(255,255,255,0.36)" : "var(--line-strong)"
+  const label = dark ? "rgba(255,255,255,0.58)" : "var(--ink-muted)"
+  const signal = dark ? "#e7b36a" : "var(--signal)"
+  const signalSoft = dark
+    ? "rgba(231,179,106,0.16)"
+    : "var(--signal-soft)"
   const surface = dark ? "#121a1c" : "var(--surface)"
 
   return (
@@ -27,7 +29,7 @@ export function LayerDiagram({
         viewBox="0 0 400 208"
         role="img"
         aria-label="一次请求依次穿过应用层、传输层、网络层、数据链路层和物理层"
-        className="h-auto w-full max-w-[400px]"
+        className="h-auto w-full"
       >
         <g fontFamily="IBM Plex Mono, monospace" fontSize="10" fill={label}>
           {LAYERS.map((layer) => (
@@ -65,10 +67,10 @@ export function LayerDiagram({
           />
         ))}
 
-        <circle cx="296" cy="66" r="6.5" fill={soft} />
-        <circle cx="296" cy="66" r="3.2" fill={link} />
+        <circle cx="296" cy="66" r="6.5" fill={signalSoft} />
+        <circle cx="296" cy="66" r="3.2" fill={signal} />
 
-        <g fontFamily="IBM Plex Mono, monospace" fontSize="9" fill={link}>
+        <g fontFamily="IBM Plex Mono, monospace" fontSize="9" fill={signal}>
           <text x="308" y="59">SYN · seq=x</text>
         </g>
 
