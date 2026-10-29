@@ -8,12 +8,9 @@ from agent.tools.schemas.ask_student import AskStudentInput, AskStudentResume
 from agent.tools.schemas.question import AskQuestion
 
 _DESCRIPTION = (
-    "向学生提出检查题或引导题，并等待学生作答。"
-    "question.mode 为 single_choice（单选）或 short_answer（简答）；"
-    "options 是纯文本，不要自带 A./B. 字母；correct_option 用 A–F 字母。"
-    "学生作答后工具会自动把题目和答案保存到题库。"
-    "调用后本次运行会暂停，直到客户端提交答案。"
-    "出题规范见 /skills/teaching/ask-student/SKILL.md。"
+    "向学生提出一道检查题并等待作答，用于确认理解、暴露误解、推动学生自己推导。"
+    "一次只问一个主问题；出题前读 /skills/teaching/ask-student/SKILL.md。"
+    "学生作答后，题目和答案会存入他的题库。"
 )
 
 

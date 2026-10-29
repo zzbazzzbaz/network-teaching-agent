@@ -21,13 +21,12 @@ from agent.tools.schemas.question_bank import (
 )
 
 _SEARCH_DESCRIPTION = (
-    "搜索公共题库和当前学生的私有题库。默认 scope=all；summary 不返回答案，"
-    "full 最多 3 条且包含参考答案。一次最多展示 10 道题，不要把题库全文贴给学生。"
+    "检索课程公共题库和学生的私人题库，用于找同类题、引用原题或了解练习历史。"
+    "摘要足以挑题；讲解需要时再取回参考答案，一次最多 3 条。"
 )
 _SAVE_DESCRIPTION = (
-    "把学生明确要求保存的题目加入学生自己的私有题库。"
-    "question.options 是纯文本，不要自带 A./B. 字母。"
-    "只创建私有题，不发布公共题，不做去重。只在学生说“记下来/加入题库”时调用。"
+    "把学生明确要求保存的题目加入他的私人题库。"
+    "只在学生说“记下来/加入题库”时调用；不发布公共题。"
 )
 
 
@@ -98,6 +97,6 @@ def make_question_bank_tools() -> list[BaseTool]:
             result = save_question_api(tool_context(runtime), question)
         except QuestionBankError as e:
             return f"题目保存失败：{e}"
-        return f"已保存到我的题库（question_id={result.question_id}，不要展示给学生）。"
+        return "已保存到学生的私人题库。"
 
     return [search_questions, save_question]

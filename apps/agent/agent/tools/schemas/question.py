@@ -6,7 +6,7 @@ QuestionMode = Literal["single_choice", "short_answer"]
 
 
 class Question(BaseModel):
-    """题目草稿；options 是纯文本，字母由前端按顺序渲染。"""
+    """一道题；options 是纯文本，字母由界面按顺序显示。"""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -18,7 +18,7 @@ class Question(BaseModel):
         default=None,
         description=(
             "单选题选项，2–6 个纯文本，不要自带 A./B. 字母；"
-            "前端会按顺序显示 A、B、C…。简答题省略。"
+            "界面会按顺序显示 A、B、C…。简答题省略。"
         ),
     )
     correct_option: str | None = Field(
@@ -33,7 +33,7 @@ class Question(BaseModel):
     primary_knowledge_point_id: str = Field(
         min_length=1,
         max_length=16,
-        description="教材 00-toc.md 的目录编号，如 5.8.2 或 99。",
+        description="教材目录编号，如 5.8.2 或 99。",
     )
     secondary_knowledge_point_ids: list[str] = Field(
         default_factory=list,
@@ -50,7 +50,7 @@ class Question(BaseModel):
 
 
 class AskQuestion(Question):
-    """ask_student 展示前必须合法的题目。"""
+    """向学生展示的题目。"""
 
     placeholder: str | None = Field(
         default=None,

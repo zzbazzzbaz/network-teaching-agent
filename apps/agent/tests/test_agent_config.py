@@ -72,25 +72,38 @@ def test_base_prompt_is_agent_neutral() -> None:
 def test_lab_prompt_keeps_sandbox_and_experiment_skill() -> None:
     text = load_prompt("base", "lab")
 
-    assert "AGS" in text
+    assert "沙箱" in text
     assert "execute" in text
     assert "/skills/lab/traceroute-lab/SKILL.md" in text
     assert "普通文本" in text
     assert "ask_student" not in text
 
 
-def test_teaching_prompt_has_no_sandbox() -> None:
+def test_teaching_prompt_has_no_execution_environment() -> None:
     text = load_prompt("base", "teaching")
 
-    assert "没有可用的代码执行环境" in text
-    assert "不能运行代码" in text
-    assert "不要使用 `execute`" in text
+    assert "执行环境" in text
+    assert "运行不了代码" in text
+    assert "不要调用 `execute`" in text
     assert "teaching/learning.md" in text
     assert "search_questions" in text
     assert "save_question" in text
     assert "AGS" not in text
     assert "/skills/lab/" not in text
     assert "traceroute" not in text
+
+
+def test_prompts_do_not_leak_implementation_details() -> None:
+    texts = {
+        name: load_prompt("base", name) for name in ("lab", "teaching")
+    }
+
+    for name, text in texts.items():
+        assert "backend" not in text, name
+        assert "StateBackend" not in text, name
+        assert "teach_agent" not in text, name
+        assert "exp_agent" not in text, name
+        assert "owner_id" not in text, name
 
 
 def test_experiment_resources_do_not_reference_ask_student() -> None:

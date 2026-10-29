@@ -126,7 +126,7 @@ def test_save_question(monkeypatch: pytest.MonkeyPatch) -> None:
 
     result = _tools()["save_question"].func(question=question, runtime=_runtime())
 
-    assert "已保存到我的题库" in result
+    assert "已保存到学生的私人题库" in result
     context = captured["context"]
     assert isinstance(context, ToolContext)
     assert context.user_id == "user-1"
