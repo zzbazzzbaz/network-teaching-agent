@@ -115,3 +115,33 @@ def test_refresh_unknown_user(client: TestClient, create_user: Callable[..., Use
 
     response = client.post(REFRESH, json={"refresh_token": data["refresh_token"]})
     assert response.status_code == 401
+
+
+def test_access_token_of_deleted_user(
+    client: TestClient, create_user: Callable[..., Users]
+) -> None:
+    user = create_user()
+    data = login(client)
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        stored = session.get(Users, user.user_id)
+        assert stored is not None
+        session.delete(stored)
+        session.commit()
+
+    response = client.get(ME, headers={"Authorization": f"Bearer {data['access_token']}"})
+    assert response.status_code == 401
+
+
+def test_access_token_of_disabled_user(
+    client: TestClient, create_user: Callable[..., Users]
+) -> None:
+    user = create_user()
+    data = login(client)
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        stored = session.get(Users, user.user_id)
+        assert stored is not None
+        stored.status = False
+        session.commit()
+
+    response = client.get(ME, headers={"Authorization": f"Bearer {data['access_token']}"})
+    assert response.status_code == 401

@@ -53,14 +53,19 @@ def _get_bearer_token(request: Request) -> str | None:
     return None
 
 
-def _require_user(request: Request) -> uuid.UUID:
+def _require_user(session: SessionDep, request: Request) -> uuid.UUID:
     token = _get_bearer_token(request)
     if token is None:
         raise HTTPException(status_code=401, detail="缺少登录凭证")
     try:
-        return decode_access_token(token)
+        user_id = decode_access_token(token)
     except AppError as e:
         raise HTTPException(status_code=401, detail=str(e)) from e
+    # 签名有效但账号已删除或禁用时，必须拒绝，避免后续写库触发外键 500。
+    user = user_repository.get(session, user_id)
+    if user is None or not user.status:
+        raise HTTPException(status_code=401, detail="登录已失效，请重新登录")
+    return user_id
 
 
 UserIdDep = Annotated[uuid.UUID, Depends(_require_user)]
