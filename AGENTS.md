@@ -8,7 +8,7 @@
 .
 ├── apps/
 │   ├── agent/                  # LangGraph 运行时（:2024）
-│   ├── agent-ui/               # React 聊天前端（:5173）
+│   ├── web/                    # React 学生端（:5173）
 │   ├── api/                    # FastAPI 账号 / 会话 / 沙箱（:8000）
 │   ├── sandbox/                # AGS 镜像：code-server + ttyd
 │   ├── .env                    # 唯一配置源
@@ -24,19 +24,21 @@
 
 | 目录 | 技术栈 | 职责 | 端口 | 约定 |
 |---|---|---|---|---|
-| `apps/agent-ui` | React 19 + Vite 8 + assistant-ui + TanStack Router | 聊天前端 | 5173 | `apps/agent-ui/AGENTS.md` |
+| `apps/web` | React 19 + Vite 8 + assistant-ui + TanStack Router | 学生端前端 | 5173 | `apps/web/AGENTS.md` |
 | `apps/api` | FastAPI + SQLAlchemy + Postgres | 账号、会话元数据、沙箱生命周期 | 8000 | `apps/api/AGENTS.md` |
 | `apps/agent` | LangGraph + deepagents + Langfuse | 教学 Agent 运行时 | 2024 | `apps/agent/AGENTS.md` |
 | `apps/sandbox` | AGS/E2B 镜像 | code-server + ttyd 实验环境 | 9000 | `apps/sandbox/AGENTS.md` |
 | `deploy` | nginx + docker compose | 生产部署 | — | `deploy/AGENTS.md` |
 
+> `apps/agent-ui` 是废弃的旧前端，仅作参考，不再作为运行入口。
+
 ## 命令
 
 ```bash
-make install     # uv sync（api / agent）+ npm ci（agent-ui）
+make install     # uv sync（api / agent）+ npm ci（web）
 make jwt-keys    # 首次：生成 apps/api/.keys/jwt_*.pem
 make up          # 启动 Postgres（5432）
-make dev         # 并行启动 agent / api / agent-ui
+make dev         # 并行启动 agent / api / web
 make down
 make test        # apps/api pytest
 ```
@@ -45,7 +47,7 @@ make test        # apps/api pytest
 
 ```bash
 cd apps/agent && uv run pytest
-cd apps/agent-ui && npm run lint && npm run build && npm run test:e2e
+cd apps/web && npm run typecheck && npm run lint && npm run build
 ```
 
 ## 配置与路由

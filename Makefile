@@ -10,7 +10,7 @@ down:
 install:
 	cd apps/api && uv sync
 	cd apps/agent && uv sync
-	cd apps/agent-ui && npm ci
+	cd apps/web && npm ci
 
 jwt-keys:
 	cd apps/api && mkdir -p .keys \
@@ -25,10 +25,10 @@ run-agent:
 	cd apps/agent && uv run --env-file $(ENV_FILE) langgraph dev --no-browser --no-reload --n-jobs-per-worker 4
 
 run-ui:
-	cd apps/agent-ui && npm run dev
+	cd apps/web && npm run dev
 
 dev:
-	@echo "启动 agent (:2024) / api (:8000) / agent-ui (:5173)，Ctrl-C 退出"
+	@echo "启动 agent (:2024) / api (:8000) / web (:5173)，Ctrl-C 退出"
 	$(MAKE) -j3 run-agent run-api run-ui
 
 test:

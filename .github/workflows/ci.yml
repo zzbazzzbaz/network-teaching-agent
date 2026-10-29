@@ -30,7 +30,7 @@ jobs:
           - app: agent
             context: apps/agent
           - app: web
-            context: apps/agent-ui
+            context: apps/web
     steps:
       - uses: actions/checkout@v7
 
