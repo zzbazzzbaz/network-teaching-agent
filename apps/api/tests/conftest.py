@@ -17,6 +17,7 @@ from app.core.config import get_settings
 from app.core.database import create_db_engine
 from app.core.security import hash_password
 from app.models.user import Users
+from tests.fakes import FakeAgentGateway
 
 API_DIR = Path(__file__).resolve().parents[1]
 INTERNAL_TOKEN = "test-internal-token"
@@ -93,8 +94,14 @@ def client(
 
     application = create_app()
     with TestClient(application) as test_client:
+        application.state.agent = FakeAgentGateway()
         yield test_client
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def fake_agent(client: TestClient) -> FakeAgentGateway:
+    return cast(FakeAgentGateway, cast(FastAPI, client.app).state.agent)
 
 
 @pytest.fixture

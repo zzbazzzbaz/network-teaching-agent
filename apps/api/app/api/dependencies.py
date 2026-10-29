@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError
 from app.core.security import decode_access_token
+from app.gateway.agent import AgentGateway
 from app.repositories.user_repository import user_repository
 
 
@@ -36,6 +37,13 @@ def _get_settings(request: Request) -> Settings:
 
 
 SettingsDep = Annotated[Settings, Depends(_get_settings)]
+
+
+def _get_agent(request: Request) -> AgentGateway:
+    return cast(AgentGateway, request.app.state.agent)
+
+
+AgentDep = Annotated[AgentGateway, Depends(_get_agent)]
 
 
 def _get_bearer_token(request: Request) -> str | None:
@@ -83,6 +91,7 @@ def _require_internal_user(
 InternalUserDep = Annotated[uuid.UUID, Depends(_require_internal_user)]
 
 __all__ = [
+    "AgentDep",
     "InternalUserDep",
     "SessionDep",
     "SettingsDep",

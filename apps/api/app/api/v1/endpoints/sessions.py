@@ -8,7 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
 
-from app.api.dependencies import SessionDep, UserIdDep
+from app.api.dependencies import AgentDep, SessionDep, UserIdDep
 from app.api.schemas.session import (
     CreateSessionBody,
     SessionListQuery,
@@ -49,6 +49,7 @@ def create_session(
     body: CreateSessionBody,
     session: SessionDep,
     user_id: UserIdDep,
+    agent: AgentDep,
 ) -> SessionResponse:
     """为当前用户创建新会话。
 
@@ -59,6 +60,7 @@ def create_session(
         agent_id=body.agent_id,
         title=body.title,
         session=session,
+        agent=agent,
     )
     return _to_response(chat_session)
 
@@ -105,13 +107,39 @@ def touch_session(
     return Response(status_code=204)
 
 
+@router.post(
+    "/{session_id}/ensure-thread",
+    status_code=204,
+    summary="确保会话线程存在",
+)
+def ensure_session_thread(
+    session_id: uuid.UUID,
+    session: SessionDep,
+    user_id: UserIdDep,
+    agent: AgentDep,
+) -> Response:
+    session_service.ensure_thread(
+        owner_id=user_id,
+        session_id=session_id,
+        session=session,
+        agent=agent,
+    )
+    return Response(status_code=204)
+
+
 @router.delete("/{session_id}", status_code=204, summary="删除会话")
 def delete_session(
     session_id: uuid.UUID,
     session: SessionDep,
     user_id: UserIdDep,
+    agent: AgentDep,
 ) -> Response:
-    session_service.delete_session(owner_id=user_id, session_id=session_id, session=session)
+    session_service.delete_session(
+        owner_id=user_id,
+        session_id=session_id,
+        session=session,
+        agent=agent,
+    )
     return Response(status_code=204)
 
 

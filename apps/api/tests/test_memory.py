@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import uuid
 from collections.abc import Callable
-from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 
-import app.services.memory_service as memory_service_module
-from app.core.config import Settings
-from app.gateway.agent_memory import MemoryGatewayError
+from app.gateway.agent import StoreItem
+from app.gateway.http_client import UpstreamContractError
 from app.models.user import Users
+from tests.fakes import FakeAgentGateway
 
 TREE = "/api/v1/memory/tree"
 FILE = "/api/v1/memory/file"
@@ -35,40 +32,31 @@ def _item(
     *,
     encoding: str = "utf-8",
     updated_at: str = "2026-10-28T10:00:00Z",
-) -> dict[str, Any]:
-    return {
-        "key": key,
-        "value": {"content": content, "encoding": encoding},
-        "updated_at": updated_at,
-    }
+) -> StoreItem:
+    return StoreItem(
+        namespace=["users", "test", "memory"],
+        key=key,
+        value={"content": content, "encoding": encoding},
+        updated_at=updated_at,
+    )
 
 
 def test_memory_tree_builds_directories_and_uses_current_user(
     client: TestClient,
     create_user: Callable[..., Users],
-    monkeypatch: pytest.MonkeyPatch,
+    fake_agent: FakeAgentGateway,
 ) -> None:
     user = create_user()
     headers = _login(client)
-    calls: list[uuid.UUID] = []
-
-    def fake_search(
-        settings: Settings,
-        *,
-        user_id: uuid.UUID,
-    ) -> list[dict[str, Any]]:
-        calls.append(user_id)
-        return [
-            _item("/AGENTS.md", "# 学生画像"),
-            _item("/lab/learning.md", "实验记录"),
-        ]
-
-    monkeypatch.setattr(memory_service_module, "search_memory_items", fake_search)
+    fake_agent.items = [
+        _item("/AGENTS.md", "# 学生画像"),
+        _item("/lab/learning.md", "实验记录"),
+    ]
 
     response = client.get(TREE, headers=headers)
     assert response.status_code == 200, response.text
     body = response.json()
-    assert calls == [user.user_id]
+    assert fake_agent.search_calls == [user.user_id]
     assert body["entries"] == [
         {
             "path": "/memory/AGENTS.md",
@@ -94,18 +82,49 @@ def test_memory_tree_builds_directories_and_uses_current_user(
     ]
 
 
-def test_memory_tree_empty(
+def test_memory_tree_uses_value_modified_at_and_falls_back(
     client: TestClient,
     create_user: Callable[..., Users],
-    monkeypatch: pytest.MonkeyPatch,
+    fake_agent: FakeAgentGateway,
 ) -> None:
     create_user()
     headers = _login(client)
-    monkeypatch.setattr(
-        memory_service_module,
-        "search_memory_items",
-        lambda settings, *, user_id: [],
-    )
+    fake_agent.items = [
+        StoreItem(
+            namespace=["users", "test", "memory"],
+            key="/valid.md",
+            value={
+                "content": "valid",
+                "modified_at": "2026-10-29T01:02:03Z",
+            },
+            updated_at="2026-10-28T10:00:00Z",
+        ),
+        StoreItem(
+            namespace=["users", "test", "memory"],
+            key="/invalid.md",
+            value={
+                "content": "invalid",
+                "modified_at": "not-a-timestamp",
+            },
+            updated_at="2026-10-28T10:00:00Z",
+        ),
+    ]
+
+    response = client.get(TREE, headers=headers)
+
+    assert response.status_code == 200, response.text
+    entries = {entry["path"]: entry for entry in response.json()["entries"]}
+    assert entries["/memory/valid.md"]["modified_at"] == "2026-10-29T01:02:03Z"
+    assert entries["/memory/invalid.md"]["modified_at"] == "2026-10-28T10:00:00Z"
+
+
+def test_memory_tree_empty(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    create_user()
+    headers = _login(client)
 
     response = client.get(TREE, headers=headers)
     assert response.status_code == 200
@@ -115,22 +134,11 @@ def test_memory_tree_empty(
 def test_memory_file_uses_store_relative_key(
     client: TestClient,
     create_user: Callable[..., Users],
-    monkeypatch: pytest.MonkeyPatch,
+    fake_agent: FakeAgentGateway,
 ) -> None:
-    create_user()
+    user = create_user()
     headers = _login(client)
-    calls: list[str] = []
-
-    def fake_get(
-        settings: Settings,
-        *,
-        user_id: uuid.UUID,
-        key: str,
-    ) -> dict[str, Any] | None:
-        calls.append(key)
-        return _item("/AGENTS.md", "# 学生画像")
-
-    monkeypatch.setattr(memory_service_module, "get_memory_item", fake_get)
+    fake_agent.item = _item("/AGENTS.md", "# 学生画像")
 
     response = client.get(
         FILE,
@@ -138,7 +146,7 @@ def test_memory_file_uses_store_relative_key(
         headers=headers,
     )
     assert response.status_code == 200, response.text
-    assert calls == ["/AGENTS.md"]
+    assert fake_agent.get_calls == [(user.user_id, "/AGENTS.md")]
     assert response.json()["path"] == "/memory/AGENTS.md"
     assert response.json()["content"] == "# 学生画像"
     assert response.json()["size"] == len("# 学生画像".encode())
@@ -147,20 +155,10 @@ def test_memory_file_uses_store_relative_key(
 def test_memory_file_rejects_invalid_paths(
     client: TestClient,
     create_user: Callable[..., Users],
-    monkeypatch: pytest.MonkeyPatch,
+    fake_agent: FakeAgentGateway,
 ) -> None:
     create_user()
     headers = _login(client)
-
-    def fake_get(
-        settings: Settings,
-        *,
-        user_id: uuid.UUID,
-        key: str,
-    ) -> dict[str, Any] | None:
-        raise AssertionError("非法路径不应访问 Agent")
-
-    monkeypatch.setattr(memory_service_module, "get_memory_item", fake_get)
 
     for path in (
         "/etc/passwd",
@@ -172,28 +170,18 @@ def test_memory_file_rejects_invalid_paths(
     ):
         response = client.get(FILE, params={"path": path}, headers=headers)
         assert response.status_code == 422, (path, response.text)
+    assert fake_agent.get_calls == []
 
 
 def test_memory_file_rejects_binary_and_large_files(
     client: TestClient,
     create_user: Callable[..., Users],
-    monkeypatch: pytest.MonkeyPatch,
+    fake_agent: FakeAgentGateway,
 ) -> None:
     create_user()
     headers = _login(client)
-    item: dict[str, Any] | None = None
 
-    def fake_get(
-        settings: Settings,
-        *,
-        user_id: uuid.UUID,
-        key: str,
-    ) -> dict[str, Any] | None:
-        return item
-
-    monkeypatch.setattr(memory_service_module, "get_memory_item", fake_get)
-
-    item = _item("/AGENTS.md", "AAEC", encoding="base64")
+    fake_agent.item = _item("/AGENTS.md", "AAEC", encoding="base64")
     binary = client.get(
         FILE,
         params={"path": "/memory/AGENTS.md"},
@@ -201,7 +189,7 @@ def test_memory_file_rejects_binary_and_large_files(
     )
     assert binary.status_code == 415
 
-    item = _item("/AGENTS.md", "x" * (128 * 1024 + 1))
+    fake_agent.item = _item("/AGENTS.md", "x" * (128 * 1024 + 1))
     large = client.get(
         FILE,
         params={"path": "/memory/AGENTS.md"},
@@ -210,17 +198,17 @@ def test_memory_file_rejects_binary_and_large_files(
     assert large.status_code == 413
 
 
-def test_memory_file_not_found(
+def test_memory_file_missing_content_is_unsupported_media_type(
     client: TestClient,
     create_user: Callable[..., Users],
-    monkeypatch: pytest.MonkeyPatch,
+    fake_agent: FakeAgentGateway,
 ) -> None:
     create_user()
     headers = _login(client)
-    monkeypatch.setattr(
-        memory_service_module,
-        "get_memory_item",
-        lambda settings, *, user_id, key: None,
+    fake_agent.item = StoreItem(
+        namespace=["users", "test", "memory"],
+        key="/AGENTS.md",
+        value={"encoding": "utf-8"},
     )
 
     response = client.get(
@@ -228,21 +216,37 @@ def test_memory_file_not_found(
         params={"path": "/memory/AGENTS.md"},
         headers=headers,
     )
+    assert response.status_code == 415
+
+
+def test_memory_file_not_found(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    user = create_user()
+    headers = _login(client)
+
+    response = client.get(
+        FILE,
+        params={"path": "/memory/AGENTS.md"},
+        headers=headers,
+    )
     assert response.status_code == 404
+    assert fake_agent.get_calls == [
+        (user.user_id, "/AGENTS.md"),
+        (user.user_id, "/memory/AGENTS.md"),
+    ]
 
 
 def test_memory_agent_unavailable(
     client: TestClient,
     create_user: Callable[..., Users],
-    monkeypatch: pytest.MonkeyPatch,
+    fake_agent: FakeAgentGateway,
 ) -> None:
     create_user()
     headers = _login(client)
-
-    def fail(settings: Settings, *, user_id: uuid.UUID) -> list[dict[str, Any]]:
-        raise MemoryGatewayError("down")
-
-    monkeypatch.setattr(memory_service_module, "search_memory_items", fail)
+    fake_agent.fail = UpstreamContractError("bad contract")
 
     response = client.get(TREE, headers=headers)
     assert response.status_code == 503

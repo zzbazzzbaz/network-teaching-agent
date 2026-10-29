@@ -75,4 +75,7 @@ task
   - `X-Internal-Token`；
   - `X-User-Id`。
 - `/store/*` 只允许 `get` / `search`，只允许当前用户的 `memory` namespace；`put` / `delete` 返回 403。
-- 内部 token 不能访问 `/threads/*`、`/runs/*`。
+- 内部 token 只放行 thread 生命周期最小路径：
+  - `POST /threads`（创建 / ensure）；
+  - `GET` / `DELETE /threads/{uuid}`（`@auth.on.threads` 仍按 owner 过滤）。
+- 内部 token 仍不能访问 `/threads/search`、`/threads/{uuid}/state`、`/threads/{uuid}/runs/*`、`/runs/*`。

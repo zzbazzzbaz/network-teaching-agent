@@ -151,10 +151,22 @@ def _internal_identity(
             return value.decode("utf-8")
         return None
 
-    def _is_store_path(path: str) -> bool:
-        return path == "/store" or path.startswith("/store/")
+    def _is_internal_path(path: str) -> bool:
+        if path == "/store" or path.startswith("/store/"):
+            return True
 
-    if not _is_store_path(path):
+        parts = path.strip("/").split("/")
+        if parts == ["threads"]:
+            return True
+        if len(parts) == 2 and parts[0] == "threads":
+            try:
+                uuid.UUID(parts[1])
+            except ValueError:
+                return False
+            return True
+        return False
+
+    if not _is_internal_path(path):
         return None
 
     token = _header(headers, b"x-internal-token")

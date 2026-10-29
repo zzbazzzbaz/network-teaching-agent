@@ -41,7 +41,8 @@ app/api/
   - 私有题只允许 owner 新增、编辑、删除；
   - 不提供作答/attempt 接口；
 - 列表分页：`GET /sessions` 和题库搜索返回 `Page[T]`；
-- 记忆只读 BFF 在 `/api/v1/memory/*`，API 通过 `SERVER_AGENT_BASE_URL` 调 Agent 的 `/store/*`；
+- 会话创建 / 删除同步管理 LangGraph thread；打开会话时调 `POST /sessions/{id}/ensure-thread`；
+- 记忆只读 BFF 在 `/api/v1/memory/*`，API 通过 `AgentDep` 调 Agent 的 `/store/*`；
 - 内部接口放在 `internal/` 包，由 `internal/router.py` 汇总，使用 `/internal/*` 前缀，直接挂到 `app/main.py`，不挂 `/api/v1`，并设置 `include_in_schema=False`；
 - 内部接口不能经过 nginx 公网转发。
 
@@ -51,6 +52,7 @@ app/api/
 
 - `SessionDep`：数据库 session；
 - `SettingsDep`：应用配置；
+- `AgentDep`：Agent 端网关，统一访问 Store 和 thread 生命周期；
 - `UserIdDep`：从 JWT `sub` 取当前用户；
 - `InternalUserDep`：内部接口统一使用；先校验 `X-Internal-Token`，再从 `X-User-Id` 校验用户存在且启用。
 

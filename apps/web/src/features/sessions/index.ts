@@ -1,6 +1,7 @@
 export {
   createSession,
   deleteSession,
+  ensureSessionThread,
   getSession,
   listSessions,
   renameSession,

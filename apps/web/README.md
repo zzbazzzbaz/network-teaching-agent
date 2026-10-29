@@ -46,7 +46,7 @@ src/
 ├── widgets/          # mode-shell、SessionPage、ModeHomePage
 ├── features/
 │   ├── auth/         # 登录、登录态、401 刷新
-│   ├── sessions/     # 平台会话 + LangGraph thread 生命周期
+│   ├── sessions/     # 平台会话（thread 生命周期由 API BFF 管理）
 │   ├── chat/         # assistant-ui runtime、消息、工具卡、ask_student
 │   ├── questions/    # 题库、筛选、详情、私有题 CRUD
 │   ├── memory/       # 记忆目录树、文件预览
@@ -54,7 +54,7 @@ src/
 └── shared/
     ├── api/          # fetch、ApiError、OpenAPI 生成类型
     ├── auth/         # localStorage token session
-    ├── langgraph/    # Client、ensure/delete thread
+    ├── langgraph/    # Client（仅聊天运行时）
     ├── lib/
     └── ui/           # shadcn 结构 + Radix primitives
 ```

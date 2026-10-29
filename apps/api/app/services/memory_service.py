@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from pathlib import PurePosixPath
-from typing import Any
+
+from pydantic import ValidationError
 
 from app.api.schemas.memory import (
     MemoryEntry,
     MemoryFileResponse,
     MemoryTreeResponse,
 )
-from app.core.config import Settings
 from app.core.exceptions import (
     NotFoundError,
     PayloadTooLargeError,
@@ -17,11 +18,8 @@ from app.core.exceptions import (
     UnprocessableError,
     UnsupportedMediaTypeError,
 )
-from app.gateway.agent_memory import (
-    MemoryGatewayError,
-    get_memory_item,
-    search_memory_items,
-)
+from app.gateway.agent import AgentGateway, MemoryFileValue, StoreItem
+from app.gateway.http_client import UpstreamError
 
 MEMORY_PREFIX = "/memory/"
 MAX_MEMORY_FILE_BYTES = 128 * 1024
@@ -61,33 +59,29 @@ def _path_from_store_key(key: str) -> str | None:
     return path
 
 
-def _file_value(item: dict[str, Any]) -> dict[str, Any]:
-    value = item.get("value")
-    if not isinstance(value, dict):
-        raise UnsupportedMediaTypeError("记忆文件不是文本文件")
-    return value
+def _file_value(item: StoreItem) -> MemoryFileValue:
+    try:
+        return MemoryFileValue.model_validate(item.value)
+    except ValidationError as e:
+        raise UnsupportedMediaTypeError("记忆文件不是文本文件") from e
 
 
-def _text_content(value: dict[str, Any]) -> str:
-    encoding = value.get("encoding", "utf-8")
-    if not isinstance(encoding, str) or encoding.lower() != "utf-8":
+def _text_content(value: MemoryFileValue) -> str:
+    if value.encoding.lower() != "utf-8":
         raise UnsupportedMediaTypeError("记忆文件不是 UTF-8 文本")
-    content = value.get("content")
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list) and all(isinstance(line, str) for line in content):
-        return "\n".join(content)
-    raise UnsupportedMediaTypeError("记忆文件不是 UTF-8 文本")
+    if isinstance(value.content, str):
+        return value.content
+    return "\n".join(value.content)
 
 
-def _content_size(value: dict[str, Any]) -> int:
+def _content_size(value: MemoryFileValue) -> int:
     try:
         return len(_text_content(value).encode("utf-8"))
     except UnsupportedMediaTypeError:
         return 0
 
 
-def _safe_content_size(item: dict[str, Any]) -> int:
+def _safe_content_size(item: StoreItem) -> int:
     try:
         value = _file_value(item)
     except UnsupportedMediaTypeError:
@@ -95,16 +89,14 @@ def _safe_content_size(item: dict[str, Any]) -> int:
     return _content_size(value)
 
 
-def _modified_at(item: dict[str, Any]) -> str | None:
-    value = item.get("value")
-    if isinstance(value, dict):
-        modified_at = value.get("modified_at")
-        if isinstance(modified_at, str) and modified_at:
-            return modified_at
-    updated_at = item.get("updated_at")
-    if isinstance(updated_at, str) and updated_at:
-        return updated_at
-    return None
+def _modified_at(item: StoreItem) -> datetime | None:
+    modified_at = item.value.get("modified_at")
+    if isinstance(modified_at, str) and modified_at:
+        try:
+            return datetime.fromisoformat(modified_at)
+        except ValueError:
+            pass
+    return item.updated_at
 
 
 def _directories_for(path: str) -> set[str]:
@@ -120,20 +112,17 @@ class MemoryService:
         self,
         *,
         user_id: uuid.UUID,
-        settings: Settings,
+        agent: AgentGateway,
     ) -> MemoryTreeResponse:
         try:
-            items = search_memory_items(settings, user_id=user_id)
-        except MemoryGatewayError as e:
+            items = agent.search_memory(user_id=user_id)
+        except UpstreamError as e:
             raise ServiceUnavailableError("记忆服务暂不可用") from e
 
-        files: dict[str, dict[str, Any]] = {}
+        files: dict[str, StoreItem] = {}
         directories: set[str] = set()
         for item in items:
-            key = item.get("key")
-            if not isinstance(key, str):
-                continue
-            path = _path_from_store_key(key)
+            path = _path_from_store_key(item.key)
             if path is None:
                 continue
             try:
@@ -171,16 +160,16 @@ class MemoryService:
         *,
         user_id: uuid.UUID,
         path: str,
-        settings: Settings,
+        agent: AgentGateway,
     ) -> MemoryFileResponse:
         _validate_memory_path(path)
         store_key = path[len("/memory") :]
 
         try:
-            item = get_memory_item(settings, user_id=user_id, key=store_key)
+            item = agent.get_memory(user_id=user_id, key=store_key)
             if item is None and store_key != path:
-                item = get_memory_item(settings, user_id=user_id, key=path)
-        except MemoryGatewayError as e:
+                item = agent.get_memory(user_id=user_id, key=path)
+        except UpstreamError as e:
             raise ServiceUnavailableError("记忆服务暂不可用") from e
 
         if item is None:

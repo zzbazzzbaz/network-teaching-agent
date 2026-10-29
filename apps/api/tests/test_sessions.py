@@ -7,7 +7,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.gateway.http_client import UpstreamUnavailable
 from app.models.user import Users
+from tests.fakes import FakeAgentGateway
 
 SESSIONS = "/api/v1/sessions"
 
@@ -307,10 +309,148 @@ def test_session_list_pagination(
     assert too_large.status_code == 422
 
 
+def test_create_session_ensures_thread(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    user = create_user()
+    headers = _login(client)
+
+    created = _create(client, headers)
+
+    assert fake_agent.thread_calls == [
+        ("ensure", user.user_id, created["session_id"]),
+    ]
+
+
+def test_create_session_compensates_when_agent_unavailable(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    create_user()
+    headers = _login(client)
+    fake_agent.fail = UpstreamUnavailable("down")
+
+    response = client.post(
+        SESSIONS,
+        json={"title": "", "agent_id": "exp_agent"},
+        headers=headers,
+    )
+
+    assert response.status_code == 503
+    assert client.get(SESSIONS, headers=headers).json()["items"] == []
+
+
+def test_delete_session_deletes_thread(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    user = create_user()
+    headers = _login(client)
+    created = _create(client, headers)
+    fake_agent.thread_calls.clear()
+
+    response = client.delete(f"{SESSIONS}/{created['session_id']}", headers=headers)
+
+    assert response.status_code == 204
+    assert fake_agent.thread_calls == [
+        ("delete", user.user_id, created["session_id"]),
+    ]
+    assert client.get(f"{SESSIONS}/{created['session_id']}", headers=headers).status_code == 404
+
+
+def test_delete_session_keeps_row_when_agent_unavailable(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    create_user()
+    headers = _login(client)
+    created = _create(client, headers)
+    fake_agent.fail = UpstreamUnavailable("down")
+
+    response = client.delete(f"{SESSIONS}/{created['session_id']}", headers=headers)
+
+    assert response.status_code == 503
+    assert client.get(f"{SESSIONS}/{created['session_id']}", headers=headers).status_code == 200
+
+
+def test_ensure_thread_is_idempotent(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    user = create_user()
+    headers = _login(client)
+    created = _create(client, headers)
+    fake_agent.thread_calls.clear()
+
+    first = client.post(f"{SESSIONS}/{created['session_id']}/ensure-thread", headers=headers)
+    second = client.post(f"{SESSIONS}/{created['session_id']}/ensure-thread", headers=headers)
+
+    assert first.status_code == 204
+    assert second.status_code == 204
+    assert fake_agent.thread_calls == [
+        ("ensure", user.user_id, created["session_id"]),
+        ("ensure", user.user_id, created["session_id"]),
+    ]
+
+
+def test_ensure_thread_rejects_other_users_session(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    create_user("alice", "password123")
+    create_user("bob", "password456")
+    alice = _login(client, "alice", "password123")
+    bob = _login(client, "bob", "password456")
+    created = _create(client, alice)
+    fake_agent.thread_calls.clear()
+
+    response = client.post(f"{SESSIONS}/{created['session_id']}/ensure-thread", headers=bob)
+
+    assert response.status_code == 404
+    assert fake_agent.thread_calls == []
+
+
+def test_ensure_thread_rejects_missing_session(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    create_user()
+    headers = _login(client)
+
+    response = client.post(f"{SESSIONS}/{uuid.uuid4()}/ensure-thread", headers=headers)
+
+    assert response.status_code == 404
+    assert fake_agent.thread_calls == []
+
+
+def test_ensure_thread_returns_503_when_agent_unavailable(
+    client: TestClient,
+    create_user: Callable[..., Users],
+    fake_agent: FakeAgentGateway,
+) -> None:
+    create_user()
+    headers = _login(client)
+    created = _create(client, headers)
+    fake_agent.fail = UpstreamUnavailable("down")
+
+    response = client.post(f"{SESSIONS}/{created['session_id']}/ensure-thread", headers=headers)
+
+    assert response.status_code == 503
+
+
 def test_openapi_generation(client: TestClient) -> None:
     response = client.get("/openapi.json")
     assert response.status_code == 200
     paths = response.json()["paths"]
     assert "/api/v1/sessions" in paths
+    assert "/api/v1/sessions/{session_id}/ensure-thread" in paths
     assert "/api/v1/question-bank/questions" in paths
     assert "/api/v1/memory/file" in paths

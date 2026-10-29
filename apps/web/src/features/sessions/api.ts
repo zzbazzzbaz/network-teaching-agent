@@ -42,6 +42,12 @@ export function touchSession(sessionId: string): Promise<void> {
   return apiFetch<void>(`/sessions/${sessionId}/touch`, { method: "POST" })
 }
 
+export function ensureSessionThread(sessionId: string): Promise<void> {
+  return apiFetch<void>(`/sessions/${sessionId}/ensure-thread`, {
+    method: "POST",
+  })
+}
+
 export function deleteSession(sessionId: string): Promise<void> {
   return apiFetch<void>(`/sessions/${sessionId}`, { method: "DELETE" })
 }

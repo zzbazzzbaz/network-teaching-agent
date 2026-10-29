@@ -63,9 +63,38 @@ def test_store_requires_internal_token_and_user() -> None:
         assert error.value.status_code in {401, 403}
 
 
-def test_internal_token_cannot_access_threads() -> None:
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/threads",
+        f"/threads/{USER_ID}",
+    ],
+)
+def test_internal_token_can_authenticate_thread_lifecycle(path: str) -> None:
+    result = asyncio.run(authenticate(headers=_internal_headers(), path=path))
+    assert result == {"identity": USER_ID}
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/threads/search",
+        f"/threads/{USER_ID}/state",
+        f"/threads/{USER_ID}/runs/stream",
+        "/runs/stream",
+        "/threads/not-a-uuid",
+    ],
+)
+def test_internal_token_cannot_access_other_thread_paths(path: str) -> None:
     with pytest.raises(Auth.exceptions.HTTPException) as error:
-        asyncio.run(authenticate(headers=_internal_headers(), path="/threads"))
+        asyncio.run(authenticate(headers=_internal_headers(), path=path))
+    assert error.value.status_code == 401
+
+
+@pytest.mark.parametrize("path", ["/store/items", "/threads"])
+def test_internal_paths_still_require_internal_token(path: str) -> None:
+    with pytest.raises(Auth.exceptions.HTTPException) as error:
+        asyncio.run(authenticate(headers={}, path=path))
     assert error.value.status_code == 401
 
 

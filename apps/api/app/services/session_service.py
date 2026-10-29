@@ -3,8 +3,14 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.core.constants import DEFAULT_SESSION_TITLE, MAX_SESSION_TITLE_LENGTH
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import (
+    NotFoundError,
+    ServiceUnavailableError,
+    ValidationError,
+)
 from app.core.pagination import PageRequest, PageResult
+from app.gateway.agent import AgentGateway
+from app.gateway.http_client import UpstreamError
 from app.models.session import ChatSession
 from app.repositories.session_repository import session_repository
 
@@ -53,13 +59,20 @@ def create_session(
     agent_id: str,
     title: str,
     session: Session,
+    agent: AgentGateway,
 ) -> ChatSession:
-    return session_repository.create(
+    chat_session = session_repository.create(
         session,
         owner_id=owner_id,
         agent_id=agent_id,
         title=_normalize_title(title),
     )
+    try:
+        agent.ensure_thread(user_id=owner_id, thread_id=str(chat_session.session_id))
+    except UpstreamError as e:
+        session_repository.delete(session, chat_session)
+        raise ServiceUnavailableError("会话服务暂不可用") from e
+    return chat_session
 
 
 def rename_session(
@@ -83,11 +96,30 @@ def touch_session(
     session_repository.touch(session, chat_session)
 
 
+def ensure_thread(
+    *,
+    owner_id: uuid.UUID,
+    session_id: uuid.UUID,
+    session: Session,
+    agent: AgentGateway,
+) -> None:
+    get_owned_session(owner_id=owner_id, session_id=session_id, session=session)
+    try:
+        agent.ensure_thread(user_id=owner_id, thread_id=str(session_id))
+    except UpstreamError as e:
+        raise ServiceUnavailableError("会话服务暂不可用") from e
+
+
 def delete_session(
     *,
     owner_id: uuid.UUID,
     session_id: uuid.UUID,
     session: Session,
+    agent: AgentGateway,
 ) -> None:
     chat_session = get_owned_session(owner_id=owner_id, session_id=session_id, session=session)
+    try:
+        agent.delete_thread(user_id=owner_id, thread_id=str(session_id))
+    except UpstreamError as e:
+        raise ServiceUnavailableError("会话服务暂不可用") from e
     session_repository.delete(session, chat_session)

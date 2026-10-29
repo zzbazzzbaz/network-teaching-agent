@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from app.api.dependencies import SettingsDep, UserIdDep
+from app.api.dependencies import AgentDep, UserIdDep
 from app.api.schemas.memory import MemoryFileQuery, MemoryFileResponse, MemoryTreeResponse
 from app.services.memory_service import memory_service
 
@@ -14,19 +14,19 @@ router = APIRouter(prefix="/memory", tags=["memory"])
 @router.get("/tree", response_model=MemoryTreeResponse, summary="获取我的记忆目录")
 def get_memory_tree(
     user_id: UserIdDep,
-    settings: SettingsDep,
+    agent: AgentDep,
 ) -> MemoryTreeResponse:
-    return memory_service.get_tree(user_id=user_id, settings=settings)
+    return memory_service.get_tree(user_id=user_id, agent=agent)
 
 
 @router.get("/file", response_model=MemoryFileResponse, summary="读取我的记忆文件")
 def get_memory_file(
     params: Annotated[MemoryFileQuery, Query()],
     user_id: UserIdDep,
-    settings: SettingsDep,
+    agent: AgentDep,
 ) -> MemoryFileResponse:
     return memory_service.get_file(
         user_id=user_id,
         path=params.path,
-        settings=settings,
+        agent=agent,
     )

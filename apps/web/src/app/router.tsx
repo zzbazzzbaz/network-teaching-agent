@@ -13,10 +13,13 @@ import {
 import { ApiError } from "@/shared/api/client"
 import type { Mode, Session } from "@/shared/api/types"
 import { getSession } from "@/shared/auth/session"
-import { ensureLangGraphThread } from "@/shared/langgraph/client"
 import { Button } from "@/shared/ui/button"
 import { LoginPage } from "@/features/auth"
-import { agentForMode, sessionQueryOptions } from "@/features/sessions"
+import {
+  agentForMode,
+  ensureSessionThread,
+  sessionQueryOptions,
+} from "@/features/sessions"
 
 import { queryClient } from "./query-client"
 import { ModeHomePage } from "@/widgets/mode-shell/ModeHomePage"
@@ -144,7 +147,7 @@ async function loadSession(mode: Mode, sessionId: string): Promise<{ session: Se
     })
   }
 
-  await ensureLangGraphThread(session.session_id)
+  await ensureSessionThread(session.session_id)
   return { session }
 }
 

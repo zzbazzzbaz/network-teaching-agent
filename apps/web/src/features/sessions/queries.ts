@@ -7,10 +7,6 @@ import {
 } from "@tanstack/react-query"
 
 import type { AgentId, Mode, Session } from "@/shared/api/types"
-import {
-  deleteLangGraphThread,
-  ensureLangGraphThread,
-} from "@/shared/langgraph/client"
 
 import {
   createSession,
@@ -55,16 +51,7 @@ export function useSessions(agentId: AgentId) {
 export function useCreateSession(mode: Mode) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async () => {
-      const session = await createSession(MODES[mode].agentId)
-      try {
-        await ensureLangGraphThread(session.session_id)
-      } catch (error) {
-        await deleteSession(session.session_id).catch(() => undefined)
-        throw error
-      }
-      return session
-    },
+    mutationFn: () => createSession(MODES[mode].agentId),
     onSuccess: (session) => {
       queryClient.setQueryData(sessionKeys.detail(session.session_id), session)
       void queryClient.invalidateQueries({
@@ -89,10 +76,7 @@ export function useRenameSession() {
 export function useDeleteSession() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (session: Session) => {
-      await deleteLangGraphThread(session.session_id)
-      await deleteSession(session.session_id)
-    },
+    mutationFn: (session: Session) => deleteSession(session.session_id),
     onSuccess: (_data, session) => {
       queryClient.removeQueries({
         queryKey: sessionKeys.detail(session.session_id),

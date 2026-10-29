@@ -28,7 +28,7 @@ src/
 └── shared/
     ├── api/          # fetch client + OpenAPI 生成类型
     ├── auth/         # token 存储
-    ├── langgraph/    # LangGraph Client / thread 生命周期
+    ├── langgraph/    # LangGraph Client（仅聊天运行时）
     ├── lib/
     └── ui/
 ```
@@ -46,7 +46,7 @@ npm run api:types     # 需要 api 已启动在 :8000
 
 ## 约束
 
-- `session_id` 必须原样作为 LangGraph `thread_id`；打开会话前调用 `ensureLangGraphThread`。
+- `session_id` 必须原样作为 LangGraph `thread_id`；打开会话前调用 API 的 `ensureSessionThread`。
 - 登录态只保存在浏览器；API/LangGraph 都走 `apiFetch` 的 JWT 注入与 401 刷新。
 - 题目答案在用户主动查看前不渲染。
 - 后端缺口记录在 `BACKEND_GAPS.md`。
