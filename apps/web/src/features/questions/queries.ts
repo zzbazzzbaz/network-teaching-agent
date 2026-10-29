@@ -59,7 +59,7 @@ function toApiFilters(
     query: filters.query.trim() || undefined,
     question_type:
       filters.questionType === "all" ? undefined : filters.questionType,
-    knowledge_point_id:
+    knowledge_point_prefix:
       filters.knowledgePointId === "all" ? undefined : filters.knowledgePointId,
   }
 }

@@ -2,6 +2,7 @@
 
 import { ApiError } from "@/shared/api/client"
 import type {
+  KnowledgePoint,
   QuestionDetail,
   QuestionInput,
   QuestionScope,
@@ -60,8 +61,55 @@ export function correctOptionText(question: QuestionDetail): string | null {
   return question.options[index] ?? null
 }
 
-export function knowledgePointIndent(level: number): string {
-  return "\u00A0".repeat(Math.max(0, level - 1) * 2)
+export function knowledgePointTitle(
+  nodes: KnowledgePoint[],
+  id: string | undefined,
+): string | undefined {
+  if (!id) return undefined
+  return nodes.find((node) => node.id === id)?.title
+}
+
+export type KnowledgePointTreeNode = KnowledgePoint & {
+  children: KnowledgePointTreeNode[]
+}
+
+/** 把后端返回的扁平目录还原成树；顺序沿用接口返回的教材顺序。 */
+export function buildKnowledgePointTree(
+  nodes: KnowledgePoint[],
+): KnowledgePointTreeNode[] {
+  const byId = new Map<string, KnowledgePointTreeNode>()
+  for (const node of nodes) {
+    byId.set(node.id, { ...node, children: [] })
+  }
+
+  const roots: KnowledgePointTreeNode[] = []
+  for (const node of nodes) {
+    const treeNode = byId.get(node.id)
+    if (!treeNode) continue
+    const parent = node.parent_id ? byId.get(node.parent_id) : undefined
+    if (parent) {
+      parent.children.push(treeNode)
+    } else {
+      roots.push(treeNode)
+    }
+  }
+  return roots
+}
+
+/** 返回某节点所有祖先的 id，用于展开选中项所在的分支。 */
+export function knowledgePointAncestors(
+  nodes: KnowledgePoint[],
+  id: string | undefined,
+): string[] {
+  if (!id) return []
+  const parentById = new Map(nodes.map((node) => [node.id, node.parent_id]))
+  const ancestors: string[] = []
+  let current = parentById.get(id)
+  while (current) {
+    ancestors.push(current)
+    current = parentById.get(current)
+  }
+  return ancestors
 }
 
 const VALUE_ERROR_PREFIX = /^Value error,\s*/i

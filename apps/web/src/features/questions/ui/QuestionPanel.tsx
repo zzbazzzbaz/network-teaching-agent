@@ -1,4 +1,4 @@
-import { Plus, Search } from "lucide-react"
+import { ChevronDown, FolderTree, Plus, Search } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import type { QuestionDetail, QuestionScope } from "@/shared/api/types"
@@ -9,19 +9,12 @@ import {
   workspaceContentClass,
 } from "@/shared/ui/workspace-header"
 import { Input } from "@/shared/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover"
 
 import {
   ALL_KNOWLEDGE_POINTS,
   SCOPE_OPTIONS,
   TYPE_OPTIONS,
-  knowledgePointIndent,
   questionErrorMessage,
   type QuestionFilterState,
   type TypeFilter,
@@ -31,6 +24,7 @@ import {
   useQuestionCounts,
   useQuestions,
 } from "../queries"
+import { KnowledgePointTree } from "./KnowledgePointTree"
 import { QuestionCard } from "./QuestionCard"
 import { QuestionDetailDialog } from "./QuestionDetailDialog"
 import { QuestionEditorDialog } from "./QuestionEditorDialog"
@@ -54,6 +48,7 @@ export function QuestionPanel({
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] =
     useState<QuestionDetail | null>(null)
+  const [knowledgePointOpen, setKnowledgePointOpen] = useState(false)
   const [detailVersion, setDetailVersion] = useState(0)
 
   const debouncedQuery = useDebouncedValue(queryInput.trim(), 300)
@@ -70,6 +65,17 @@ export function QuestionPanel({
   const questions = useQuestions(scope, filters)
   const counts = useQuestionCounts(filters)
   const knowledgePointsQuery = useKnowledgePoints()
+
+  const knowledgePointNodes = knowledgePointsQuery.data?.nodes ?? []
+  const selectedKnowledgePoint = knowledgePointNodes.find(
+    (node) => node.id === knowledgePointId,
+  )
+  const knowledgePointLabel =
+    knowledgePointId === ALL_KNOWLEDGE_POINTS
+      ? "全部知识点"
+      : selectedKnowledgePoint
+        ? `${selectedKnowledgePoint.id} ${selectedKnowledgePoint.title}`
+        : "知识点"
 
   const items = questions.data?.pages.flatMap((page) => page.items) ?? []
   const total = questions.data?.pages[0]?.total ?? 0
@@ -203,28 +209,67 @@ export function QuestionPanel({
           </div>
 
 
-          <Select
-            value={knowledgePointId}
-            onValueChange={setKnowledgePointId}
-            disabled={knowledgePointsQuery.isPending}
+          <Popover
+            open={knowledgePointOpen}
+            onOpenChange={setKnowledgePointOpen}
           >
-            <SelectTrigger
-              size="sm"
-              aria-label="按知识点筛选"
-              className="h-9 w-full text-[11.5px] sm:w-[210px]"
-            >
-              <SelectValue placeholder="知识点" className="min-w-0 truncate" />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              <SelectItem value={ALL_KNOWLEDGE_POINTS}>全部知识点</SelectItem>
-              {knowledgePointsQuery.data?.nodes.map((node) => (
-                <SelectItem key={node.id} value={node.id}>
-                  {knowledgePointIndent(node.level)}
-                  {node.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                aria-label="按知识点筛选"
+                disabled={knowledgePointsQuery.isPending}
+                className="h-9 w-full justify-between gap-1.5 px-2.5 text-[11.5px] font-medium sm:w-[230px]"
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <FolderTree
+                    className="size-3.5 shrink-0 text-ink-muted"
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">{knowledgePointLabel}</span>
+                </span>
+                <ChevronDown
+                  className="size-3.5 shrink-0 text-ink-muted"
+                  aria-hidden="true"
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[320px] p-0">
+              <div className="border-b border-line p-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKnowledgePointId(ALL_KNOWLEDGE_POINTS)
+                    setKnowledgePointOpen(false)
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-sm px-1.5 py-1 text-left text-[12px] transition-colors",
+                    knowledgePointId === ALL_KNOWLEDGE_POINTS
+                      ? "bg-surface-3 text-ink"
+                      : "text-ink-soft hover:bg-surface-2 hover:text-ink",
+                  )}
+                >
+                  <span className="w-11 shrink-0 font-mono text-[10.5px] text-ink-muted">
+                    全部
+                  </span>
+                  全部知识点
+                </button>
+              </div>
+              <div className="scroll-slim max-h-[320px] overflow-y-auto p-1.5">
+                <KnowledgePointTree
+                  nodes={knowledgePointNodes}
+                  value={
+                    knowledgePointId === ALL_KNOWLEDGE_POINTS
+                      ? undefined
+                      : knowledgePointId
+                  }
+                  onSelect={(id) => {
+                    setKnowledgePointId(id)
+                    setKnowledgePointOpen(false)
+                  }}
+                />
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {knowledgePointsQuery.isError && (
             <button

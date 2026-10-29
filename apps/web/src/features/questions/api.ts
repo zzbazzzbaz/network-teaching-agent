@@ -28,8 +28,8 @@ export function listQuestions(
   const query = filters.query?.trim()
   if (query) params.set("query", query)
   if (filters.question_type) params.set("question_type", filters.question_type)
-  if (filters.knowledge_point_id) {
-    params.set("knowledge_point_id", filters.knowledge_point_id)
+  if (filters.knowledge_point_prefix) {
+    params.set("knowledge_point_prefix", filters.knowledge_point_prefix)
   }
 
   return apiFetch<QuestionSearchResponse>(

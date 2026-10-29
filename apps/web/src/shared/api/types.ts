@@ -43,7 +43,8 @@ export type QuestionFilters = {
   scope: QuestionScope
   query?: string
   question_type?: QuestionType
-  knowledge_point_id?: string
+  /** 目录编号前缀：选中「5.8」会命中 5.8、5.8.1、5.8.2、5.8.3。 */
+  knowledge_point_prefix?: string
   limit?: number
   offset?: number
 }

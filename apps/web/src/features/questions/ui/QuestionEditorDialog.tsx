@@ -1,4 +1,4 @@
-import { Plus, X } from "lucide-react"
+import { ChevronDown, Plus, X } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -15,6 +15,7 @@ import {
 } from "@/shared/ui/dialog"
 import { Input } from "@/shared/ui/input"
 import { Label } from "@/shared/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover"
 import {
   Select,
   SelectContent,
@@ -30,7 +31,6 @@ import {
   MIN_OPTIONS,
   REFERENCE_MAX_LENGTH,
   STEM_MAX_LENGTH,
-  knowledgePointIndent,
   questionErrorMessage,
   validateQuestionDraft,
   type QuestionEditorDraft,
@@ -42,6 +42,7 @@ import {
   useKnowledgePoints,
   useUpdateQuestion,
 } from "../queries"
+import { KnowledgePointTree } from "./KnowledgePointTree"
 
 const TYPE_CHOICES = [
   { id: "single_choice", label: "单选" },
@@ -106,12 +107,16 @@ export function QuestionEditorDialog({
   )
   const [errors, setErrors] = useState<QuestionEditorErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [knowledgePointOpen, setKnowledgePointOpen] = useState(false)
 
   const knowledgePointsQuery = useKnowledgePoints()
   const createQuestion = useCreateQuestion()
   const updateQuestion = useUpdateQuestion()
   const pending = createQuestion.isPending || updateQuestion.isPending
   const nodes = knowledgePointsQuery.data?.nodes ?? []
+  const selectedKnowledgePoint = nodes.find(
+    (node) => node.id === primaryKnowledgePointId,
+  )
   const secondaryKnowledgePointIds =
     question?.secondary_knowledge_points.map((point) => point.id) ?? []
 
@@ -432,43 +437,57 @@ export function QuestionEditorDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="question-primary-kp">主知识点</Label>
-            <Select
-              value={primaryKnowledgePointId}
-              onValueChange={(value) => {
-                setPrimaryKnowledgePointId(value)
-                clearError("primaryKnowledgePointId")
-              }}
-              disabled={
-                knowledgePointsQuery.isPending || knowledgePointsQuery.isError
-              }
+            <Popover
+              open={knowledgePointOpen}
+              onOpenChange={setKnowledgePointOpen}
             >
-              <SelectTrigger
-                id="question-primary-kp"
-                aria-describedby={
-                  errors.primaryKnowledgePointId
-                    ? "question-primary-kp-error"
-                    : undefined
-                }
-                className="h-10 w-full sm:h-9"
-              >
-                <SelectValue
-                  placeholder={
-                    knowledgePointsQuery.isPending
-                      ? "正在加载知识点…"
-                      : "选择主知识点"
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  id="question-primary-kp"
+                  disabled={
+                    knowledgePointsQuery.isPending || knowledgePointsQuery.isError
                   }
-                  className="min-w-0 truncate"
-                />
-              </SelectTrigger>
-              <SelectContent className="max-h-64">
-                {nodes.map((node) => (
-                  <SelectItem key={node.id} value={node.id}>
-                    {knowledgePointIndent(node.level)}
-                    {node.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  aria-describedby={
+                    errors.primaryKnowledgePointId
+                      ? "question-primary-kp-error"
+                      : undefined
+                  }
+                  className={cn(
+                    "h-10 w-full justify-between gap-1.5 px-3 text-[13px] font-normal sm:h-9",
+                    selectedKnowledgePoint ? "text-ink" : "text-ink-muted",
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate">
+                      {selectedKnowledgePoint
+                        ? `${selectedKnowledgePoint.id} ${selectedKnowledgePoint.title}`
+                        : knowledgePointsQuery.isPending
+                          ? "正在加载知识点…"
+                          : "选择主知识点"}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className="size-3.5 shrink-0 text-ink-muted"
+                    aria-hidden="true"
+                  />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-[360px] p-1.5">
+                <div className="scroll-slim max-h-72 overflow-y-auto">
+                  <KnowledgePointTree
+                    nodes={nodes}
+                    value={primaryKnowledgePointId || undefined}
+                    onSelect={(id) => {
+                      setPrimaryKnowledgePointId(id)
+                      clearError("primaryKnowledgePointId")
+                      setKnowledgePointOpen(false)
+                    }}
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
             {knowledgePointsQuery.isError && (
               <p role="alert" className="text-[12px] text-danger">
                 知识点目录加载失败，请关闭后重试。
