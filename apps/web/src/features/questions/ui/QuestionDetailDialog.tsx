@@ -25,12 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/shared/ui/tooltip"
 
 import {
   correctOptionText,
@@ -218,9 +212,6 @@ export function QuestionDetailDialog({
                       ? formatDateTime(question.last_attempt_at)
                       : "还没有作答记录"}
                   </p>
-                  {question.last_attempt_at && (
-                    <p>已有作答记录，题目暂不可删除。</p>
-                  )}
                 </div>
               ) : (
                 <p className="text-[11px] leading-5 text-ink-muted">
@@ -232,7 +223,6 @@ export function QuestionDetailDialog({
                 {question.origin === "mine" ? (
                   <>
                     <DeleteButton
-                      locked={Boolean(question.last_attempt_at)}
                       pending={removeQuestion.isPending}
                       onDelete={() => setConfirmDeleteOpen(true)}
                     />
@@ -272,7 +262,7 @@ export function QuestionDetailDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>删除这道私有题？</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后无法恢复。已有作答记录的题目不能删除。
+              删除后题目将从题库中移除，历史作答记录会保留。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -300,39 +290,23 @@ export function QuestionDetailDialog({
 }
 
 function DeleteButton({
-  locked,
   pending,
   onDelete,
 }: {
-  locked: boolean
   pending: boolean
   onDelete: () => void
 }) {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            className={cn("mr-auto inline-flex", locked && "cursor-not-allowed")}
-            tabIndex={locked ? 0 : -1}
-          >
-            <Button
-              variant="destructive-outline"
-              size="sm"
-              className="h-10 gap-1.5 sm:h-9"
-              disabled={locked || pending}
-              onClick={onDelete}
-            >
-              <Trash2 className="size-3.5" aria-hidden="true" />
-              删除
-            </Button>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          {locked ? "已有作答记录，暂不能删除" : "删除这道题"}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Button
+      variant="destructive-outline"
+      size="sm"
+      className="mr-auto h-10 gap-1.5 sm:h-9"
+      disabled={pending}
+      onClick={onDelete}
+    >
+      <Trash2 className="size-3.5" aria-hidden="true" />
+      删除
+    </Button>
   )
 }
 

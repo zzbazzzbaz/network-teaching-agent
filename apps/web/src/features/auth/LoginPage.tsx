@@ -87,7 +87,7 @@ export function LoginPage() {
     if (submitting) return
     const name = username.trim()
     if (!name) {
-      setError("请输入学号或账号")
+      setError("请输入账号")
       return
     }
     if (!password) {
@@ -163,7 +163,7 @@ export function LoginPage() {
               登录课程空间
             </h1>
             <p className="mt-2 text-[13px] leading-6 text-ink-muted">
-              使用学号登录，进入课程工作台。
+              使用账号登录，进入课程工作台。
             </p>
 
             <form
@@ -174,7 +174,7 @@ export function LoginPage() {
               }}
             >
               <div className="space-y-1.5">
-                <Label htmlFor="student-id">学号</Label>
+                <Label htmlFor="student-id">账号</Label>
                 <Input
                   id="student-id"
                   name="username"
@@ -183,7 +183,6 @@ export function LoginPage() {
                   spellCheck={false}
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  placeholder="例如 2023010421"
                   className="h-10 text-[16px] lg:text-[14px]"
                   disabled={submitting}
                   autoFocus
@@ -235,10 +234,6 @@ export function LoginPage() {
                 {submitting ? "登录中…" : "登录"}
               </Button>
             </form>
-
-            <p className="mt-5 text-[11.5px] leading-5 text-ink-muted">
-              账号由老师分配，忘记密码请联系老师。
-            </p>
           </div>
         </main>
       </div>

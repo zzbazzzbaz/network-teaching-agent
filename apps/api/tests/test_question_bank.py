@@ -714,7 +714,7 @@ def test_other_users_private_question_is_hidden(
     assert client.delete(f"{PUBLIC_QUESTIONS}/{question_id}", headers=bob).status_code == 404
 
 
-def test_delete_private_question_with_attempt_conflicts(
+def test_delete_private_question_with_attempt_soft_deletes(
     client: TestClient,
     create_user: Callable[..., Users],
 ) -> None:
@@ -726,4 +726,26 @@ def test_delete_private_question_with_attempt_conflicts(
     _create_private_attempt(client, user_id=user.user_id, public_question_id=question_id)
 
     response = client.delete(f"{PUBLIC_QUESTIONS}/{question_id}", headers=headers)
-    assert response.status_code == 409
+    assert response.status_code == 204
+
+    assert client.get(f"{PUBLIC_QUESTIONS}/{question_id}", headers=headers).status_code == 404
+    listed = client.get(
+        PUBLIC_QUESTIONS,
+        params={"scope": "mine"},
+        headers=headers,
+    )
+    assert listed.status_code == 200
+    assert listed.json()["total"] == 0
+
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        question = session.get(Question, question_id)
+        assert question is not None
+        assert question.deleted_at is not None
+        attempts = list(
+            session.scalars(
+                select(QuestionAttempt).where(
+                    QuestionAttempt.question_id == question_id
+                )
+            )
+        )
+        assert len(attempts) == 1

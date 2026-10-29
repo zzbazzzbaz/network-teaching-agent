@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.orm import Session
@@ -34,7 +34,12 @@ class QuestionRepository:
         return question
 
     def get_question(self, session: Session, question_id: uuid.UUID) -> Question | None:
-        return session.get(Question, question_id)
+        return session.scalar(
+            select(Question).where(
+                Question.question_id == question_id,
+                Question.deleted_at.is_(None),
+            )
+        )
 
     def update_question(
         self,
@@ -63,8 +68,9 @@ class QuestionRepository:
             or 0
         )
 
-    def delete_question(self, session: Session, question: Question) -> None:
-        session.delete(question)
+    def soft_delete_question(self, session: Session, question: Question) -> None:
+        question.deleted_at = datetime.now(UTC)
+        session.flush()
 
     def get_attempt_by_tool_call(
         self,
@@ -133,7 +139,7 @@ class QuestionRepository:
         knowledge_point_prefix: str | None,
         page: PageRequest,
     ) -> PageResult[Question]:
-        conditions = []
+        conditions = [Question.deleted_at.is_(None)]
         if scope == "public":
             conditions.append(Question.owner_id.is_(None))
         elif scope == "mine":
@@ -210,7 +216,10 @@ class QuestionRepository:
             session.scalar(
                 select(func.count())
                 .select_from(Question)
-                .where(Question.owner_id.is_(None))
+                .where(
+                    Question.owner_id.is_(None),
+                    Question.deleted_at.is_(None),
+                )
             )
             or 0
         )

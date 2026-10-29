@@ -157,14 +157,9 @@ class QuestionBankService:
             question_id=question_id,
             action="删除",
         )
-        if question_repository.count_attempts(session, question.question_id) > 0:
-            raise ConflictError("题目已有作答记录，不能删除")
         try:
-            question_repository.delete_question(session, question)
+            question_repository.soft_delete_question(session, question)
             session.commit()
-        except IntegrityError:
-            session.rollback()
-            raise ConflictError("题目已有作答记录，不能删除") from None
         except Exception:
             session.rollback()
             raise

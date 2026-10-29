@@ -2,9 +2,6 @@ import { Clock, Eye } from "lucide-react"
 
 import type { QuestionSummary } from "@/shared/api/types"
 import { formatDate } from "@/shared/lib/utils"
-import { Badge } from "@/shared/ui/badge"
-
-import { originLabel, typeLabel } from "../model"
 
 export function QuestionCard({
   question,
@@ -21,20 +18,7 @@ export function QuestionCard({
       onClick={() => onOpen(question.question_id)}
       className="group flex min-h-[150px] w-full flex-col rounded-lg border border-line bg-surface p-4 text-left transition-colors outline-none hover:border-link-line focus-visible:ring-2 focus-visible:ring-ring/30"
     >
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Badge variant="muted">{typeLabel(question.question_type)}</Badge>
-        <Badge variant={question.origin === "public" ? "outline" : "default"}>
-          {originLabel(question.origin)}
-        </Badge>
-        <span
-          className="ml-auto max-w-[55%] truncate text-[10.5px] text-ink-muted"
-          title={question.primary_knowledge_point.title}
-        >
-          {question.primary_knowledge_point.title}
-        </span>
-      </div>
-
-      <p className="mt-3 line-clamp-3 text-[13.5px] leading-6 break-words text-ink">
+      <p className="line-clamp-3 text-[13.5px] leading-6 break-words text-ink">
         {question.stem_preview}
       </p>
 

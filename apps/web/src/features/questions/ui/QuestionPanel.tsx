@@ -9,28 +9,16 @@ import {
   workspaceContentClass,
 } from "@/shared/ui/workspace-header"
 import { Input } from "@/shared/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select"
 
 import {
   ALL_KNOWLEDGE_POINTS,
   SCOPE_OPTIONS,
   TYPE_OPTIONS,
-  knowledgePointIndent,
   questionErrorMessage,
   type QuestionFilterState,
   type TypeFilter,
 } from "../model"
-import {
-  useKnowledgePoints,
-  useQuestionCounts,
-  useQuestions,
-} from "../queries"
+import { useQuestionCounts, useQuestions } from "../queries"
 import { QuestionCard } from "./QuestionCard"
 import { QuestionDetailDialog } from "./QuestionDetailDialog"
 import { QuestionEditorDialog } from "./QuestionEditorDialog"
@@ -48,9 +36,6 @@ export function QuestionPanel({
   const [scope, setScope] = useState<QuestionScope>("all")
   const [queryInput, setQueryInput] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
-  const [knowledgePointId, setKnowledgePointId] = useState<string>(
-    ALL_KNOWLEDGE_POINTS,
-  )
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] =
     useState<QuestionDetail | null>(null)
@@ -62,28 +47,25 @@ export function QuestionPanel({
     () => ({
       query: debouncedQuery,
       questionType: typeFilter,
-      knowledgePointId,
+      knowledgePointId: ALL_KNOWLEDGE_POINTS,
     }),
-    [debouncedQuery, typeFilter, knowledgePointId],
+    [debouncedQuery, typeFilter],
   )
 
   const questions = useQuestions(scope, filters)
   const counts = useQuestionCounts(filters)
-  const knowledgePointsQuery = useKnowledgePoints()
 
   const items = questions.data?.pages.flatMap((page) => page.items) ?? []
   const total = questions.data?.pages[0]?.total ?? 0
   const hasActiveFilters =
     scope !== "all" ||
     debouncedQuery.length > 0 ||
-    typeFilter !== "all" ||
-    knowledgePointId !== ALL_KNOWLEDGE_POINTS
+    typeFilter !== "all"
 
   function resetFilters() {
     setScope("all")
     setQueryInput("")
     setTypeFilter("all")
-    setKnowledgePointId(ALL_KNOWLEDGE_POINTS)
   }
 
   function openCreate() {
@@ -202,39 +184,6 @@ export function QuestionPanel({
             ))}
           </div>
 
-          <Select
-            value={knowledgePointId}
-            onValueChange={setKnowledgePointId}
-            disabled={knowledgePointsQuery.isPending}
-          >
-            <SelectTrigger
-              size="sm"
-              aria-label="按知识点筛选"
-              className="h-9 w-full text-[11.5px] sm:w-[210px]"
-            >
-              <SelectValue placeholder="知识点" className="min-w-0 truncate" />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              <SelectItem value={ALL_KNOWLEDGE_POINTS}>全部知识点</SelectItem>
-              {knowledgePointsQuery.data?.nodes.map((node) => (
-                <SelectItem key={node.id} value={node.id}>
-                  {knowledgePointIndent(node.level)}
-                  {node.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {knowledgePointsQuery.isError && (
-            <button
-              type="button"
-              onClick={() => void knowledgePointsQuery.refetch()}
-              className="text-[11px] font-medium text-danger underline underline-offset-2"
-            >
-              知识点加载失败，重试
-            </button>
-          )}
-
           <span className="ml-auto text-[11px] tabular-nums text-ink-muted">
             {questions.isPending
               ? "正在加载…"
@@ -305,11 +254,6 @@ export function QuestionPanel({
       {editorOpen && (
         <QuestionEditorDialog
           question={editingQuestion}
-          defaultKnowledgePointId={
-            knowledgePointId === ALL_KNOWLEDGE_POINTS
-              ? undefined
-              : knowledgePointId
-          }
           onClose={closeEditor}
           onSaved={handleSaved}
         />
@@ -333,12 +277,7 @@ function QuestionListSkeleton() {
             key={index}
             className="flex min-h-[150px] animate-pulse flex-col rounded-lg border border-line bg-surface p-4"
           >
-            <div className="flex items-center gap-1.5">
-              <div className="h-5 w-10 rounded-sm bg-surface-3" />
-              <div className="h-5 w-10 rounded-sm bg-surface-3" />
-              <div className="ml-auto h-3 w-20 rounded-sm bg-surface-3" />
-            </div>
-            <div className="mt-4 space-y-2">
+            <div className="space-y-2">
               <div className="h-3.5 w-full rounded-sm bg-surface-3" />
               <div className="h-3.5 w-5/6 rounded-sm bg-surface-3" />
               <div className="h-3.5 w-2/3 rounded-sm bg-surface-3" />

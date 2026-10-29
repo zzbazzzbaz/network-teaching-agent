@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     String,
@@ -48,6 +50,7 @@ class Question(Base):
             name="ck_questions_correct_option",
         ),
         Index("ix_questions_owner_created_at", "owner_id", text("created_at DESC")),
+        Index("ix_questions_deleted_at", "deleted_at"),
         Index("ix_questions_primary_knowledge_point_id", "primary_knowledge_point_id"),
         Index(
             "ix_questions_secondary_knowledge_points",
@@ -75,6 +78,11 @@ class Question(Base):
         nullable=False,
         default=list,
         server_default=text("'[]'::jsonb"),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
     )
 
 
