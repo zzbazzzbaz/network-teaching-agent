@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the computer-networks teaching skill entry file."""
+"""Generate the computer-networks-textbook skill entry file."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def main() -> None:
     units = units_data["units"]
 
     content = f"""---
-name: computer-networks
+name: computer-networks-textbook
 description: 计算机网络教材索引与教学地图；用于预习、概念解释、习题定位和考研复习。
 metadata:
   course: 计算机网络
@@ -50,12 +50,12 @@ metadata:
 - 实验步骤、traceroute 代码和沙箱操作，走 `traceroute-lab`；
 - 教材没有覆盖的内容。
 
-题库检索走 `question-bank` skill 和题库工具；教材正文用于解释、定位和补充。教材习题可以作为参考，但不要编造答案或来源。知识点使用 `textbook/00-toc.md` 的目录编号（如 `5.8.2`、`99`）。
+题库检索走 `ask-question` skill 和题库工具；教材正文用于解释、定位和补充。教材习题可以作为参考，但不要编造答案或来源。知识点使用 `textbook/00-toc.md` 的目录编号（如 `5.8.2`、`99`）。
 
 ## 2. 资料位置
 
 ```text
-/skills/teaching/computer-networks/
+/skills/teaching/computer-networks-textbook/
 ├── SKILL.md
 ├── textbook/
 │   ├── 00-toc.md          # 书本目录（带教材页码）
@@ -129,8 +129,7 @@ grep -n "拥塞控制" textbook/05-运输层/*.md
 
 ## 7. 与其他 skill 的关系
 
-- `ask-student`：负责设计检查题；出题前按需读教材小节；
-- `question-bank`：负责题库检索、知识点标注和录题边界；
+- `ask-question`：负责出题设计、题库检索和录题；出题前按需读教材小节；
 - `memory-maintenance`：负责记录教学进度、概念掌握和误解；
 - `traceroute-lab`：实验专用，不用于教材概念讲解。
 

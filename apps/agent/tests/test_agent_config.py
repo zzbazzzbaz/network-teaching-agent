@@ -149,10 +149,9 @@ def test_skill_discovery_matches_agent_tracks() -> None:
 
     assert exp_skills == {"memory-maintenance", "traceroute-lab"}
     assert teach_skills == {
-        "ask-student",
+        "ask-question",
         "memory-maintenance",
-        "computer-networks",
-        "question-bank",
+        "computer-networks-textbook",
     }
 
 
@@ -164,7 +163,7 @@ def test_teach_memory_permissions() -> None:
     assert _check_fs_permission(rules, operation, "/memory/AGENTS.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/profile.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/lab/AGENTS.md") == "deny"
-    assert _check_fs_permission(rules, operation, "/skills/teaching/ask-student/SKILL.md") == "deny"
+    assert _check_fs_permission(rules, operation, "/skills/teaching/ask-question/SKILL.md") == "deny"
     assert _check_fs_permission(rules, operation, "/root/workspace/traceroute.py") == "deny"
 
 
@@ -176,7 +175,7 @@ def test_exp_memory_permissions() -> None:
     assert _check_fs_permission(rules, operation, "/memory/AGENTS.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/profile.md") == "allow"
     assert _check_fs_permission(rules, operation, "/memory/teaching/AGENTS.md") == "deny"
-    assert _check_fs_permission(rules, operation, "/skills/teaching/ask-student/SKILL.md") == "deny"
+    assert _check_fs_permission(rules, operation, "/skills/teaching/ask-question/SKILL.md") == "deny"
     assert _check_fs_permission(rules, operation, "/root/workspace/traceroute.py") == "allow"
 
 
@@ -209,22 +208,33 @@ def test_prompt_and_skill_layout() -> None:
     assert (RESOURCE_DIR / "prompt" / "teaching.md").is_file()
     assert not (RESOURCE_DIR / "prompt" / "system.md").exists()
 
-    assert (RESOURCE_DIR / "skills" / "teaching" / "ask-student" / "SKILL.md").is_file()
+    assert (RESOURCE_DIR / "skills" / "teaching" / "ask-question" / "SKILL.md").is_file()
+    assert (RESOURCE_DIR / "skills" / "teaching" / "ask-question" / "bank.md").is_file()
     assert (RESOURCE_DIR / "skills" / "common" / "memory-maintenance" / "SKILL.md").is_file()
     assert (RESOURCE_DIR / "skills" / "lab" / "traceroute-lab" / "SKILL.md").is_file()
     assert (
         RESOURCE_DIR / "skills" / "lab" / "traceroute-lab" / "chapters" / "01-认识-traceroute.md"
     ).is_file()
-    assert (RESOURCE_DIR / "skills" / "teaching" / "computer-networks" / "SKILL.md").is_file()
-    assert (RESOURCE_DIR / "skills" / "teaching" / "question-bank" / "SKILL.md").is_file()
     assert (
-        RESOURCE_DIR / "skills" / "teaching" / "computer-networks" / "textbook" / "00-index.md"
+        RESOURCE_DIR / "skills" / "teaching" / "computer-networks-textbook" / "SKILL.md"
+    ).is_file()
+    assert (
+        RESOURCE_DIR
+        / "skills"
+        / "teaching"
+        / "computer-networks-textbook"
+        / "textbook"
+        / "00-toc.md"
     ).is_file()
     assert not (RESOURCE_DIR / "materials").exists()
-    assert not (RESOURCE_DIR / "skills" / "common" / "ask-student").exists()
-    assert not (RESOURCE_DIR / "skills" / "ask-student").exists()
+    assert not (RESOURCE_DIR / "skills" / "common" / "ask-question").exists()
+    assert not (RESOURCE_DIR / "skills" / "ask-question").exists()
     assert not (RESOURCE_DIR / "skills" / "memory-maintenance").exists()
     assert not (RESOURCE_DIR / "skills" / "traceroute-lab").exists()
+    # 旧名字不能复活
+    assert not (RESOURCE_DIR / "skills" / "teaching" / "ask-student").exists()
+    assert not (RESOURCE_DIR / "skills" / "teaching" / "question-bank").exists()
+    assert not (RESOURCE_DIR / "skills" / "teaching" / "computer-networks").exists()
 
 
 def test_langgraph_registers_both_agents() -> None:

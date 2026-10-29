@@ -17,7 +17,7 @@ DEFAULT_TARGET = (
     / "resources"
     / "skills"
     / "teaching"
-    / "computer-networks"
+    / "computer-networks-textbook"
 )
 
 

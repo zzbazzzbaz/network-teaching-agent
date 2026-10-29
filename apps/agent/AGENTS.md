@@ -20,9 +20,9 @@ apps/agent/
 │   │       ├── lab/
 │   │       │   └── traceroute-lab/
 │   │       └── teaching/
-│   │           ├── ask-student/
-│   │           ├── question-bank/
-│   │           └── computer-networks/
+│   │           ├── ask-question/
+│   │           │   └── bank.md
+│   │           └── computer-networks-textbook/
 │   │               └── textbook/
 │   └── tools/
 │       ├── ask_student.py
@@ -39,7 +39,7 @@ apps/agent/
 | Agent | 提示词 | Skill | 工具 | 后端 |
 |---|---|---|---|---|
 | `exp_agent` | `base.md` + `lab.md` | `memory-maintenance`、`traceroute-lab` | 默认工具；无 `ask_student` | `AgsBackend` |
-| `teach_agent` | `base.md` + `teaching.md` | `memory-maintenance`、`ask-student`、`question-bank`、`computer-networks` | 默认工具 + `ask_student`、`search_questions`、`save_question` | `StateBackend` |
+| `teach_agent` | `base.md` + `teaching.md` | `memory-maintenance`、`ask-question`、`computer-networks-textbook` | 默认工具 + `ask_student`、`search_questions`、`save_question` | `StateBackend` |
 
 默认工具：
 
@@ -64,7 +64,7 @@ task
 - Skill 挂载路径：
   - `exp_agent`：`/skills/common/`、`/skills/lab/`；
   - `teach_agent`：`/skills/common/`、`/skills/teaching/`。
-- `question-bank` skill 只在 `teach_agent` 可见。
+- `ask-question` 与 `computer-networks-textbook` 只在 `teach_agent` 可见；`ask-question/bank.md` 是题库检索、录题和知识点编号的细则。
 - 两个 graph 都在 `langgraph.json` 注册，入口是 `agent/main.py`。
 
 ## 记忆 Store

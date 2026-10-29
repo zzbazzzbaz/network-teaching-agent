@@ -23,10 +23,12 @@ from agent.tools.schemas.question_bank import (
 _SEARCH_DESCRIPTION = (
     "检索课程公共题库和学生的私人题库，用于找同类题、引用原题或了解练习历史。"
     "摘要足以挑题；讲解需要时再取回参考答案，一次最多 3 条。"
+    "细节见 /skills/teaching/ask-question/bank.md。"
 )
 _SAVE_DESCRIPTION = (
     "把学生明确要求保存的题目加入他的私人题库。"
     "只在学生说“记下来/加入题库”时调用；不发布公共题。"
+    "细节见 /skills/teaching/ask-question/bank.md。"
 )
 
 
@@ -94,7 +96,7 @@ def make_question_bank_tools() -> list[BaseTool]:
     @tool(args_schema=SaveQuestionInput, description=_SAVE_DESCRIPTION)
     def save_question(*, question: Question, runtime: ToolRuntime) -> str:
         try:
-            result = save_question_api(tool_context(runtime), question)
+            save_question_api(tool_context(runtime), question)
         except QuestionBankError as e:
             return f"题目保存失败：{e}"
         return "已保存到学生的私人题库。"

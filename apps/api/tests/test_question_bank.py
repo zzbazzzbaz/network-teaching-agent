@@ -473,7 +473,7 @@ def test_knowledge_points_match_textbook_toc() -> None:
         / "resources"
         / "skills"
         / "teaching"
-        / "computer-networks"
+        / "computer-networks-textbook"
         / "textbook"
         / "00-toc.md"
     )

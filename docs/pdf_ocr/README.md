@@ -1,6 +1,6 @@
 # 计算机网络教材 OCR
 
-将扫描版《计算机网络（第 8 版）》经 MinerU 云 API 转成按小节拆分的 Markdown，并生成 `teach_agent` 的 `computer-networks` skill 资源。
+将扫描版《计算机网络（第 8 版）》经 MinerU 云 API 转成按小节拆分的 Markdown，并生成 `teach_agent` 的 `computer-networks-textbook` skill 资源。
 
 ## 目录
 

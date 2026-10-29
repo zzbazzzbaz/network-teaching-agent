@@ -9,7 +9,7 @@ from agent.tools.schemas.question import AskQuestion
 
 _DESCRIPTION = (
     "向学生提出一道检查题并等待作答，用于确认理解、暴露误解、推动学生自己推导。"
-    "一次只问一个主问题；出题前读 /skills/teaching/ask-student/SKILL.md。"
+    "一次只问一个主问题；出题前读 /skills/teaching/ask-question/SKILL.md。"
     "学生作答后，题目和答案会存入他的题库。"
 )
 

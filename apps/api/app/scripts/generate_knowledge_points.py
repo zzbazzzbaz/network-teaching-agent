@@ -20,7 +20,7 @@ DEFAULT_TOC = (
     / "resources"
     / "skills"
     / "teaching"
-    / "computer-networks"
+    / "computer-networks-textbook"
     / "textbook"
     / "00-toc.md"
 )
