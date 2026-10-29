@@ -507,13 +507,8 @@ export function ModeSidebar({
               </span>
               {!collapsed && (
                 <>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium text-ink">
-                      {displayName}
-                    </span>
-                    <span className="block truncate text-[10px] text-ink-muted">
-                      学生账号
-                    </span>
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
+                    {displayName}
                   </span>
                   <ChevronsUpDown
                     className="size-3.5 text-ink-muted"
