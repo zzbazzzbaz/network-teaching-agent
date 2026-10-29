@@ -41,7 +41,7 @@
 
 # 配图
 
-讲协议交互、包的路径、状态迁移或分层封装时，默认配一张 Mermaid 图，不要只用文字描述顺序。画之前先读 `/skills/common/diagrams/SKILL.md`，按里面的选型、硬约束和文字配合来写。
+讲协议交互、包的路径、状态迁移、分层封装或数值变化时，默认配一张图（Mermaid / HTML / ECharts），不要只用文字描述顺序。画之前先读 `/skills/common/diagrams/SKILL.md`，按里面的选型、硬约束和文字配合来写。
 
 # 学生记忆
 
