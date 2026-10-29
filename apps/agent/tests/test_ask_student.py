@@ -111,7 +111,7 @@ def test_short_answer_payload() -> None:
 
 
 def test_short_answer_rejects_options() -> None:
-    with pytest.raises(ValidationError, match="short_answer 不能提供 options"):
+    with pytest.raises(ValidationError, match="short_answer 不能提供 options") as exc_info:
         TeachAskStudentToolInput(
             mode="short_answer",
             question="解释一下",
@@ -119,15 +119,44 @@ def test_short_answer_rejects_options() -> None:
             primary_knowledge_point_id="5.8.2",
         )
 
+    assert any(error["loc"] == ("options",) for error in exc_info.value.errors())
+
 
 def test_single_choice_requires_options() -> None:
-    with pytest.raises(ValidationError, match="必须提供 2–6 个 options"):
+    with pytest.raises(ValidationError, match="必须提供 2–6 个 options") as exc_info:
         TeachAskStudentToolInput(
             mode="single_choice",
             question="选一个",
             primary_knowledge_point_id="5.8.2",
             correct_option="A",
         )
+
+    assert any(error["loc"] == ("options",) for error in exc_info.value.errors())
+
+
+def test_single_choice_options_without_letter_prefix_return_actionable_error() -> None:
+    """回归：模型把纯选项内容传给 options 时，错误必须指向 options 且说明原因。"""
+    with pytest.raises(ValidationError) as exc_info:
+        TeachAskStudentToolInput(
+            mode="single_choice",
+            question=(
+                "教材 2.1 开头先说明物理层要「屏蔽掉传输媒体和通信手段的差异」，"
+                "然后才给出物理层的主要任务。\n\n"
+                "下面哪一项属于物理层的**主要任务**？"
+            ),
+            options=[
+                "规定与传输媒体接口有关的机械、电气、功能和过程特性",
+                "决定这次布线使用双绞线、同轴电缆还是光纤",
+                "规定某种传输媒体的材料成分、屏蔽方式与最大传输距离",
+                "比较各种传输媒体的价格并选出最经济的一种",
+            ],
+            correct_option="A",
+            primary_knowledge_point_id="2.1",
+        )
+
+    errors = exc_info.value.errors()
+    assert any(error["loc"] == ("options",) for error in errors)
+    assert "必须以 A. 开头" in str(exc_info.value)
 
 
 def test_single_choice_rejects_out_of_order_letters() -> None:
@@ -173,13 +202,17 @@ def test_question_cannot_be_blank() -> None:
 
 
 def test_single_choice_requires_correct_option() -> None:
-    with pytest.raises(ValidationError, match="必须提供 correct_option"):
+    with pytest.raises(ValidationError, match="必须提供 correct_option") as exc_info:
         TeachAskStudentToolInput(
             mode="single_choice",
             question="选一个",
             options=["A. 一", "B. 二"],
             primary_knowledge_point_id="5.8.2",
         )
+
+    assert any(
+        error["loc"] == ("correct_option",) for error in exc_info.value.errors()
+    )
 
 
 def test_single_choice_rejects_reference_answer() -> None:

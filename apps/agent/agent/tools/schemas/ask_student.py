@@ -1,7 +1,7 @@
 import re
-from typing import Literal, Self
+from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 AskStudentMode = Literal["single_choice", "short_answer"]
 
@@ -39,7 +39,7 @@ def _validate_options(options: list[str]) -> None:
 class _QuestionDisplayFields(BaseModel):
     mode: AskStudentMode = Field(
         description=(
-            "提问模式。single_choice 为单选题，必须提供 2–6 个 A.–F. 选项；"
+            "提问模式。single_choice 为单选题，必须提供 2–6 个自带 A.–F. 字母前缀的选项；"
             "short_answer 为简答题，不提供选项。"
         )
     )
@@ -52,8 +52,11 @@ class _QuestionDisplayFields(BaseModel):
     )
     options: list[str] | None = Field(
         default=None,
+        # single_choice 漏传 options 时也要走校验，给出可读错误。
+        validate_default=True,
         description=(
-            "单选题选项，2–6 个，按顺序使用 A.、B. 等前缀；"
+            "单选题选项，2–6 个。每个字符串都必须自带字母前缀，按顺序写成 "
+            "\"A. …\"、\"B. …\"（也接受 A、、A)、A））；工具不会自动补字母。"
             "选项保持纯文本，不放 Markdown、图片或 Mermaid。简答题必须省略。"
         ),
     )
@@ -75,15 +78,21 @@ class _QuestionDisplayFields(BaseModel):
             return [item.strip() if isinstance(item, str) else item for item in value]
         return value
 
-    @model_validator(mode="after")
-    def _validate_mode_fields(self) -> Self:
-        if self.mode == "single_choice":
-            if self.options is None:
+    @field_validator("options", mode="after")
+    @classmethod
+    def _validate_options_for_mode(
+        cls, value: list[str] | None, info: ValidationInfo
+    ) -> list[str] | None:
+        # 放在 field_validator 里，ValidationError.loc 才会是 ("options",)；
+        # model_validator 的 loc 是 ()，会被 LangGraph 过滤成空错误。
+        mode = info.data.get("mode")
+        if mode == "single_choice":
+            if value is None:
                 raise ValueError("single_choice 必须提供 2–6 个 options")
-            _validate_options(self.options)
-        elif self.options:
+            _validate_options(value)
+        elif mode == "short_answer" and value:
             raise ValueError("short_answer 不能提供 options")
-        return self
+        return value
 
 
 class AskStudentAnswer(BaseModel):
@@ -97,16 +106,20 @@ class AskStudentPayload(_QuestionDisplayFields):
     type: Literal["ask_student"] = "ask_student"
     answer: AskStudentAnswer
 
-    @model_validator(mode="after")
-    def _validate_answer(self) -> Self:
-        if self.mode == "single_choice":
-            if self.answer.correct_option is None:
+    @field_validator("answer", mode="after")
+    @classmethod
+    def _validate_answer(
+        cls, value: AskStudentAnswer, info: ValidationInfo
+    ) -> AskStudentAnswer:
+        mode = info.data.get("mode")
+        if mode == "single_choice":
+            if value.correct_option is None:
                 raise ValueError("single_choice 的 answer 必须包含 correct_option")
-            if self.answer.reference_answer is not None:
+            if value.reference_answer is not None:
                 raise ValueError("single_choice 的 answer 不能包含 reference_answer")
-        elif self.answer.correct_option is not None:
+        elif mode == "short_answer" and value.correct_option is not None:
             raise ValueError("short_answer 的 answer 不能包含 correct_option")
-        return self
+        return value
 
 
 class TeachAskStudentToolInput(_QuestionDisplayFields):
@@ -123,6 +136,8 @@ class TeachAskStudentToolInput(_QuestionDisplayFields):
     )
     correct_option: str | None = Field(
         default=None,
+        # single_choice 漏传 correct_option 时也要走校验，给出可读错误。
+        validate_default=True,
         description="单选题正确答案字母（A–F）；简答题必须省略。",
     )
     reference_answer: str | None = Field(
@@ -136,6 +151,13 @@ class TeachAskStudentToolInput(_QuestionDisplayFields):
     def _strip_knowledge_point(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
 
+    @field_validator("primary_knowledge_point_id", mode="after")
+    @classmethod
+    def _validate_primary_knowledge_point(cls, value: str) -> str:
+        if not _KNOWLEDGE_POINT_PATTERN.fullmatch(value):
+            raise ValueError("primary_knowledge_point_id 必须使用教材目录编号，如 5.8.2")
+        return value
+
     @field_validator("correct_option", mode="before")
     @classmethod
     def _normalize_correct_option(cls, value: object) -> object:
@@ -144,10 +166,39 @@ class TeachAskStudentToolInput(_QuestionDisplayFields):
             return value or None
         return value
 
+    @field_validator("correct_option", mode="after")
+    @classmethod
+    def _validate_correct_option(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        mode = info.data.get("mode")
+        if mode == "single_choice":
+            if value is None:
+                raise ValueError("single_choice 必须提供 correct_option")
+            options = info.data.get("options")
+            if isinstance(options, list):
+                valid_letters = {
+                    chr(ord("A") + index) for index in range(len(options))
+                }
+                if value not in valid_letters:
+                    raise ValueError("correct_option 必须匹配选项字母")
+        elif mode == "short_answer" and value is not None:
+            raise ValueError("short_answer 不能提供 correct_option")
+        return value
+
     @field_validator("reference_answer", mode="before")
     @classmethod
     def _strip_reference(cls, value: object) -> object:
         return _strip_optional_text(value)
+
+    @field_validator("reference_answer", mode="after")
+    @classmethod
+    def _validate_reference_answer(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        if info.data.get("mode") == "single_choice" and value is not None:
+            raise ValueError("single_choice 的 reference_answer 必须省略")
+        return value
 
     @field_validator("secondary_knowledge_point_ids", mode="before")
     @classmethod
@@ -156,35 +207,23 @@ class TeachAskStudentToolInput(_QuestionDisplayFields):
             return [item.strip() if isinstance(item, str) else item for item in value]
         return value
 
-    @model_validator(mode="after")
-    def _validate_question_fields(self) -> Self:
-        if not _KNOWLEDGE_POINT_PATTERN.fullmatch(self.primary_knowledge_point_id):
-            raise ValueError("primary_knowledge_point_id 必须使用教材目录编号，如 5.8.2")
-        secondary = self.secondary_knowledge_point_ids or []
+    @field_validator("secondary_knowledge_point_ids", mode="after")
+    @classmethod
+    def _validate_secondary_knowledge_points(
+        cls, value: list[str] | None, info: ValidationInfo
+    ) -> list[str] | None:
+        secondary = value or []
         if len(secondary) > 3:
             raise ValueError("辅知识点最多 3 个")
         if len(set(secondary)) != len(secondary):
             raise ValueError("辅知识点不能重复")
-        if self.primary_knowledge_point_id in secondary:
+        primary = info.data.get("primary_knowledge_point_id")
+        if isinstance(primary, str) and primary in secondary:
             raise ValueError("辅知识点不能包含主知识点")
         for knowledge_point_id in secondary:
             if not _KNOWLEDGE_POINT_PATTERN.fullmatch(knowledge_point_id):
                 raise ValueError("辅知识点必须使用教材目录编号，如 5.8.1")
-
-        if self.mode == "single_choice":
-            if self.correct_option is None:
-                raise ValueError("single_choice 必须提供 correct_option")
-            if self.options is None:
-                raise ValueError("single_choice 必须提供 2–6 个 options")
-            valid_letters = {chr(ord("A") + index) for index in range(len(self.options))}
-            if self.correct_option not in valid_letters:
-                raise ValueError("correct_option 必须匹配选项字母")
-            if self.reference_answer is not None:
-                raise ValueError("single_choice 的 reference_answer 必须省略")
-        else:
-            if self.correct_option is not None:
-                raise ValueError("short_answer 不能提供 correct_option")
-        return self
+        return value
 
 
 class GeneratedQuestion(BaseModel):

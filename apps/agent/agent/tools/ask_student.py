@@ -25,6 +25,7 @@ _DESCRIPTION = (
     "向学生提出检查题或引导题，并等待学生作答。"
     "支持 single_choice（单选）和 short_answer（简答）；"
     "必须给出 primary_knowledge_point_id，单选还必须给出 correct_option。"
+    "单选的 options 每项必须自带 A. 前缀（如 \"A. …\"），工具不会自动补字母。"
     "学生作答后工具会自动把题目和答案保存到题库。"
     "调用后本次运行会暂停，直到客户端提交答案。"
     "出题规范见 /skills/teaching/ask-student/SKILL.md。"
