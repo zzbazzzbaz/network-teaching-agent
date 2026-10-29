@@ -8,6 +8,10 @@ import type { SyntaxHighlighterProps } from "@assistant-ui/react-markdown"
 
 import { cn } from "@/shared/lib/utils"
 
+import { BlockFallback } from "./block-fallback"
+import { EChartsBlock } from "./echarts-block"
+import { HtmlBlock } from "./html-block"
+
 type MermaidTheme = NonNullable<MermaidConfig["theme"]>
 type MermaidApi = typeof import("mermaid").default
 
@@ -41,17 +45,6 @@ function sanitizeSvg(svg: string): string {
 function cleanupMermaidTempNodes(renderId: string): void {
   document.getElementById(`d${renderId}`)?.remove()
   document.getElementById(`i${renderId}`)?.remove()
-}
-
-function MermaidFallback({ code }: { code: string }) {
-  return (
-    <div className="rounded-md border border-line bg-surface-2 p-3">
-      <div className="text-[11px] text-ink-muted">图表渲染失败，已显示源码。</div>
-      <pre className="mt-2 overflow-x-auto text-[11px] leading-5">
-        <code>{code}</code>
-      </pre>
-    </div>
-  )
 }
 
 function MermaidRender({
@@ -93,7 +86,7 @@ function MermaidRender({
     }
   }, [code, reactId, theme])
 
-  if (failed) return <MermaidFallback code={code} />
+  if (failed) return <BlockFallback code={code} />
   if (svg === null) {
     return <div className="text-[11px] text-ink-muted">图表渲染中…</div>
   }
@@ -112,7 +105,7 @@ export function MermaidDiagram({
   code,
   className,
 }: Pick<SyntaxHighlighterProps, "code"> & { className?: string }) {
-  if (!code.trim()) return <MermaidFallback code={code} />
+  if (!code.trim()) return <BlockFallback code={code} />
   return (
     <MermaidRender key={`default:${code}`} code={code} theme="default" className={className} />
   )
@@ -132,11 +125,26 @@ export function safeUrlTransform(url: string): string {
   return ""
 }
 
-const mermaidComponents = {
+const blockRenderers = new Map<string, (code: string) => ReactNode>([
+  ["mermaid", (code) => <MermaidDiagram code={code} />],
+  ["html", (code) => <HtmlBlock code={code} />],
+  ["echarts", (code) => <EChartsBlock code={code} />],
+])
+
+const blockComponents = {
   mermaid: { SyntaxHighlighter: MermaidDiagram },
+  html: { SyntaxHighlighter: HtmlBlock },
+  echarts: { SyntaxHighlighter: EChartsBlock },
 }
 
-/** 把 ```mermaid 代码块交给 MermaidDiagram，其余 pre 原样返回。 */
+function languageOf(className: string | undefined): string | undefined {
+  return className
+    ?.split(/\s+/)
+    .find((name) => name.startsWith("language-"))
+    ?.slice("language-".length)
+}
+
+/** 把 ```mermaid / ```html / ```echarts 代码块交给对应渲染器，其余 pre 原样返回。 */
 function MarkdownPre({ children }: { children?: ReactNode }) {
   const only =
     Array.isArray(children) && children.length === 1 ? children[0] : children
@@ -145,12 +153,8 @@ function MarkdownPre({ children }: { children?: ReactNode }) {
       className?: string
       children?: ReactNode
     }
-    if (
-      typeof className === "string" &&
-      className.split(/\s+/).includes("language-mermaid")
-    ) {
-      return <MermaidDiagram code={String(code ?? "")} />
-    }
+    const render = blockRenderers.get(languageOf(className) ?? "")
+    if (render) return render(String(code ?? ""))
   }
   return <pre>{children}</pre>
 }
@@ -175,8 +179,9 @@ export function MarkdownText() {
       className="prose-chat"
       remarkPlugins={[remarkGfm]}
       components={commonComponents}
-      componentsByLanguage={mermaidComponents}
+      componentsByLanguage={blockComponents}
       urlTransform={safeUrlTransform}
+      skipHtml
       defer
     />
   )
@@ -196,6 +201,7 @@ export function StaticMarkdown({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         urlTransform={safeUrlTransform}
+        skipHtml
         components={{
           ...commonComponents,
           pre: MarkdownPre,
