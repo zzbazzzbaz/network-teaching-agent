@@ -1,6 +1,6 @@
 # web
 
-学生端前端（`apps/web`）。旧的 `apps/agent-ui` 已废弃，不再作为运行入口。
+学生端前端（`apps/web`），生产镜像由 `deploy/docker/web.Dockerfile` 构建。
 
 ## 技术栈
 

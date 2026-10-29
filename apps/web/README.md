@@ -1,6 +1,6 @@
 # 学生端 Web
 
-`apps/web` 是新的学生端前端。旧 `apps/agent-ui` 已废弃，只作历史参考。
+`apps/web` 是学生端前端，`deploy/docker/web.Dockerfile` 用它构建生产镜像。
 
 ## 运行
 

@@ -30,8 +30,6 @@
 | `apps/sandbox` | AGS/E2B 镜像 | code-server + ttyd 实验环境 | 9000 | `apps/sandbox/AGENTS.md` |
 | `deploy` | nginx + docker compose | 生产部署 | — | `deploy/AGENTS.md` |
 
-> `apps/agent-ui` 是废弃的旧前端，仅作参考，不再作为运行入口。
-
 ## 命令
 
 ```bash

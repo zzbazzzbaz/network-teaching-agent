@@ -4,7 +4,7 @@
 >
 > 所有内容都是 mock：没有 API、没有 LangGraph、没有 AGS。`src/lib/mock.ts` 是唯一数据源。
 >
-> 它不是 `apps/agent-ui` 的实现版本，也不套用生产架构（TanStack Router / TanStack Query / assistant-ui）。原型为了改版方便，用了 React Router 和一份内存 store，请不要把这里的路由和状态管理当成实现建议。
+> 它不是 `apps/web` 的实现版本，也不套用生产架构（TanStack Router / TanStack Query / assistant-ui）。原型为了改版方便，用了 React Router 和一份内存 store，请不要把这里的路由和状态管理当成实现建议。
 
 ## 运行
 
