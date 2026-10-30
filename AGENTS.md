@@ -12,10 +12,10 @@
 │   ├── api/                    # FastAPI 账号 / 会话 / 沙箱（:8000）
 │   ├── sandbox/                # AGS 镜像：code-server + ttyd
 │   ├── .env                    # 唯一配置源
-│   └── docker-compose.dev.yml  # 本地 Postgres
-├── deploy/                     # nginx + compose
-├── docs/                       # pdf_ocr；ui/ 学生端 UI 原型；chat/ 为个人笔记（gitignored）
-├── .agents/skills/             # 项目技能
+│   └── docker-compose.dev.yml
+├── deploy/
+├── docs/
+├── .agents/skills/
 ├── Makefile
 └── opencode.json
 ```
@@ -29,41 +29,3 @@
 | `apps/agent` | LangGraph + deepagents + Langfuse | 教学 Agent 运行时 | 2024 | `apps/agent/AGENTS.md` |
 | `apps/sandbox` | AGS/E2B 镜像 | code-server + ttyd 实验环境 | 9000 | `apps/sandbox/AGENTS.md` |
 | `deploy` | nginx + docker compose | 生产部署 | — | `deploy/AGENTS.md` |
-
-## 命令
-
-```bash
-make install     # uv sync（api / agent）+ npm ci（web）
-make jwt-keys    # 首次：生成 apps/api/.keys/jwt_*.pem
-make up          # 启动 Postgres（5432）
-make dev         # 并行启动 agent / api / web
-make down
-make test        # apps/api pytest
-```
-
-单服务：`make run-agent` / `make run-api` / `make run-ui`。
-
-```bash
-cd apps/agent && uv run pytest
-cd apps/web && npm run typecheck && npm run lint && npm run build
-```
-
-## 配置与路由
-
-- 唯一配置源 `apps/.env`，样板 `apps/.env.example`。缺变量必须报错，不允许默认值或静默回退。
-- 开发：Vite 把 `/api` 代理到 `API_URL`，`/agent` 代理到 `AGENT_URL` 并去掉前缀。
-- 生产：`/api/`、`/.well-known/jwks.json`、`/health` → API；`/agent/` → LangGraph（支持 SSE）；其余 → 前端。
-- `/internal/*` 只走容器内网，不经过 nginx，不得公网暴露。
-
-## 跨应用不变量
-
-1. 平台 `session_id` 就是 LangGraph 的 `thread_id`。API 在创建/删除会话时同步创建/删除 thread；打开会话时前端调 `POST /api/v1/sessions/{id}/ensure-thread` 幂等补建。
-2. 用户身份只来自 JWT `sub`。前端不向 LangGraph 的 `configurable` 写 `sandbox_id`；Agent 用 `X-Internal-Token` 调 `POST /internal/sandbox/ensure` 获取沙箱。
-3. API 与 Agent 共享 `SERVER_AUTH_TOKEN`，轮换时必须同时重启两者。
-4. 消息持久化内容只有纯文本和 `file_id` 引用；图片字节只存在 API 存储，不进入 checkpoint、Store 或 SSE。
-5. 真实模型调用很慢。E2E 的 180s 超时、60s 断言超时是刻意设置，不要调小。
-6. 浏览器只在聊天运行时直连 `/agent`；thread 生命周期和其他业务能力走 API BFF。
-7. 图片只能通过 API 的 `/api/v1/files/*`（浏览器）和 `/internal/files/*`（Agent）访问；Agent 不直连对象存储，也不把图片写进 state。
-8. `file_id` 只从 `HumanMessage.additional_kwargs.attachments` 和当前用户轮次的 `ToolMessage.artifact` 读取；不扫描任意文本。
-9. 图片注入只修改模型请求副本（`request.override(messages=...)`），原始消息和 checkpoint 永远不包含图片字节。
-10. 图片 base64 不写入业务日志或 trace metadata；Langfuse 依赖 SDK 默认 media 处理，不在应用侧自定义 mask。
