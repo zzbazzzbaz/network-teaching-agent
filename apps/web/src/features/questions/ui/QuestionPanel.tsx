@@ -8,6 +8,7 @@ import {
 } from "react"
 import { toast } from "sonner"
 
+import { useKnowledgePoints } from "@/features/course"
 import type { QuestionDetail, QuestionScope } from "@/shared/api/types"
 import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
@@ -34,7 +35,6 @@ import {
 } from "../model"
 import {
   useKnowledgePointCounts,
-  useKnowledgePoints,
   useQuestions,
   type KnowledgePointCountFilters,
 } from "../queries"

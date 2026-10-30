@@ -1,4 +1,4 @@
-/** TanStack Query：题库列表、详情、知识点与增删改。 */
+/** TanStack Query：题库列表、详情与增删改。 */
 
 import {
   infiniteQueryOptions,
@@ -22,7 +22,6 @@ import {
   createQuestion,
   deleteQuestion,
   getKnowledgePointCounts,
-  getKnowledgePoints,
   getQuestion,
   listQuestions,
   updateQuestion,
@@ -45,7 +44,6 @@ export const questionKeys = {
   details: () => [...questionKeys.all, "detail"] as const,
   detail: (questionId: string) =>
     [...questionKeys.details(), questionId] as const,
-  knowledgePoints: () => [...questionKeys.all, "knowledge-points"] as const,
 }
 
 export type KnowledgePointCountFilters = {
@@ -126,19 +124,6 @@ export function useKnowledgePointCounts(
   filters: KnowledgePointCountFilters,
 ) {
   return useQuery(knowledgePointCountsQueryOptions(filters))
-}
-
-export function knowledgePointsQueryOptions() {
-  return queryOptions({
-    queryKey: questionKeys.knowledgePoints(),
-    queryFn: ({ signal }) => getKnowledgePoints(signal),
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: 30 * 60_000,
-  })
-}
-
-export function useKnowledgePoints() {
-  return useQuery(knowledgePointsQueryOptions())
 }
 
 export function questionDetailQueryOptions(questionId: string) {

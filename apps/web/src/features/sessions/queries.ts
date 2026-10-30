@@ -51,7 +51,8 @@ export function useSessions(agentId: AgentId) {
 export function useCreateSession(mode: Mode) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: () => createSession(MODES[mode].agentId),
+    mutationFn: (input?: { title?: string }) =>
+      createSession(MODES[mode].agentId, input?.title ?? ""),
     onSuccess: (session) => {
       queryClient.setQueryData(sessionKeys.detail(session.session_id), session)
       void queryClient.invalidateQueries({

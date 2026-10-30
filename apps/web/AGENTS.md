@@ -20,11 +20,13 @@ src/
 ├── widgets/          # mode-shell、session 页面
 ├── features/
 │   ├── auth/
-│   ├── sessions/
 │   ├── chat/
-│   ├── questions/
+│   ├── course/       # 教材章节与章节入口
+│   ├── files/        # 图片上传与预览
 │   ├── memory/
-│   └── sandbox/
+│   ├── questions/
+│   ├── sandbox/
+│   └── sessions/
 └── shared/
     ├── api/          # fetch client + OpenAPI 生成类型
     ├── auth/         # token 存储
@@ -47,6 +49,8 @@ npm run api:types     # 需要 api 已启动在 :8000
 ## 约束
 
 - `session_id` 必须原样作为 LangGraph `thread_id`；打开会话前调用 API 的 `ensureSessionThread`。
+- 学习和实验模式的首页都是草稿态：点「新建会话」、点章节或示例问题都不立即建会话，首条消息发送时才创建。
+- 首页用 `?panel=questions|memory|sandbox` 打开面板，不依赖会话；会话页沿用同一套 `WorkspacePanel`。
 - 登录态只保存在浏览器；API/LangGraph 都走 `apiFetch` 的 JWT 注入与 401 刷新。
 - 题目答案在用户主动查看前不渲染。
 - 题库面板是「左侧知识点树 + 右侧题目列表」；URL 的 `kp` 是教材目录编号（如 `5.8`），列表用 `knowledge_point_match=primary` 只按主知识点筛选。

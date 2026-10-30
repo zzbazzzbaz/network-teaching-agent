@@ -2,6 +2,7 @@ import { ChevronDown, Plus, X } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { useKnowledgePoints } from "@/features/course"
 import type { QuestionDetail, QuestionType } from "@/shared/api/types"
 import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
@@ -39,7 +40,6 @@ import {
 } from "../model"
 import {
   useCreateQuestion,
-  useKnowledgePoints,
   useUpdateQuestion,
 } from "../queries"
 import { KnowledgePointTree } from "./KnowledgePointTree"

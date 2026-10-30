@@ -12,17 +12,9 @@ import { ImageAttachmentAdapter } from "@/features/files/attachment"
 import { DEFAULT_SESSION_TITLE, sessionKeys } from "@/features/sessions"
 import type { Session } from "@/shared/api/types"
 
+import { buildHumanMessage, messageAttachments, messageText } from "./message"
+import { usePendingStarter } from "./usePendingStarter"
 import { useChatSession, type ChatStream } from "./useChatSession"
-
-function messageText(message: AppendMessage): string {
-  return message.content
-    .filter(
-      (part): part is { type: "text"; text: string } => part.type === "text",
-    )
-    .map((part) => part.text)
-    .join("\n")
-    .trim()
-}
 
 export function ChatRuntime({
   session,
@@ -35,6 +27,7 @@ export function ChatRuntime({
     agentId: session.agent_id,
     threadId: session.session_id,
   })
+  usePendingStarter(session.session_id, stream)
   const queryClient = useQueryClient()
   const wasRunning = useRef(false)
   const attachmentAdapter = useMemo(() => new ImageAttachmentAdapter(), [])
@@ -70,28 +63,11 @@ export function ChatRuntime({
     adapters: { attachments: attachmentAdapter },
     onNew: async (message: AppendMessage) => {
       const text = messageText(message)
-      const attachments = message.attachments ?? []
-      const markers = attachments.map(
-        (attachment) => `[图片] ${attachment.name} (file_id=${attachment.id})`,
-      )
-      const content = [text, ...markers].filter(Boolean).join("\n\n")
-      if (!content) return
+      const attachments = messageAttachments(message)
+      if (!text && attachments.length === 0) return
 
       await stream.submit({
-        messages: [
-          {
-            type: "human",
-            id: crypto.randomUUID(),
-            content,
-            additional_kwargs: {
-              attachments: attachments.map((attachment) => ({
-                file_id: attachment.id,
-                name: attachment.name,
-                mime: attachment.contentType ?? "",
-              })),
-            },
-          },
-        ],
+        messages: [buildHumanMessage(text, attachments)],
       })
     },
     onCancel: async () => {

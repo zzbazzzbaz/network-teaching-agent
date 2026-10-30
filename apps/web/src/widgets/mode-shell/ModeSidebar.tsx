@@ -22,7 +22,6 @@ import { ApiError } from "@/shared/api/client"
 import { useAuth } from "@/features/auth"
 import {
   MODES,
-  useCreateSession,
   useDeleteSession,
   useRenameSession,
   useSessions,
@@ -116,7 +115,6 @@ export function ModeSidebar({
   const sessions = sessionsQuery.data?.pages.flatMap((page) => page.items) ?? []
   const total = sessionsQuery.data?.pages[0]?.total ?? 0
 
-  const create = useCreateSession(mode)
   const rename = useRenameSession()
   const remove = useDeleteSession()
 
@@ -151,24 +149,34 @@ export function ModeSidebar({
     void navigate({ to: MODES[next].path })
   }
 
-  async function handleNewSession() {
-    if (create.isPending) return
-    try {
-      const created = await create.mutateAsync()
-      goToSession(created.session_id)
-    } catch (error) {
-      toast.error(errorText(error, "创建会话失败"))
+  function handleNewSession() {
+    onNavigate?.()
+    if (mode === "learn") {
+      void navigate({ to: "/learn", search: {} })
+    } else {
+      void navigate({ to: "/lab", search: {} })
     }
+    window.setTimeout(() => {
+      document.getElementById("composer")?.focus()
+    }, 60)
   }
 
   function openPanel(panel: PanelId | null) {
-    if (!sessionId) return
     const next: SessionSearch = {}
     if (panel) {
       next.panel = panel
       if (panel === "memory" && rawSearch.path) next.path = rawSearch.path
     }
-    goToSession(sessionId, next)
+    if (sessionId) {
+      goToSession(sessionId, next)
+      return
+    }
+    onNavigate?.()
+    if (mode === "learn") {
+      void navigate({ to: "/learn", search: next })
+    } else {
+      void navigate({ to: "/lab", search: next })
+    }
   }
 
   async function saveRename() {
@@ -264,50 +272,47 @@ export function ModeSidebar({
       </div>
 
       <div className={cn("mt-4", collapsed ? "px-2" : "px-3")}>
-        {sessionId ? (
-          <nav
-            aria-label="功能"
-            className={cn(collapsed ? "space-y-1" : "space-y-0.5")}
-          >
-            {utils.map((item) => {
-              const active = activePanel === item.id
-              const Icon = item.icon
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => openPanel(active ? null : item.id)}
-                  aria-current={active ? "page" : undefined}
-                  aria-label={item.label}
-                  title={active ? `关闭${item.label}` : `打开${item.label}`}
+        <nav
+          aria-label="功能"
+          className={cn(collapsed ? "space-y-1" : "space-y-0.5")}
+        >
+          {utils.map((item) => {
+            const active = activePanel === item.id
+            const Icon = item.icon
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openPanel(active ? null : item.id)}
+                aria-current={active ? "page" : undefined}
+                aria-label={item.label}
+                title={active ? `关闭${item.label}` : `打开${item.label}`}
+                className={cn(
+                  "flex w-full items-center rounded-md text-left transition-colors",
+                  collapsed
+                    ? "mx-auto size-10 justify-center"
+                    : "h-9 gap-2.5 px-2.5 text-[13px]",
+                  active
+                    ? "bg-link-soft font-medium text-link-strong"
+                    : "text-ink-soft hover:bg-surface hover:text-ink",
+                )}
+              >
+                <Icon
                   className={cn(
-                    "flex w-full items-center rounded-md text-left transition-colors",
-                    collapsed
-                      ? "mx-auto size-10 justify-center"
-                      : "h-9 gap-2.5 px-2.5 text-[13px]",
-                    active
-                      ? "bg-link-soft font-medium text-link-strong"
-                      : "text-ink-soft hover:bg-surface hover:text-ink",
+                    "size-4 shrink-0",
+                    active ? "text-link" : "text-ink-muted",
                   )}
-                >
-                  <Icon
-                    className={cn(
-                      "size-4 shrink-0",
-                      active ? "text-link" : "text-ink-muted",
-                    )}
-                    aria-hidden="true"
-                  />
-                  {!collapsed && <span className="flex-1">{item.label}</span>}
-                </button>
-              )
-            })}
-          </nav>
-        ) : null}
+                  aria-hidden="true"
+                />
+                {!collapsed && <span className="flex-1">{item.label}</span>}
+              </button>
+            )
+          })}
+        </nav>
 
         <button
           type="button"
-          onClick={() => void handleNewSession()}
-          disabled={create.isPending}
+          onClick={handleNewSession}
           aria-label="新建会话"
           title="新建会话"
           className={cn(
@@ -318,7 +323,7 @@ export function ModeSidebar({
           )}
         >
           <Plus className="size-4 shrink-0 text-ink-muted" aria-hidden="true" />
-          {!collapsed && (create.isPending ? "创建中…" : "新建会话")}
+          {!collapsed && "新建会话"}
         </button>
       </div>
 

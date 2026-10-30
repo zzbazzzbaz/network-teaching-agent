@@ -4,7 +4,6 @@ import { apiFetch } from "@/shared/api/client"
 import type { components } from "@/shared/api/schema"
 import type {
   KnowledgePointCounts,
-  KnowledgePointsResponse,
   QuestionDetail,
   QuestionFilters,
   QuestionInput,
@@ -51,14 +50,6 @@ export function getQuestion(
     `/question-bank/questions/${encodeURIComponent(questionId)}`,
     { signal },
   )
-}
-
-export function getKnowledgePoints(
-  signal?: AbortSignal,
-): Promise<KnowledgePointsResponse> {
-  return apiFetch<KnowledgePointsResponse>("/question-bank/knowledge-points", {
-    signal,
-  })
 }
 
 export function getKnowledgePointCounts(

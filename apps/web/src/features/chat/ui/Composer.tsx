@@ -11,11 +11,13 @@ import { cn } from "@/shared/lib/utils"
 export function Composer({
   mode,
   empty,
+  placeholder,
 }: {
   mode: "learn" | "lab"
   empty: boolean
+  placeholder?: string
 }) {
-  const placeholder =
+  const defaultPlaceholder =
     mode === "learn"
       ? empty
         ? "先说说你看到的、你猜的…"
@@ -23,6 +25,7 @@ export function Composer({
       : empty
         ? "说说你想验证什么…"
         : "描述你想验证的步骤…"
+  const resolvedPlaceholder = placeholder ?? defaultPlaceholder
 
   return (
     <div className="shrink-0 bg-surface px-4 pt-2 pb-[max(16px,env(safe-area-inset-bottom))] lg:px-8">
@@ -48,7 +51,7 @@ export function Composer({
           name="message"
           rows={1}
           submitMode="enter"
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           className="block max-h-40 min-h-11 w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-[16px] leading-6 text-ink outline-none placeholder:text-ink-muted/70 lg:text-[14px]"
         />
 

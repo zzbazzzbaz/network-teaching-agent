@@ -13,24 +13,10 @@ import { Button } from "@/shared/ui/button"
 import { cn } from "@/shared/lib/utils"
 
 import { WorkspaceBar } from "./WorkspaceBar"
+import { WorkspacePanel } from "./WorkspacePanel"
 
 const ChatPane = lazy(() =>
   import("@/features/chat").then((module) => ({ default: module.ChatPane })),
-)
-const QuestionPanel = lazy(() =>
-  import("@/features/questions").then((module) => ({
-    default: module.QuestionPanel,
-  })),
-)
-const MemoryPanel = lazy(() =>
-  import("@/features/memory").then((module) => ({
-    default: module.MemoryPanel,
-  })),
-)
-const SandboxPanel = lazy(() =>
-  import("@/features/sandbox").then((module) => ({
-    default: module.SandboxPanel,
-  })),
 )
 
 function PanelPending() {
@@ -143,19 +129,15 @@ export function SessionPage({
         <h1 className="sr-only">{session.title || "新会话"}</h1>
 
         <Suspense fallback={<PanelPending />}>
-          {panel === "questions" ? (
-            <QuestionPanel
+          {panel ? (
+            <WorkspacePanel
+              panel={panel}
               selectedQuestionId={search.question}
               selectedKnowledgePointId={search.kp}
+              memoryPath={search.path}
               onSelectQuestion={selectQuestion}
               onSelectKnowledgePoint={selectKnowledgePoint}
-            />
-          ) : panel === "sandbox" ? (
-            <SandboxPanel />
-          ) : panel === "memory" ? (
-            <MemoryPanel
-              path={search.path}
-              onPathChange={selectMemoryPath}
+              onSelectMemoryPath={selectMemoryPath}
             />
           ) : (
             <ChatPane

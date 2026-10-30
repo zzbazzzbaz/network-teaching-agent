@@ -23,7 +23,8 @@ import {
 } from "@/features/sessions"
 
 import { queryClient } from "./query-client"
-import { ModeHomePage } from "@/widgets/mode-shell/ModeHomePage"
+import { ChapterHomePage } from "@/widgets/mode-shell/ChapterHomePage"
+import { LabHomePage } from "@/widgets/mode-shell/LabHomePage"
 import { ModeShell } from "@/widgets/mode-shell/ModeShell"
 import {
   SessionError,
@@ -199,7 +200,8 @@ const learnLayoutRoute = createRoute({
 const learnIndexRoute = createRoute({
   getParentRoute: () => learnLayoutRoute,
   path: "/",
-  component: () => <ModeHomePage mode="learn" />,
+  validateSearch: validateSessionSearch,
+  component: () => <ChapterHomePage />,
 })
 
 const learnSessionRoute = createRoute({
@@ -226,7 +228,8 @@ const labLayoutRoute = createRoute({
 const labIndexRoute = createRoute({
   getParentRoute: () => labLayoutRoute,
   path: "/",
-  component: () => <ModeHomePage mode="lab" />,
+  validateSearch: validateSessionSearch,
+  component: () => <LabHomePage />,
 })
 
 const labSessionRoute = createRoute({

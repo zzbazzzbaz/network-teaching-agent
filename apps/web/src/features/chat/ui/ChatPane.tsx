@@ -9,23 +9,11 @@ import { cn } from "@/shared/lib/utils"
 
 import { ChatRuntime } from "../model/ChatRuntime"
 import { pendingInterrupt } from "../model/interrupt"
+import { STARTERS } from "../model/starters"
 import type { ChatStream } from "../model/useChatSession"
 import { AskStudentCard } from "./AskStudentCard"
 import { Composer } from "./Composer"
 import { AssistantMessage, UserMessage } from "./MessageParts"
-
-const STARTERS: Record<Mode, string[]> = {
-  learn: [
-    "TCP 为什么需要三次握手？",
-    "子网掩码和广播地址怎么算？",
-    "HTTP/2 的多路复用解决了什么？",
-  ],
-  lab: [
-    "我想用 tcpdump 观察一次 TCP 握手。",
-    "怎么确认一个端口有没有在监听？",
-    "想写一个最小的 UDP 回声服务器。",
-  ],
-}
 
 function EmptyChat({ mode }: { mode: Mode }) {
   const aui = useAui()
