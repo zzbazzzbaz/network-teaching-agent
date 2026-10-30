@@ -102,18 +102,37 @@ export function parseAskQuestion(args: unknown): AskQuestionData {
   }
 }
 
-export function parseAskResult(value: unknown): {
+export type AnswerArtifact = {
+  question: AskQuestionData
   student?: string
   reference?: string
-} {
-  const text = pretty(value)
+  warning?: string
+}
+
+/**
+ * ask_student / practice_question 的 UI artifact 由 Agent 工具返回。
+ * 旧会话或失败路径没有 artifact 时返回 undefined，调用方回退到通用工具卡。
+ */
+export function parseAnswerArtifact(
+  value: unknown,
+): AnswerArtifact | undefined {
+  const record = asRecord(value)
+  if (
+    !record ||
+    (record.type !== "ask_student" && record.type !== "practice_question") ||
+    !record.question
+  ) {
+    return undefined
+  }
+
+  const question = parseAskQuestion(record.question)
+  if (!question.question) return undefined
+
   return {
-    student:
-      /学生答案[：:]\s*([\s\S]*?)(?=\n参考答案[：:]|\n（题库记录失败|$)/.exec(
-        text,
-      )?.[1]?.trim(),
-    reference:
-      /参考答案[：:]\s*([\s\S]*?)(?=\n（题库记录失败|$)/.exec(text)?.[1]?.trim(),
+    question,
+    student: asText(record.student_answer),
+    reference: asText(record.reference),
+    warning: asText(record.warning),
   }
 }
 

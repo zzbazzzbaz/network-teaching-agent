@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from langchain_core.tools import BaseTool, tool
 from langgraph.prebuilt import ToolRuntime
@@ -153,6 +154,25 @@ def _format_practice_result(
     return "\n".join(lines)
 
 
+def _practice_artifact(
+    question: AskQuestion | None,
+    *,
+    answer: str | None = None,
+    reference: str | None = None,
+    warning: str | None = None,
+    error: str | None = None,
+) -> dict[str, Any]:
+    """给前端工具卡的 UI artifact；不进入模型输入。"""
+    return {
+        "type": "practice_question",
+        "question": question.model_dump(mode="json") if question else None,
+        "student_answer": answer,
+        "reference": reference,
+        "warning": warning,
+        "error": error,
+    }
+
+
 def make_question_bank_tools() -> list[BaseTool]:
     @tool(args_schema=SearchQuestionsInput, description=_SEARCH_DESCRIPTION)
     def search_questions(
@@ -199,13 +219,22 @@ def make_question_bank_tools() -> list[BaseTool]:
             return f"题目读取失败：{e}"
         return _format_detail(detail)
 
-    @tool(args_schema=PracticeQuestionInput, description=_PRACTICE_DESCRIPTION)
-    def practice_question(*, question_id: uuid.UUID, runtime: ToolRuntime) -> str:
+    @tool(
+        args_schema=PracticeQuestionInput,
+        description=_PRACTICE_DESCRIPTION,
+        response_format="content_and_artifact",
+    )
+    def practice_question(
+        *,
+        question_id: uuid.UUID,
+        runtime: ToolRuntime,
+    ) -> tuple[str, dict[str, Any]]:
         context = tool_context(runtime)
         try:
             detail = get_question_api(context, question_id)
         except QuestionBankError as e:
-            return f"题目读取失败：{e}"
+            message = f"题目读取失败：{e}"
+            return message, _practice_artifact(None, error=message)
 
         try:
             question = AskQuestion(
@@ -220,7 +249,8 @@ def make_question_bank_tools() -> list[BaseTool]:
                 ],
             )
         except ValidationError as e:
-            return f"题目数据不完整，暂时不能练习：{e}"
+            message = f"题目数据不完整，暂时不能练习：{e}"
+            return message, _practice_artifact(None, error=message)
 
         answer = interrupt(
             question.to_payload(),
@@ -245,10 +275,18 @@ def make_question_bank_tools() -> list[BaseTool]:
                     import_key=f"practice:{context.tool_call_id}",
                 )
             except QuestionBankError as e:
-                return _format_practice_result(
-                    answer,
-                    reference=reference,
-                    warning=str(e),
+                return (
+                    _format_practice_result(
+                        answer,
+                        reference=reference,
+                        warning=str(e),
+                    ),
+                    _practice_artifact(
+                        question,
+                        answer=answer,
+                        reference=reference,
+                        warning=str(e),
+                    ),
                 )
             target_question_id = str(copy.question_id)
 
@@ -259,15 +297,29 @@ def make_question_bank_tools() -> list[BaseTool]:
                 answer=answer,
             )
         except QuestionBankError as e:
-            return _format_practice_result(
-                answer,
-                reference=reference,
-                warning=str(e),
+            return (
+                _format_practice_result(
+                    answer,
+                    reference=reference,
+                    warning=str(e),
+                ),
+                _practice_artifact(
+                    question,
+                    answer=answer,
+                    reference=reference,
+                    warning=str(e),
+                ),
             )
-        return _format_practice_result(
-            answer,
-            reference=record.reference.reference_answer
-            or record.reference.correct_option,
+        final_reference = (
+            record.reference.reference_answer or record.reference.correct_option
+        )
+        return (
+            _format_practice_result(answer, reference=final_reference),
+            _practice_artifact(
+                question,
+                answer=answer,
+                reference=final_reference,
+            ),
         )
 
     @tool(args_schema=ImportQuestionsInput, description=_IMPORT_DESCRIPTION)

@@ -1,3 +1,5 @@
+from typing import Any
+
 from langchain_core.tools import BaseTool, tool
 from langgraph.prebuilt import ToolRuntime
 from langgraph.types import interrupt
@@ -12,7 +14,6 @@ _DESCRIPTION = (
     "一次只问一个主问题；出题前读 /skills/teaching/ask-question/SKILL.md。"
     "学生作答后会在后台记录，不要在对话里解释保存机制。"
 )
-_ID_LABEL = "题目 ID（内部使用，不要展示给学生）"
 
 
 def _format_result(
@@ -29,9 +30,34 @@ def _format_result(
     return "\n".join(lines)
 
 
+def _ask_artifact(
+    question: AskQuestion,
+    *,
+    answer: str,
+    reference: str | None,
+    warning: str | None = None,
+) -> dict[str, Any]:
+    """给前端工具卡的 UI artifact；不进入模型输入。"""
+    return {
+        "type": "ask_student",
+        "question": question.model_dump(mode="json"),
+        "student_answer": answer,
+        "reference": reference,
+        "warning": warning,
+    }
+
+
 def make_ask_student() -> BaseTool:
-    @tool(args_schema=AskStudentInput, description=_DESCRIPTION)
-    def ask_student(*, question: AskQuestion, runtime: ToolRuntime) -> str:
+    @tool(
+        args_schema=AskStudentInput,
+        description=_DESCRIPTION,
+        response_format="content_and_artifact",
+    )
+    def ask_student(
+        *,
+        question: AskQuestion,
+        runtime: ToolRuntime,
+    ) -> tuple[str, dict[str, Any]]:
         answer = interrupt(
             question.to_payload(),
             response_schema=AskStudentResume,
@@ -45,12 +71,25 @@ def make_ask_student() -> BaseTool:
                 answer=answer,
             )
         except QuestionBankError as e:
-            return _format_result(answer, reference=reference, warning=str(e))
-        result = _format_result(
-            answer,
-            reference=record.reference.reference_answer
-            or record.reference.correct_option,
+            warning = str(e)
+            return (
+                _format_result(answer, reference=reference, warning=warning),
+                _ask_artifact(
+                    question,
+                    answer=answer,
+                    reference=reference,
+                    warning=warning,
+                ),
+            )
+
+        final_reference = record.reference.reference_answer or record.reference.correct_option
+        return (
+            _format_result(answer, reference=final_reference),
+            _ask_artifact(
+                question,
+                answer=answer,
+                reference=final_reference,
+            ),
         )
-        return f"{result}\n{_ID_LABEL}：{record.question_id}"
 
     return ask_student

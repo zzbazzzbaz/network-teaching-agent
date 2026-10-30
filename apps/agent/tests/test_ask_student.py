@@ -19,7 +19,7 @@ from agent.tools.schemas.question import AskQuestion, Question
 
 
 class _ToolWithFunc(Protocol):
-    func: Callable[..., str]
+    func: Callable[..., Any]
 
 
 def _runtime() -> SimpleNamespace:
@@ -178,13 +178,14 @@ def test_tool_interrupt_payload_and_recorder(
     monkeypatch.setattr(ask_student_module, "record_ask_student", fake_record)
     tool_obj = cast(_ToolWithFunc, make_ask_student())
 
-    result = tool_obj.func(question=_question(), runtime=_runtime())
+    result, artifact = tool_obj.func(question=_question(), runtime=_runtime())
 
-    assert result == (
-        "学生答案：b\n"
-        "参考答案：B\n"
-        f"题目 ID（内部使用，不要展示给学生）：{question_id}"
-    )
+    assert result == "学生答案：b\n参考答案：B"
+    assert artifact["type"] == "ask_student"
+    assert artifact["question"]["stem"] == "TTL=1 时第一台路由器会做什么？"
+    assert artifact["student_answer"] == "b"
+    assert artifact["reference"] == "B"
+    assert artifact["warning"] is None
     assert captured["payload"] == {
         "type": "ask_student",
         "mode": "single_choice",
@@ -222,7 +223,7 @@ def test_tool_recorder_failure_does_not_break_interrupt(
 
     monkeypatch.setattr(ask_student_module, "record_ask_student", fake_record)
 
-    result = cast(_ToolWithFunc, make_ask_student()).func(
+    result, artifact = cast(_ToolWithFunc, make_ask_student()).func(
         question=AskQuestion(
             mode="short_answer",
             stem="为什么？",
@@ -235,6 +236,10 @@ def test_tool_recorder_failure_does_not_break_interrupt(
     assert "学生答案：因为要匹配原始探测包" in result
     assert "参考答案：为了匹配原始探测包" in result
     assert "题库记录失败" in result
+    assert artifact["type"] == "ask_student"
+    assert artifact["student_answer"] == "因为要匹配原始探测包"
+    assert artifact["reference"] == "为了匹配原始探测包"
+    assert artifact["warning"] == "题库服务不可用"
 
 
 def test_resume_strips_answer_and_has_no_note() -> None:

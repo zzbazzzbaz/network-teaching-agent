@@ -277,7 +277,7 @@ def test_practice_question_records_attempt_on_private_question(
     monkeypatch.setattr(question_bank_module, "interrupt", fake_interrupt)
     monkeypatch.setattr(question_bank_module, "record_practice_attempt", fake_record)
 
-    result = _tools()["practice_question"].func(
+    result, artifact = _tools()["practice_question"].func(
         question_id=question_id,
         runtime=_runtime(),
     )
@@ -289,6 +289,10 @@ def test_practice_question_records_attempt_on_private_question(
     assert captured["answer"] == "B"
     assert "学生答案：B" in result
     assert "参考答案：B" in result
+    assert artifact["type"] == "practice_question"
+    assert artifact["question"]["stem"] == detail.stem
+    assert artifact["student_answer"] == "B"
+    assert artifact["reference"] == "B"
 
 
 def test_practice_question_public_creates_private_copy_and_records(
@@ -339,7 +343,7 @@ def test_practice_question_public_creates_private_copy_and_records(
     monkeypatch.setattr(question_bank_module, "create_question_api", fake_create)
     monkeypatch.setattr(question_bank_module, "record_practice_attempt", fake_record)
 
-    result = _tools()["practice_question"].func(
+    result, artifact = _tools()["practice_question"].func(
         question_id=public_id,
         runtime=_runtime(),
     )
@@ -355,6 +359,9 @@ def test_practice_question_public_creates_private_copy_and_records(
     assert "学生答案：B" in result
     assert "参考答案：B" in result
     assert "公共" not in result
+    assert artifact["type"] == "practice_question"
+    assert artifact["student_answer"] == "B"
+    assert artifact["reference"] == "B"
 
 
 def test_import_questions_saves_after_confirmation(
