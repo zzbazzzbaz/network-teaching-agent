@@ -57,6 +57,15 @@ class Question(Base):
             "secondary_knowledge_point_ids",
             postgresql_using="gin",
         ),
+        Index(
+            "uq_questions_owner_import_key",
+            "owner_id",
+            "import_key",
+            unique=True,
+            postgresql_where=text(
+                "import_key IS NOT NULL AND deleted_at IS NULL"
+            ),
+        ),
     )
 
     question_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -79,6 +88,7 @@ class Question(Base):
         default=list,
         server_default=text("'[]'::jsonb"),
     )
+    import_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

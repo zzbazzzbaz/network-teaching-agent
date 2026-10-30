@@ -45,6 +45,23 @@ export type QuestionSearchResponse = {
   offset: number
 }
 
+export type QuestionAttemptItem = {
+  attempt_id: string
+  answer_text: string
+  created_at: string
+  thread_id: string | null
+  session_title: string | null
+  agent_id: string | null
+  session_exists: boolean
+}
+
+export type QuestionAttemptListResponse = {
+  items: QuestionAttemptItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export type QuestionFilters = {
   scope: QuestionScope
   query?: string

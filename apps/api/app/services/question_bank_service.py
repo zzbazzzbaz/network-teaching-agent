@@ -14,6 +14,8 @@ from app.api.schemas.question_bank import (
     KnowledgePointCountsResponse,
     KnowledgePointRef,
     KnowledgePointsResponse,
+    PracticeAttemptResponse,
+    QuestionAttemptItem,
     QuestionDetail,
     QuestionDetailResponse,
     QuestionInput,
@@ -39,6 +41,7 @@ from app.core.knowledge_points import (
 from app.core.pagination import PageRequest, PageResult
 from app.models.question import Question, QuestionAttempt
 from app.repositories.question_repository import question_repository
+from app.repositories.session_repository import session_repository
 
 logger = logging.getLogger(__name__)
 
@@ -100,15 +103,41 @@ class QuestionBankService:
         *,
         user_id: uuid.UUID,
         payload: QuestionInput,
+        import_key: str | None = None,
     ) -> Question:
         _validate(payload)
+        if import_key is not None:
+            existing = question_repository.get_by_import_key(
+                session,
+                owner_id=user_id,
+                import_key=import_key,
+            )
+            if existing is not None:
+                if not _same_question(existing, payload):
+                    raise ConflictError("同一 import_key 的题目内容不一致")
+                return existing
+
         try:
             question = question_repository.create_question(
                 session,
                 owner_id=user_id,
                 payload=payload,
+                import_key=import_key,
             )
             session.commit()
+        except IntegrityError:
+            session.rollback()
+            if import_key is not None:
+                existing = question_repository.get_by_import_key(
+                    session,
+                    owner_id=user_id,
+                    import_key=import_key,
+                )
+                if existing is not None:
+                    if not _same_question(existing, payload):
+                        raise ConflictError("同一 import_key 的题目内容不一致") from None
+                    return existing
+            raise
         except Exception:
             session.rollback()
             raise
@@ -136,6 +165,68 @@ class QuestionBankService:
                 question_ids=[question.question_id],
             ).get(question.question_id)
         return self._to_detail(question, last_attempt_at=last_attempt_at)
+
+    def list_attempts(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_id: uuid.UUID,
+        page: PageRequest,
+    ) -> PageResult[QuestionAttemptItem]:
+        question = question_repository.get_question(session, question_id)
+        if question is None or (
+            question.owner_id is not None and question.owner_id != user_id
+        ):
+            raise NotFoundError("题目不存在")
+
+        result = question_repository.list_attempts(
+            session,
+            user_id=user_id,
+            question_id=question_id,
+            page=page,
+        )
+
+        session_ids: list[uuid.UUID] = []
+        for attempt in result.items:
+            if not attempt.thread_id:
+                continue
+            try:
+                session_ids.append(uuid.UUID(attempt.thread_id))
+            except ValueError:
+                continue
+
+        sessions = session_repository.get_many_owned(
+            session,
+            owner_id=user_id,
+            session_ids=session_ids,
+        )
+        session_by_id = {str(item.session_id): item for item in sessions}
+
+        items = []
+        for attempt in result.items:
+            chat_session = (
+                session_by_id.get(attempt.thread_id)
+                if attempt.thread_id is not None
+                else None
+            )
+            items.append(
+                QuestionAttemptItem(
+                    attempt_id=attempt.attempt_id,
+                    answer_text=attempt.answer_text,
+                    created_at=attempt.created_at,
+                    thread_id=attempt.thread_id,
+                    session_title=chat_session.title if chat_session else None,
+                    agent_id=chat_session.agent_id if chat_session else None,
+                    session_exists=chat_session is not None,
+                )
+            )
+        return PageResult(
+            items=items,
+            total=result.total,
+            limit=result.limit,
+            offset=result.offset,
+        )
 
     def update_question(
         self,
@@ -344,6 +435,89 @@ class QuestionBankService:
             question_id=question.question_id,
             attempt_id=attempt.attempt_id,
             reference=_reference(payload),
+        )
+
+    def record_practice_attempt(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_id: uuid.UUID,
+        thread_id: str | None,
+        tool_call_id: str,
+        answer: str,
+    ) -> PracticeAttemptResponse:
+        question = question_repository.get_question(session, question_id)
+        if question is None:
+            raise NotFoundError("题目不存在")
+        if question.owner_id is None:
+            raise UnprocessableError(
+                "公共题不能直接记录作答，请生成私有题"
+            )
+        if question.owner_id != user_id:
+            raise NotFoundError("题目不存在")
+
+        answer = answer.strip()
+        existing = question_repository.get_attempt_by_tool_call(
+            session,
+            user_id=user_id,
+            tool_call_id=tool_call_id,
+        )
+        if existing is not None:
+            return self._practice_response(
+                question,
+                existing,
+                answer,
+            )
+
+        try:
+            attempt = question_repository.create_attempt(
+                session,
+                user_id=user_id,
+                question_id=question_id,
+                thread_id=thread_id,
+                tool_call_id=tool_call_id,
+                answer_text=answer,
+            )
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            existing = question_repository.get_attempt_by_tool_call(
+                session,
+                user_id=user_id,
+                tool_call_id=tool_call_id,
+            )
+            if existing is None:
+                raise
+            return self._practice_response(question, existing, answer)
+        except Exception:
+            session.rollback()
+            raise
+
+        return PracticeAttemptResponse(
+            attempt_id=attempt.attempt_id,
+            question_id=question.question_id,
+            reference=QuestionReference(
+                correct_option=question.correct_option,
+                reference_answer=question.reference_answer,
+            ),
+        )
+
+    def _practice_response(
+        self,
+        question: Question,
+        attempt: QuestionAttempt,
+        answer: str,
+    ) -> PracticeAttemptResponse:
+        if attempt.question_id != question.question_id or attempt.answer_text != answer:
+            raise ConflictError("同一个 tool_call_id 的题目或答案不一致")
+        return PracticeAttemptResponse(
+            attempt_id=attempt.attempt_id,
+            question_id=question.question_id,
+            reference=QuestionReference(
+                correct_option=question.correct_option,
+                reference_answer=question.reference_answer,
+            ),
         )
 
     def search(

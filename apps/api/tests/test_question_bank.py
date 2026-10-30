@@ -18,6 +18,7 @@ from app.core.knowledge_points import (
     knowledge_point_parents,
 )
 from app.models.question import Question, QuestionAttempt
+from app.models.session import ChatSession
 from app.models.user import Users
 from app.repositories.question_repository import question_repository
 from app.services.question_bank_service import question_bank_service
@@ -756,6 +757,302 @@ def test_delete_private_question_with_attempt_soft_deletes(
             )
         )
         assert len(attempts) == 1
+
+
+def _create_private_question(
+    client: TestClient,
+    headers: dict[str, str],
+    **overrides: object,
+) -> uuid.UUID:
+    response = client.post(
+        PUBLIC_QUESTIONS,
+        json=_question_payload(**overrides),
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    return uuid.UUID(response.json()["question_id"])
+
+
+def _create_session(
+    client: TestClient,
+    user: Users,
+    *,
+    title: str = "第5章 运输层",
+    agent_id: str = "teach_agent",
+) -> uuid.UUID:
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        chat_session = ChatSession(
+            user_id=user.user_id,
+            agent_id=agent_id,
+            title=title,
+            title_source="user",
+        )
+        session.add(chat_session)
+        session.commit()
+        session.refresh(chat_session)
+        return chat_session.session_id
+
+
+def test_internal_get_question_is_scoped(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    alice = create_user("alice", "password123")
+    bob = create_user("bob", "password456")
+    alice_headers = _login_headers(client, "alice", "password123")
+    bob_headers = _login_headers(client, "bob", "password456")
+
+    private_id = _create_private_question(client, alice_headers)
+    private = client.get(f"{QUESTIONS}/{private_id}", headers=_headers(alice))
+    assert private.status_code == 200, private.text
+    assert private.json()["origin"] == "mine"
+    assert private.json()["correct_option"] == "B"
+
+    assert client.get(f"{QUESTIONS}/{private_id}", headers=_headers(bob)).status_code == 404
+    assert (
+        client.get(f"{PUBLIC_QUESTIONS}/{private_id}", headers=bob_headers).status_code
+        == 404
+    )
+
+    public_id = _create_public(client)
+    public = client.get(f"{QUESTIONS}/{public_id}", headers=_headers(alice))
+    assert public.status_code == 200, public.text
+    assert public.json()["origin"] == "public"
+
+    assert client.delete(f"{PUBLIC_QUESTIONS}/{private_id}", headers=alice_headers).status_code == 204
+    assert client.get(f"{QUESTIONS}/{private_id}", headers=_headers(alice)).status_code == 404
+
+
+def test_practice_attempt_records_on_existing_question(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    headers = _login_headers(client)
+    question_id = _create_private_question(client, headers)
+    session_id = _create_session(client, user)
+    payload = {
+        "thread_id": str(session_id),
+        "tool_call_id": f"practice-{uuid.uuid4().hex}",
+        "answer": "B",
+    }
+
+    response = client.post(
+        f"{QUESTIONS}/{question_id}/attempts",
+        json=payload,
+        headers=_headers(user),
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["question_id"] == str(question_id)
+    assert body["reference"] == {"correct_option": "B", "reference_answer": None}
+
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        attempts = list(
+            session.scalars(
+                select(QuestionAttempt).where(
+                    QuestionAttempt.question_id == question_id
+                )
+            )
+        )
+        assert len(attempts) == 1
+        assert attempts[0].answer_text == "B"
+        assert attempts[0].thread_id == str(session_id)
+
+    replay = client.post(
+        f"{QUESTIONS}/{question_id}/attempts",
+        json=payload,
+        headers=_headers(user),
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["attempt_id"] == body["attempt_id"]
+
+    conflict = client.post(
+        f"{QUESTIONS}/{question_id}/attempts",
+        json={**payload, "answer": "A"},
+        headers=_headers(user),
+    )
+    assert conflict.status_code == 409
+
+
+def test_practice_attempt_rejects_public_and_other_users(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    alice = create_user("alice", "password123")
+    bob = create_user("bob", "password456")
+    alice_headers = _login_headers(client, "alice", "password123")
+
+    public_id = _create_public(client)
+    public = client.post(
+        f"{QUESTIONS}/{public_id}/attempts",
+        json={
+            "tool_call_id": f"public-{uuid.uuid4().hex}",
+            "answer": "B",
+        },
+        headers=_headers(alice),
+    )
+    assert public.status_code == 422
+
+    private_id = _create_private_question(client, alice_headers)
+    other = client.post(
+        f"{QUESTIONS}/{private_id}/attempts",
+        json={
+            "tool_call_id": f"other-{uuid.uuid4().hex}",
+            "answer": "B",
+        },
+        headers=_headers(bob),
+    )
+    assert other.status_code == 404
+
+
+def test_question_attempt_history_returns_session_and_handles_deletion(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    headers = _login_headers(client)
+    question_id = _create_private_question(client, headers)
+    session_id = _create_session(client, user, title="第5章 运输层")
+
+    recorded = client.post(
+        f"{QUESTIONS}/{question_id}/attempts",
+        json={
+            "thread_id": str(session_id),
+            "tool_call_id": f"history-{uuid.uuid4().hex}",
+            "answer": "B",
+        },
+        headers=_headers(user),
+    )
+    assert recorded.status_code == 200, recorded.text
+
+    history = client.get(
+        f"{PUBLIC_QUESTIONS}/{question_id}/attempts",
+        headers=headers,
+    )
+    assert history.status_code == 200, history.text
+    body = history.json()
+    assert body["total"] == 1
+    item = body["items"][0]
+    assert item["answer_text"] == "B"
+    assert item["thread_id"] == str(session_id)
+    assert item["session_title"] == "第5章 运输层"
+    assert item["agent_id"] == "teach_agent"
+    assert item["session_exists"] is True
+    assert "is_correct" not in item
+
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        chat_session = session.get(ChatSession, session_id)
+        assert chat_session is not None
+        session.delete(chat_session)
+        session.commit()
+
+    deleted = client.get(
+        f"{PUBLIC_QUESTIONS}/{question_id}/attempts",
+        headers=headers,
+    )
+    assert deleted.status_code == 200
+    deleted_item = deleted.json()["items"][0]
+    assert deleted_item["session_exists"] is False
+    assert deleted_item["session_title"] is None
+    assert deleted_item["agent_id"] is None
+
+
+def test_attempt_history_is_user_scoped(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user("alice", "password123")
+    create_user("bob", "password456")
+    alice_headers = _login_headers(client, "alice", "password123")
+    bob_headers = _login_headers(client, "bob", "password456")
+    question_id = _create_private_question(client, alice_headers)
+
+    assert (
+        client.get(
+            f"{PUBLIC_QUESTIONS}/{question_id}/attempts",
+            headers=bob_headers,
+        ).status_code
+        == 404
+    )
+
+    public_id = _create_public(client)
+    public_history = client.get(
+        f"{PUBLIC_QUESTIONS}/{public_id}/attempts",
+        headers=alice_headers,
+    )
+    assert public_history.status_code == 200
+    assert public_history.json()["items"] == []
+
+
+def test_internal_question_import_key_is_idempotent(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    payload = {**_question_payload(stem="导入的题"), "import_key": "call-1:0"}
+
+    created = client.post(QUESTIONS, json=payload, headers=_headers(user))
+    assert created.status_code == 201, created.text
+    question_id = created.json()["question_id"]
+
+    replay = client.post(QUESTIONS, json=payload, headers=_headers(user))
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["question_id"] == question_id
+
+    with cast(FastAPI, client.app).state.session_factory() as session:
+        questions = list(
+            session.scalars(select(Question).where(Question.owner_id == user.user_id))
+        )
+        assert len(questions) == 1
+        assert questions[0].import_key == "call-1:0"
+
+    conflict = client.post(
+        QUESTIONS,
+        json={**payload, "stem": "另一道题"},
+        headers=_headers(user),
+    )
+    assert conflict.status_code == 409
+
+
+def test_internal_question_import_key_can_be_reused_after_soft_delete(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    user = create_user()
+    headers = _login_headers(client)
+    payload = {**_question_payload(stem="会被删除的导入题"), "import_key": "call-2:0"}
+
+    created = client.post(
+        QUESTIONS,
+        json=payload,
+        headers=_headers(user),
+    )
+    assert created.status_code == 201, created.text
+    first_id = created.json()["question_id"]
+    assert client.delete(f"{PUBLIC_QUESTIONS}/{first_id}", headers=headers).status_code == 204
+
+    again = client.post(
+        QUESTIONS,
+        json=payload,
+        headers=_headers(user),
+    )
+    assert again.status_code == 201, again.text
+    assert again.json()["question_id"] != first_id
+
+
+def test_public_create_rejects_import_key(
+    client: TestClient,
+    create_user: Callable[..., Users],
+) -> None:
+    create_user()
+    headers = _login_headers(client)
+    response = client.post(
+        PUBLIC_QUESTIONS,
+        json={**_question_payload(), "import_key": "call-3:0"},
+        headers=headers,
+    )
+    assert response.status_code == 422
 
 
 def test_public_knowledge_point_counts_empty(

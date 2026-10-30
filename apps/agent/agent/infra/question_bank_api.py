@@ -53,6 +53,25 @@ class SearchResponse(BaseModel):
     offset: int
 
 
+class QuestionDetail(BaseModel):
+    question_id: UUID
+    origin: Literal["public", "mine"]
+    question_type: Literal["single_choice", "short_answer"]
+    stem: str
+    options: list[str] | None = None
+    correct_option: str | None = None
+    reference_answer: str | None = None
+    primary_knowledge_point: KnowledgePointRef
+    secondary_knowledge_points: list[KnowledgePointRef]
+    last_attempt_at: str | None = None
+
+
+class PracticeAttemptResponse(BaseModel):
+    attempt_id: UUID
+    question_id: UUID
+    reference: QuestionReference
+
+
 class SaveQuestionResponse(BaseModel):
     question_id: UUID
 
@@ -180,10 +199,51 @@ def search_questions(context: ToolContext, query: SearchQuestionsInput) -> Searc
 
 
 def save_question(context: ToolContext, question: Question) -> SaveQuestionResponse:
+    return create_question(context, question)
+
+
+def create_question(
+    context: ToolContext,
+    question: Question,
+    *,
+    import_key: str | None = None,
+) -> SaveQuestionResponse:
+    payload = _question_payload(question)
+    if import_key is not None:
+        payload["import_key"] = import_key
     return _request(
         "POST",
         "/internal/question-bank/questions",
         context=context,
-        json=_question_payload(question),
+        json=payload,
         response_model=SaveQuestionResponse,
+    )
+
+
+def get_question(context: ToolContext, question_id: str) -> QuestionDetail:
+    return _request(
+        "GET",
+        f"/internal/question-bank/questions/{question_id}",
+        context=context,
+        response_model=QuestionDetail,
+    )
+
+
+def record_practice_attempt(
+    context: ToolContext,
+    *,
+    question_id: str,
+    answer: str,
+) -> PracticeAttemptResponse:
+    return _request(
+        "POST",
+        f"/internal/question-bank/questions/{question_id}/attempts",
+        context=context,
+        json={
+            "thread_id": context.thread_id,
+            "tool_call_id": context.tool_call_id,
+            "answer": answer,
+        },
+        response_model=PracticeAttemptResponse,
+        timeout=min(get_settings().server.timeout_seconds, 5),
     )

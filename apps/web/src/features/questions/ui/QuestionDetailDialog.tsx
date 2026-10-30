@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, Eye, Lock, Pencil, Trash2 } from "lucide-react"
+import { useNavigate } from "@tanstack/react-router"
+import { ArrowRight, Check, Eye, Lock, Pencil, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import type { QuestionDetail } from "@/shared/api/types"
-import { cn, formatDateTime } from "@/shared/lib/utils"
+import { cn } from "@/shared/lib/utils"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +40,7 @@ import {
   questionKeys,
   useDeleteQuestion,
 } from "../queries"
+import { AttemptHistory } from "./AttemptHistory"
 
 function answerText(question: QuestionDetail): string {
   if (question.question_type === "single_choice") {
@@ -58,6 +60,7 @@ export function QuestionDetailDialog({
 }) {
   const detailQuery = useQuery(questionDetailQueryOptions(questionId))
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const removeQuestion = useDeleteQuestion()
   const [revealed, setRevealed] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -93,6 +96,14 @@ export function QuestionDetailDialog({
         void detailQuery.refetch()
       }
     }
+  }
+
+  function handleStart() {
+    if (!question) return
+    void navigate({
+      to: "/learn",
+      search: { question: question.question_id },
+    })
   }
 
   return (
@@ -214,20 +225,7 @@ export function QuestionDetailDialog({
                 )}
               </div>
 
-              {question.origin === "mine" ? (
-                <div className="space-y-1 text-[11px] leading-5 text-ink-muted">
-                  <p>
-                    最后作答：
-                    {question.last_attempt_at
-                      ? formatDateTime(question.last_attempt_at)
-                      : "还没有作答记录"}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-[11px] leading-5 text-ink-muted">
-                  公共题由老师维护，只能查看。
-                </p>
-              )}
+              <AttemptHistory question={question} />
 
               <DialogFooter className="mt-1 border-t border-line pt-4">
                 {question.origin === "mine" ? (
@@ -256,6 +254,15 @@ export function QuestionDetailDialog({
                     关闭
                   </Button>
                 )}
+
+                <Button
+                  size="sm"
+                  className="h-10 gap-1.5 sm:h-9"
+                  onClick={handleStart}
+                >
+                  <ArrowRight className="size-3.5" aria-hidden="true" />
+                  从这道题开始学习
+                </Button>
               </DialogFooter>
             </>
           )}

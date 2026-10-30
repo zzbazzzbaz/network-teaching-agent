@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Query
@@ -9,9 +10,12 @@ from app.api.dependencies import InternalUserDep, SessionDep
 from app.api.schemas.question_bank import (
     AskStudentRecordRequest,
     AskStudentRecordResponse,
+    InternalQuestionCreateRequest,
     InternalQuestionSearchQuery,
-    QuestionCreateRequest,
+    PracticeAttemptRequest,
+    PracticeAttemptResponse,
     QuestionCreateResponse,
+    QuestionDetailResponse,
     QuestionSearchResponse,
 )
 from app.core.pagination import PageRequest
@@ -84,7 +88,7 @@ def search_questions(
     status_code=201,
 )
 def create_question(
-    body: QuestionCreateRequest,
+    body: InternalQuestionCreateRequest,
     session: SessionDep,
     user_id: InternalUserDep,
 ) -> QuestionCreateResponse:
@@ -92,10 +96,55 @@ def create_question(
         session,
         user_id=user_id,
         payload=body,
+        import_key=body.import_key,
     )
     logger.info(
-        "题库私有题已创建 user_id=%s question_id=%s",
+        "题库私有题已创建 user_id=%s question_id=%s import_key=%s",
         user_id,
         question.question_id,
+        bool(body.import_key),
     )
     return QuestionCreateResponse(question_id=question.question_id)
+
+
+@router.get(
+    "/questions/{question_id}",
+    response_model=QuestionDetailResponse,
+)
+def get_question(
+    question_id: uuid.UUID,
+    session: SessionDep,
+    user_id: InternalUserDep,
+) -> QuestionDetailResponse:
+    return question_bank_service.get_detail(
+        session,
+        user_id=user_id,
+        question_id=question_id,
+    )
+
+
+@router.post(
+    "/questions/{question_id}/attempts",
+    response_model=PracticeAttemptResponse,
+)
+def record_practice_attempt(
+    question_id: uuid.UUID,
+    body: PracticeAttemptRequest,
+    session: SessionDep,
+    user_id: InternalUserDep,
+) -> PracticeAttemptResponse:
+    result = question_bank_service.record_practice_attempt(
+        session,
+        user_id=user_id,
+        question_id=question_id,
+        thread_id=body.thread_id,
+        tool_call_id=body.tool_call_id,
+        answer=body.answer,
+    )
+    logger.info(
+        "题库练习作答已记录 user_id=%s question_id=%s attempt_id=%s",
+        user_id,
+        result.question_id,
+        result.attempt_id,
+    )
+    return result

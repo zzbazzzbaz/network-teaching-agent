@@ -23,10 +23,12 @@ import {
   deleteQuestion,
   getKnowledgePointCounts,
   getQuestion,
+  getQuestionAttempts,
   listQuestions,
   updateQuestion,
 } from "./api"
 import {
+  ATTEMPT_PAGE_SIZE,
   PAGE_SIZE,
   type QuestionFilterState,
   type TypeFilter,
@@ -44,6 +46,8 @@ export const questionKeys = {
   details: () => [...questionKeys.all, "detail"] as const,
   detail: (questionId: string) =>
     [...questionKeys.details(), questionId] as const,
+  attempts: (questionId: string) =>
+    [...questionKeys.all, "attempts", questionId] as const,
 }
 
 export type KnowledgePointCountFilters = {
@@ -131,6 +135,31 @@ export function questionDetailQueryOptions(questionId: string) {
     queryKey: questionKeys.detail(questionId),
     queryFn: ({ signal }) => getQuestion(questionId, signal),
     staleTime: 15_000,
+  })
+}
+
+export function questionAttemptsQueryOptions(questionId: string) {
+  return infiniteQueryOptions({
+    queryKey: questionKeys.attempts(questionId),
+    queryFn: ({ pageParam, signal }) =>
+      getQuestionAttempts(
+        questionId,
+        { limit: ATTEMPT_PAGE_SIZE, offset: pageParam },
+        signal,
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const next = lastPage.offset + lastPage.items.length
+      return next < lastPage.total ? next : undefined
+    },
+    staleTime: 0,
+  })
+}
+
+export function useQuestionAttempts(questionId: string, enabled = true) {
+  return useInfiniteQuery({
+    ...questionAttemptsQueryOptions(questionId),
+    enabled,
   })
 }
 

@@ -40,7 +40,7 @@ apps/agent/
 | Agent | 提示词 | Skill | 工具 | 后端 |
 |---|---|---|---|---|
 | `exp_agent` | `base.md` + `lab.md` | `memory-maintenance`、`diagrams`、`traceroute-lab` | 默认工具 + `view_image`；无 `ask_student` | `AgsBackend` |
-| `teach_agent` | `base.md` + `teaching.md` | `memory-maintenance`、`diagrams`、`ask-question`、`computer-networks-textbook` | 默认工具 + `ask_student`、`search_questions`、`save_question`、`view_image` | `StateBackend` |
+| `teach_agent` | `base.md` + `teaching.md` | `memory-maintenance`、`diagrams`、`ask-question`、`computer-networks-textbook` | 默认工具 + `ask_student`、`search_questions`、`save_question`、`get_question`、`practice_question`、`import_questions`、`view_image` | `StateBackend` |
 
 默认工具：
 
@@ -59,6 +59,8 @@ task
 ## 说明
 
 - `ask_student` 只在 `teach_agent` 挂载；`exp_agent` 用普通文本追问。
+- `get_question` / `practice_question` 只处理题库题：`practice_question` 对私有题写回原题；公共题在后台生成私有练习副本后记录 attempt。
+- `import_questions` 通过 interrupt 让学生确认草稿卡；确认后逐题保存私有题，单次最多 5 道，使用 `tool_call_id:index` 作为幂等键。
 - `ask_student` 的中断 payload 包含 `answer`：单选题带 `correct_option`，简答题带 `reference_answer`；前端负责在提交前隐藏。
 - `teach_agent` 的 `execute` 使用 `StateBackend`，不连接 AGS，提示词要求不要使用。
 - `exp_agent` 的 `execute` 连接当前用户的 AGS 沙箱。

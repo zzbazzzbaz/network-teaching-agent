@@ -3,7 +3,11 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import { useKnowledgePoints } from "@/features/course"
-import type { QuestionDetail, QuestionType } from "@/shared/api/types"
+import type {
+  QuestionDetail,
+  QuestionInput,
+  QuestionType,
+} from "@/shared/api/types"
 import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
 import {
@@ -77,11 +81,15 @@ export function QuestionEditorDialog({
   defaultKnowledgePointId,
   onClose,
   onSaved,
+  onSubmit,
+  initialCorrectOption,
 }: {
   question: QuestionDetail | null
   defaultKnowledgePointId?: string
   onClose: () => void
   onSaved: (questionId: string, created: boolean) => void
+  onSubmit?: (input: QuestionInput) => Promise<void> | void
+  initialCorrectOption?: string | null
 }) {
   const [questionType, setQuestionType] = useState<QuestionType>(
     question?.question_type ?? "single_choice",
@@ -93,8 +101,10 @@ export function QuestionEditorDialog({
       : ["", "", "", ""],
   )
   const [correctIndex, setCorrectIndex] = useState(() => {
-    if (!question?.correct_option) return 0
-    const index = LETTERS.findIndex((letter) => letter === question.correct_option)
+    if (initialCorrectOption === null) return -1
+    const option = initialCorrectOption ?? question?.correct_option
+    if (!option) return 0
+    const index = LETTERS.findIndex((letter) => letter === option)
     return index >= 0 ? index : 0
   })
   const [referenceAnswer, setReferenceAnswer] = useState(
@@ -108,11 +118,13 @@ export function QuestionEditorDialog({
   const [errors, setErrors] = useState<QuestionEditorErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [knowledgePointOpen, setKnowledgePointOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const knowledgePointsQuery = useKnowledgePoints()
   const createQuestion = useCreateQuestion()
   const updateQuestion = useUpdateQuestion()
-  const pending = createQuestion.isPending || updateQuestion.isPending
+  const pending =
+    createQuestion.isPending || updateQuestion.isPending || submitting
   const nodes = knowledgePointsQuery.data?.nodes ?? []
   const selectedKnowledgePoint = nodes.find(
     (node) => node.id === primaryKnowledgePointId,
@@ -200,6 +212,21 @@ export function QuestionEditorDialog({
       return
     }
 
+    if (onSubmit) {
+      setSubmitting(true)
+      try {
+        await onSubmit(payload)
+        onClose()
+      } catch (error) {
+        setSubmitError(
+          questionErrorMessage(error, "保存失败，请稍后重试。"),
+        )
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
     try {
       if (question) {
         await updateQuestion.mutateAsync({
@@ -232,11 +259,19 @@ export function QuestionEditorDialog({
     >
       <DialogContent className="max-w-xl gap-5">
         <DialogHeader>
-          <DialogTitle>{question ? "编辑私有题" : "新建私有题"}</DialogTitle>
+          <DialogTitle>
+            {onSubmit
+              ? "核对题目"
+              : question
+                ? "编辑私有题"
+                : "新建私有题"}
+          </DialogTitle>
           <DialogDescription>
-            {question
-              ? "修改只会影响「我的题库」，公共题库保持不变。"
-              : "只会保存到「我的题库」，不会修改公共题库。"}
+            {onSubmit
+              ? "修改后回到导入卡，确认全部题目后再统一保存。"
+              : question
+                ? "修改只会影响「我的题库」，公共题库保持不变。"
+                : "只会保存到「我的题库」，不会修改公共题库。"}
           </DialogDescription>
         </DialogHeader>
 
@@ -367,7 +402,9 @@ export function QuestionEditorDialog({
               <div className="space-y-1.5">
                 <Label htmlFor="correct-option">正确答案</Label>
                 <Select
-                  value={LETTERS[correctIndex]}
+                  value={
+                    correctIndex >= 0 ? LETTERS[correctIndex] : undefined
+                  }
                   onValueChange={selectCorrectOption}
                 >
                   <SelectTrigger
@@ -379,7 +416,7 @@ export function QuestionEditorDialog({
                     }
                     className="w-28"
                   >
-                    <SelectValue />
+                    <SelectValue placeholder="选择" />
                   </SelectTrigger>
                   <SelectContent>
                     {optionTexts.map((_, index) => (
@@ -530,7 +567,13 @@ export function QuestionEditorDialog({
             disabled={pending}
             onClick={() => void submit()}
           >
-            {pending ? "保存中…" : "保存"}
+            {pending
+              ? onSubmit
+                ? "正在更新…"
+                : "保存中…"
+              : onSubmit
+                ? "更新草稿"
+                : "保存"}
           </Button>
         </DialogFooter>
       </DialogContent>

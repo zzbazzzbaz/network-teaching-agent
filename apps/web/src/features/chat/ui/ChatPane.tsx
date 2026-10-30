@@ -11,9 +11,9 @@ import { ChatRuntime } from "../model/ChatRuntime"
 import { pendingInterrupt } from "../model/interrupt"
 import { STARTERS } from "../model/starters"
 import type { ChatStream } from "../model/useChatSession"
-import { AskStudentCard } from "./AskStudentCard"
 import { Composer } from "./Composer"
 import { AssistantMessage, UserMessage } from "./MessageParts"
+import { PendingInterruptCard } from "./PendingInterruptCard"
 
 function EmptyChat({ mode }: { mode: Mode }) {
   const aui = useAui()
@@ -118,9 +118,9 @@ function ChatSurface({
 
             {pending ? (
               <div ref={pendingRef} className="mt-5 pl-7 lg:pl-8">
-                <AskStudentCard
-                  key={pending.id ?? "ask-student"}
-                  interrupt={pending}
+                <PendingInterruptCard
+                  key={pending.id ?? "interrupt"}
+                  pending={pending}
                   stream={stream}
                 />
               </div>

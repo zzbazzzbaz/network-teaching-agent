@@ -39,7 +39,7 @@ app/api/
 - 题库公共接口在 `/api/v1/question-bank/*`：
   - 公共题只读；
   - 私有题只允许 owner 新增、编辑、删除；
-  - 不提供作答/attempt 接口；
+  - 公共接口只提供只读作答历史（`GET /questions/{id}/attempts`），作答写入只允许 Agent 内部接口；
   - 知识点题量统计在 `GET /knowledge-points/counts`，一次返回 `all/public/mine`；
   - 搜索支持 `knowledge_point_match=any|primary`，默认 `any` 保持 Agent 行为；
 - 列表分页：`GET /sessions` 和题库搜索返回 `Page[T]`；
@@ -47,6 +47,7 @@ app/api/
 - 记忆只读 BFF 在 `/api/v1/memory/*`，API 通过 `AgentDep` 调 Agent 的 `/store/*`；
 - 自动标题回写接口在 `/internal/sessions/{id}/title`，只允许 Agent 用内部 token 调用；
 - 内部接口放在 `internal/` 包，由 `internal/router.py` 汇总，使用 `/internal/*` 前缀，直接挂到 `app/main.py`，不挂 `/api/v1`，并设置 `include_in_schema=False`；
+- 题库内部接口：`GET /internal/question-bank/questions/{id}`（含答案）、`POST /internal/question-bank/questions/{id}/attempts`（记录已有私有题作答）、`POST /internal/question-bank/questions`（支持 `import_key` 幂等）；
 - 内部接口不能经过 nginx 公网转发。
 
 ## 依赖

@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from agent.tools.schemas.question import Question, QuestionMode
 
@@ -37,3 +37,38 @@ class SearchQuestionsInput(BaseModel):
 
 class SaveQuestionInput(BaseModel):
     question: Question = Field(description="要保存到当前学生私有题库的题目。")
+
+
+class GetQuestionInput(BaseModel):
+    question_id: str = Field(
+        min_length=1,
+        max_length=64,
+        description="题库题目 UUID。",
+    )
+
+
+class PracticeQuestionInput(BaseModel):
+    question_id: str = Field(
+        min_length=1,
+        max_length=64,
+        description="要练习的题库题目 UUID；必须是当前学生的私有题。",
+    )
+
+
+class ImportQuestionsInput(BaseModel):
+    questions: list[Question] = Field(
+        min_length=1,
+        max_length=5,
+        description="从文本或图片解析出的题目；单次最多 5 道。",
+    )
+
+
+class ImportQuestionsResume(BaseModel):
+    action: Literal["save", "cancel"]
+    questions: list[Question] = Field(default_factory=list, max_length=5)
+
+    @model_validator(mode="after")
+    def _require_questions_when_saving(self) -> Self:
+        if self.action == "save" and not self.questions:
+            raise ValueError("保存时至少需要一道题")
+        return self

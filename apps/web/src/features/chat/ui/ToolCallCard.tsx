@@ -57,6 +57,7 @@ function summaryFor(toolName: string, args: unknown): string {
   }
   if (toolName.includes("search")) return "检索题库"
   if (toolName.includes("save")) return "保存到我的题库"
+  if (toolName === "import_questions") return "导入题目"
   if (toolName.includes("sandbox")) return "确认实验沙盒"
   if (toolName === "task") return "分派子任务"
   if (toolName.includes("read")) return argString(args, ["path", "file_path"]) ?? "读取文件"
@@ -299,6 +300,28 @@ export const ToolCallCard: ToolCallMessagePartComponent = ({
     }
     if (isError) return null
     return <AskStudentResult args={args} result={result} />
+  }
+
+  if (toolName === "import_questions") {
+    if (status.type === "running" || status.type === "requires-action") {
+      return null
+    }
+    const resultText = pretty(result)
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-line bg-surface-2/60 px-3 py-2 text-[11.5px] leading-5">
+        <Check
+          className={cn(
+            "mt-0.5 size-3.5 shrink-0",
+            isError ? "text-danger" : "text-link",
+          )}
+          aria-hidden="true"
+        />
+        <span className="shrink-0 text-ink-soft">导入题目</span>
+        <span className="min-w-0 flex-1 truncate text-ink-muted">
+          {resultText || (isError ? "失败" : "完成")}
+        </span>
+      </div>
+    )
   }
 
   const Icon = iconFor(toolName)

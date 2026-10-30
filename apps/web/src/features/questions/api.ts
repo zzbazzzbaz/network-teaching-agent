@@ -4,6 +4,7 @@ import { apiFetch } from "@/shared/api/client"
 import type { components } from "@/shared/api/schema"
 import type {
   KnowledgePointCounts,
+  QuestionAttemptListResponse,
   QuestionDetail,
   QuestionFilters,
   QuestionInput,
@@ -48,6 +49,21 @@ export function getQuestion(
 ): Promise<QuestionDetail> {
   return apiFetch<QuestionDetail>(
     `/question-bank/questions/${encodeURIComponent(questionId)}`,
+    { signal },
+  )
+}
+
+export function getQuestionAttempts(
+  questionId: string,
+  { limit, offset }: { limit: number; offset: number },
+  signal?: AbortSignal,
+): Promise<QuestionAttemptListResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  })
+  return apiFetch<QuestionAttemptListResponse>(
+    `/question-bank/questions/${encodeURIComponent(questionId)}/attempts?${params.toString()}`,
     { signal },
   )
 }

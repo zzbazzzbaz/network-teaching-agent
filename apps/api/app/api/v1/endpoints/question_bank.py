@@ -8,9 +8,11 @@ from fastapi import APIRouter, Query, Response
 
 from app.api.dependencies import SessionDep, UserIdDep
 from app.api.schemas.question_bank import (
+    AttemptPageQuery,
     KnowledgePointCountsQuery,
     KnowledgePointCountsResponse,
     KnowledgePointsResponse,
+    QuestionAttemptListResponse,
     QuestionCreateRequest,
     QuestionCreateResponse,
     QuestionDetailResponse,
@@ -70,6 +72,32 @@ def get_question(
         session,
         user_id=user_id,
         question_id=question_id,
+    )
+
+
+@router.get(
+    "/questions/{question_id}/attempts",
+    response_model=QuestionAttemptListResponse,
+    summary="获取我的作答记录",
+)
+def list_question_attempts(
+    question_id: uuid.UUID,
+    params: Annotated[AttemptPageQuery, Query()],
+    session: SessionDep,
+    user_id: UserIdDep,
+) -> QuestionAttemptListResponse:
+    page = PageRequest(limit=params.limit, offset=params.offset)
+    result = question_bank_service.list_attempts(
+        session,
+        user_id=user_id,
+        question_id=question_id,
+        page=page,
+    )
+    return QuestionAttemptListResponse(
+        items=result.items,
+        total=result.total,
+        limit=result.limit,
+        offset=result.offset,
     )
 
 

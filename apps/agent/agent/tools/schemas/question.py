@@ -48,6 +48,21 @@ class Question(BaseModel):
             return value or None
         return value
 
+    @field_validator("secondary_knowledge_point_ids")
+    @classmethod
+    def _validate_secondary_ids(cls, value: list[str]) -> list[str]:
+        if len(value) > 3:
+            raise ValueError("辅知识点最多 3 个")
+        if len(set(value)) != len(value):
+            raise ValueError("辅知识点不能重复")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_secondary_not_primary(self) -> Self:
+        if self.primary_knowledge_point_id in self.secondary_knowledge_point_ids:
+            raise ValueError("辅知识点不能包含主知识点")
+        return self
+
 
 class AskQuestion(Question):
     """向学生展示的题目。"""

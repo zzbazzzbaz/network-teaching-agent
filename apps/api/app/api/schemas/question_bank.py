@@ -26,6 +26,10 @@ class QuestionPageQuery(PageQuery):
     limit: int = Field(default=10, ge=1, le=20)
 
 
+class AttemptPageQuery(PageQuery):
+    limit: int = Field(default=20, ge=1, le=50)
+
+
 class QuestionSearchQuery(QuestionPageQuery):
     scope: QuestionScope = "all"
     query: str | None = Field(default=None, min_length=1, max_length=100)
@@ -144,6 +148,18 @@ class QuestionCreateRequest(QuestionInput):
     pass
 
 
+class InternalQuestionCreateRequest(QuestionInput):
+    import_key: str | None = Field(default=None, max_length=160)
+
+    @field_validator("import_key", mode="before")
+    @classmethod
+    def _strip_import_key(cls, value: object) -> object:
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+
 class QuestionUpdateRequest(QuestionInput):
     pass
 
@@ -157,6 +173,40 @@ class AskStudentRecordResponse(ApiResponse):
     question_id: UUID
     attempt_id: UUID
     reference: QuestionReference
+
+
+class PracticeAttemptRequest(ApiRequest):
+    thread_id: str | None = Field(default=None, max_length=64)
+    tool_call_id: str = Field(min_length=1, max_length=128)
+    answer: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("thread_id", "tool_call_id", "answer", mode="before")
+    @classmethod
+    def _strip_text(cls, value: object) -> object:
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+
+class PracticeAttemptResponse(ApiResponse):
+    attempt_id: UUID
+    question_id: UUID
+    reference: QuestionReference
+
+
+class QuestionAttemptItem(ApiResponse):
+    attempt_id: UUID
+    answer_text: str
+    created_at: datetime
+    thread_id: str | None
+    session_title: str | None
+    agent_id: str | None
+    session_exists: bool
+
+
+class QuestionAttemptListResponse(Page[QuestionAttemptItem]):
+    pass
 
 
 class QuestionCreateResponse(ApiResponse):

@@ -57,6 +57,24 @@ class SessionRepository:
             )
         )
 
+    def get_many_owned(
+        self,
+        session: Session,
+        *,
+        owner_id: uuid.UUID,
+        session_ids: list[uuid.UUID],
+    ) -> list[ChatSession]:
+        if not session_ids:
+            return []
+        return list(
+            session.scalars(
+                select(ChatSession).where(
+                    ChatSession.user_id == owner_id,
+                    ChatSession.session_id.in_(session_ids),
+                )
+            )
+        )
+
     def create(
         self,
         session: Session,

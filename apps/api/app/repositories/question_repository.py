@@ -87,6 +87,7 @@ class QuestionRepository:
         *,
         owner_id: uuid.UUID | None,
         payload: QuestionInput,
+        import_key: str | None = None,
     ) -> Question:
         question = Question(
             owner_id=owner_id,
@@ -97,6 +98,7 @@ class QuestionRepository:
             reference_answer=payload.reference_answer,
             primary_knowledge_point_id=payload.primary_knowledge_point_id,
             secondary_knowledge_point_ids=payload.secondary_knowledge_point_ids,
+            import_key=import_key,
         )
         session.add(question)
         session.flush()
@@ -108,6 +110,54 @@ class QuestionRepository:
                 Question.question_id == question_id,
                 Question.deleted_at.is_(None),
             )
+        )
+
+    def get_by_import_key(
+        self,
+        session: Session,
+        *,
+        owner_id: uuid.UUID,
+        import_key: str,
+    ) -> Question | None:
+        return session.scalar(
+            select(Question).where(
+                Question.owner_id == owner_id,
+                Question.import_key == import_key,
+                Question.deleted_at.is_(None),
+            )
+        )
+
+    def list_attempts(
+        self,
+        session: Session,
+        *,
+        user_id: uuid.UUID,
+        question_id: uuid.UUID,
+        page: PageRequest,
+    ) -> PageResult[QuestionAttempt]:
+        conditions = [
+            QuestionAttempt.user_id == user_id,
+            QuestionAttempt.question_id == question_id,
+        ]
+        base = select(QuestionAttempt).where(*conditions)
+        total = session.scalar(
+            select(func.count()).select_from(base.order_by(None).subquery())
+        )
+        items = list(
+            session.scalars(
+                base.order_by(
+                    QuestionAttempt.created_at.desc(),
+                    QuestionAttempt.attempt_id.desc(),
+                )
+                .limit(page.limit)
+                .offset(page.offset)
+            )
+        )
+        return PageResult(
+            items=items,
+            total=int(total or 0),
+            limit=page.limit,
+            offset=page.offset,
         )
 
     def update_question(

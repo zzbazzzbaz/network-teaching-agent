@@ -10,6 +10,7 @@ import type {
 } from "@/shared/api/types"
 
 export const PAGE_SIZE = 12
+export const ATTEMPT_PAGE_SIZE = 10
 export const MIN_OPTIONS = 2
 export const MAX_OPTIONS = 6
 export const STEM_MAX_LENGTH = 4000
@@ -53,6 +54,10 @@ export function originLabel(origin: "public" | "mine"): string {
 
 export function optionLetter(index: number): string {
   return String.fromCharCode(65 + index)
+}
+
+export function questionStarter(questionId: string): string {
+  return `我想从题库里的这道题开始（题目 ID: ${questionId}）。先让我说说思路。`
 }
 
 export function correctOptionText(question: QuestionDetail): string | null {

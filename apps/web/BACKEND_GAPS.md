@@ -73,5 +73,6 @@
 
 - 没有 `/agents` catalog；前端静态映射 `teach_agent → 学习`、`exp_agent → 实验`，符合 P0。
 - 没有会话级沙盒；实验会话共享账户级 workspace，前端已提示。
-- 没有题库练习提交接口；题库只读/维护，练习继续通过对话。
+- 作答历史已补齐：`GET /api/v1/question-bank/questions/{id}/attempts` 只读；仍不提供前端提交作答接口，练习作答由 Agent 写入。
+- 公共题不产生 attempt；从公共题开始学习时，`practice_question` 在后台生成私有练习副本后再记录。
 - 没有前端可用的全局搜索接口；侧栏搜索只在题库内部做。

@@ -1,6 +1,7 @@
-import { ArrowUpRight, ChevronDown } from "lucide-react"
-import { useState } from "react"
-import { useSearch } from "@tanstack/react-router"
+import { ArrowRight, ArrowUpRight, ChevronDown } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { useNavigate, useSearch } from "@tanstack/react-router"
+import { useAui } from "@assistant-ui/react"
 
 import { DraftRuntime } from "@/features/chat/model/DraftRuntime"
 import { useDraftConversation } from "@/features/chat/model/useDraftConversation"
@@ -12,6 +13,7 @@ import {
   type CourseChapter,
   type CourseTarget,
 } from "@/features/course"
+import { questionStarter } from "@/features/questions/model"
 import { MODES } from "@/features/sessions"
 import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
@@ -122,10 +124,27 @@ export function ChapterHomePage() {
   if (panel) {
     return <WorkspacePanelPage mode="learn" panel={panel} search={search} />
   }
-  return <ChapterEntry />
+  return <ChapterEntry questionId={search.question} />
 }
 
-function ChapterEntry() {
+function DraftQuestionPrefill({ questionId }: { questionId?: string }) {
+  const aui = useAui()
+  const appliedRef = useRef(false)
+
+  useEffect(() => {
+    if (appliedRef.current || !questionId) return
+    appliedRef.current = true
+    aui.thread.composer().setText(questionStarter(questionId))
+    window.setTimeout(() => {
+      document.getElementById("composer")?.focus()
+    }, 0)
+  }, [aui, questionId])
+
+  return null
+}
+
+function ChapterEntry({ questionId }: { questionId?: string }) {
+  const navigate = useNavigate()
   const outlineQuery = useCourseOutline()
   const draft = useDraftConversation("learn")
 
@@ -142,18 +161,38 @@ function ChapterEntry() {
 
   return (
     <DraftRuntime disabled={draft.starting} onNew={draft.startFromMessage}>
+      <DraftQuestionPrefill questionId={questionId} />
       <div className="flex h-dvh flex-col">
         <WorkspaceBar title="学习" />
 
         <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
           <div className={cn(workspaceContentClass, "py-6 lg:py-9")}>
-            <header>
-              <p className="font-mono text-[10px] tracking-[0.14em] text-ink-muted">
-                COURSE MAP
-              </p>
-              <h1 className="mt-1.5 text-[21px] leading-tight font-semibold tracking-[-0.012em] text-ink">
-                从章节开始学习
-              </h1>
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="font-mono text-[10px] tracking-[0.14em] text-ink-muted">
+                  COURSE MAP
+                </p>
+                <h1 className="mt-1.5 text-[21px] leading-tight font-semibold tracking-[-0.012em] text-ink">
+                  从章节开始学习
+                </h1>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void navigate({
+                    to: "/learn",
+                    search: { panel: "questions" },
+                  })
+                }
+                className="group flex items-center gap-1.5 self-start rounded-md border border-line bg-surface px-3 py-1.5 text-[12px] text-ink-soft transition-colors hover:border-link-line hover:text-ink sm:self-auto"
+              >
+                从一道题开始
+                <ArrowRight
+                  className="size-3.5 shrink-0 text-ink-muted transition-colors group-hover:text-link"
+                  aria-hidden="true"
+                />
+              </button>
             </header>
 
             {outlineQuery.isLoading ? (
