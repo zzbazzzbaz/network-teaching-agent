@@ -8,7 +8,18 @@ import type {
 import { uploadImage } from "./api"
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"]
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+// 图片以 base64 随消息经 nginx 发往 Agent（client_max_body_size 20m），
+// 单张 4MB 时三张约 16MB，留出 JSON 与历史消息的余量。
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024
+
+function readDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ""))
+    reader.onerror = () => reject(new Error("读取图片失败"))
+    reader.readAsDataURL(file)
+  })
+}
 
 export class ImageAttachmentAdapter implements AttachmentAdapter {
   accept = ACCEPTED_TYPES.join(",")
@@ -20,7 +31,7 @@ export class ImageAttachmentAdapter implements AttachmentAdapter {
       throw new Error(message)
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      const message = "图片不能超过 10MB"
+      const message = "图片不能超过 4MB"
       toast.error(message)
       throw new Error(message)
     }
@@ -36,13 +47,16 @@ export class ImageAttachmentAdapter implements AttachmentAdapter {
 
   async send(attachment: PendingAttachment): Promise<CompleteAttachment> {
     try {
-      const uploaded = await uploadImage(attachment.file)
+      const [uploaded, dataUrl] = await Promise.all([
+        uploadImage(attachment.file),
+        readDataUrl(attachment.file),
+      ])
       return {
         id: uploaded.file_id,
         type: "image",
         name: uploaded.name,
         contentType: uploaded.mime,
-        content: [{ type: "text", text: uploaded.name }],
+        content: [{ type: "image", image: dataUrl }],
         status: { type: "complete" },
       }
     } catch (error) {

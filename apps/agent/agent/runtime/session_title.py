@@ -19,7 +19,7 @@ from agent.infra.session_api import (
     SessionTitleNotFound,
     set_session_title,
 )
-from agent.runtime.prompts import load_prompt
+from agent.runtime.utils import load_prompt
 
 logger = logging.getLogger(__name__)
 

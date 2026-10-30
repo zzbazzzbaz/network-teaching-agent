@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -10,7 +9,6 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.models.user import Users
-from tests.conftest import INTERNAL_TOKEN
 
 FILES = "/api/v1/files"
 
@@ -252,37 +250,3 @@ def test_delete_is_idempotent(
     assert client.delete(f"{FILES}/{file_id}", headers=headers).status_code == 204
     assert client.get(f"{FILES}/{file_id}/raw", headers=headers).status_code == 404
     assert client.get(f"{FILES}/{file_id}/thumb", headers=headers).status_code == 404
-
-
-def test_internal_file_endpoints(
-    client: TestClient,
-    create_user: Callable[..., Users],
-) -> None:
-    user = create_user()
-    headers = _login(client)
-    uploaded = _upload(client, headers, _image_bytes("PNG"))
-    file_id = uploaded["file_id"]
-    internal = {
-        "X-Internal-Token": INTERNAL_TOKEN,
-        "X-User-Id": str(user.user_id),
-    }
-
-    metadata = client.get(f"/internal/files/{file_id}", headers=internal)
-    assert metadata.status_code == 200
-    assert metadata.json() == {
-        "file_id": file_id,
-        "name": "题目.png",
-        "mime": "image/png",
-        "size_bytes": uploaded["size_bytes"],
-    }
-
-    raw = client.get(f"/internal/files/{file_id}/raw", headers=internal)
-    assert raw.status_code == 200
-    assert raw.headers["content-type"] == "image/png"
-
-    assert client.get(f"/internal/files/{file_id}").status_code == 401
-    wrong = {**internal, "X-Internal-Token": "wrong"}
-    assert client.get(f"/internal/files/{file_id}", headers=wrong).status_code == 403
-
-    other = {**internal, "X-User-Id": str(uuid.uuid4())}
-    assert client.get(f"/internal/files/{file_id}", headers=other).status_code == 404

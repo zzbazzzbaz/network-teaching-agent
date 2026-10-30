@@ -59,5 +59,6 @@ npm run api:types     # 需要 api 已启动在 :8000
 - 题库面板是「左侧知识点树 + 右侧题目列表」；URL 的 `kp` 是教材目录编号（如 `5.8`），列表用 `knowledge_point_match=primary` 只按主知识点筛选。
 - 后端缺口记录在 `BACKEND_GAPS.md`。
 - 不提交 `.env`、token、记忆内容或私有题库缓存。
-- 附件只允许 JPEG/PNG/WebP；消息里只放 `[图片] <name> (file_id=<uuid>)` marker 和 `additional_kwargs.attachments`，不把 base64 放进消息或 React state。
+- 附件只允许 JPEG/PNG/WebP，单张不超过 4MB（三张 base64 约 16MB，需低于 nginx `/agent/` 的 20m 上限）；图片以 LangChain 标准 `{"type":"image","base64":...}` 块随消息发出，正文同时保留 `[图片] <name> (file_id=<uuid>)` marker 供学生端渲染，`additional_kwargs` 不再带附件。
+- 历史消息里的图片块（base64 或 `deepagents_blob` 摘要）渲染前用 `stripMediaParts` 丢掉，不把图片字节放进 React state。
 - 历史缩略图走 `/api/v1/files/{id}/thumb`，点开大图走 `/raw`；两者都用 `authedFetch` 拉 blob + `URL.createObjectURL`，卸载时 revoke。

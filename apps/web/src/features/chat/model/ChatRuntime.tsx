@@ -12,7 +12,7 @@ import { ImageAttachmentAdapter } from "@/features/files/attachment"
 import { DEFAULT_SESSION_TITLE, sessionKeys } from "@/features/sessions"
 import type { Session } from "@/shared/api/types"
 
-import { buildHumanMessage, messageAttachments, messageText } from "./message"
+import { buildHumanMessage, messageAttachments, messageText, stripMediaParts } from "./message"
 import { usePendingStarter } from "./usePendingStarter"
 import { useChatSession, type ChatStream } from "./useChatSession"
 
@@ -51,9 +51,14 @@ export function ChatRuntime({
     queryClient,
   ])
 
+  const displayMessages = useMemo(
+    () => stream.messages.map(stripMediaParts),
+    [stream.messages],
+  )
+
   const messages = useExternalMessageConverter({
     callback: convertLangChainBaseMessage,
-    messages: stream.messages,
+    messages: displayMessages,
     isRunning: stream.isLoading,
   })
 

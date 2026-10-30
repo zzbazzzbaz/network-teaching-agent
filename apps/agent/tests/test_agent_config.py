@@ -4,17 +4,21 @@ from pathlib import Path
 from typing import Protocol, cast
 
 import pytest
-from deepagents.middleware.filesystem import FilesystemOperation, _check_fs_permission
+from deepagents import FilesystemPermission
+from deepagents.backends import CompositeBackend, StoreBackend
+from deepagents.middleware.filesystem import (
+    FilesystemMiddleware,
+    FilesystemOperation,
+    _check_fs_permission,
+)
 from deepagents.middleware.skills import _list_skills
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_deepseek import ChatDeepSeek
 
 from agent import main
+from agent.core.constants import RESOURCE_DIR
 from agent.main import build_exp_agent, build_teach_agent
-from agent.runtime.backends import build_exp_backend, build_teaching_backend
-from agent.runtime.memory import exp_memory_permissions, teach_memory_permissions
-from agent.runtime.paths import RESOURCE_DIR, memory_paths, skill_paths
-from agent.runtime.prompts import load_prompt
+from agent.runtime.utils import load_prompt
 
 APP_DIR = Path(__file__).resolve().parents[1]
 
@@ -56,6 +60,28 @@ def _tool_names(graph: _Graph) -> set[str]:
     return set(bound.tools_by_name)
 
 
+def _capture_agent_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> dict[str, dict[str, object]]:
+    calls: dict[str, dict[str, object]] = {}
+
+    class _FakeGraph:
+        def with_config(self, config: Mapping[str, object]) -> _FakeGraph:
+            return self
+
+    def fake_create_agent(**kwargs: object) -> _FakeGraph:
+        calls[str(kwargs["name"])] = kwargs
+        return _FakeGraph()
+
+    monkeypatch.setattr(main, "create_deep_agent", fake_create_agent)
+    monkeypatch.setattr(main, "get_llm", _fake_llm)
+    monkeypatch.setattr(main, "get_langfuse_handler", lambda: BaseCallbackHandler())
+
+    build_exp_agent({})
+    build_teach_agent({})
+    return calls
+
+
 def test_base_prompt_is_agent_neutral() -> None:
     text = load_prompt("base")
 
@@ -82,9 +108,31 @@ def test_lab_prompt_keeps_sandbox_and_experiment_skill() -> None:
 def test_image_prompt_is_shared_by_both_agents() -> None:
     base = load_prompt("base")
 
-    assert "view_image" in base
     assert "[图片]" in base
+    assert "view_image" not in base
     assert "实验截图" in load_prompt("base", "lab")
+
+
+def test_blobs_route_keeps_payloads_out_of_checkpoints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _capture_agent_kwargs(monkeypatch)
+
+    for kwargs in calls.values():
+        backend = cast(CompositeBackend, kwargs["backend"])
+        assert isinstance(backend.routes["/blobs/"], StoreBackend)
+
+
+def test_agents_offload_message_images(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _capture_agent_kwargs(monkeypatch)
+
+    assert set(calls) == {"exp_agent", "teach_agent"}
+    for kwargs in calls.values():
+        middleware = cast(list[object], kwargs["middleware"])
+        [filesystem] = [
+            item for item in middleware if isinstance(item, FilesystemMiddleware)
+        ]
+        assert filesystem._offload_binary_content is True
 
 
 def test_prompts_do_not_leak_implementation_details() -> None:
@@ -110,34 +158,21 @@ def test_experiment_resources_do_not_reference_ask_student() -> None:
         assert "ask_student" not in path.read_text(encoding="utf-8")
 
 
-def test_memory_paths_are_track_specific() -> None:
-    assert memory_paths("exp") == [
-        "/memory/AGENTS.md",
-        "/memory/lab/AGENTS.md",
-    ]
-    assert memory_paths("teach") == [
-        "/memory/AGENTS.md",
-        "/memory/teaching/AGENTS.md",
-    ]
-
-
-def test_skill_paths_are_track_specific() -> None:
-    assert skill_paths("exp") == ["/skills/common/", "/skills/lab/"]
-    assert skill_paths("teach") == ["/skills/common/", "/skills/teaching/"]
-
-
-def test_skill_discovery_matches_agent_tracks() -> None:
-    exp_backend = build_exp_backend()
-    teach_backend = build_teaching_backend()
+def test_skill_discovery_matches_agent_tracks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _capture_agent_kwargs(monkeypatch)
+    exp_backend = cast(CompositeBackend, calls["exp_agent"]["backend"])
+    teach_backend = cast(CompositeBackend, calls["teach_agent"]["backend"])
 
     exp_skills = {
         skill["name"]
-        for source in skill_paths("exp")
+        for source in ["/skills/common/", "/skills/lab/"]
         for skill in _list_skills(exp_backend, source)
     }
     teach_skills = {
         skill["name"]
-        for source in skill_paths("teach")
+        for source in ["/skills/common/", "/skills/teaching/"]
         for skill in _list_skills(teach_backend, source)
     }
 
@@ -150,8 +185,9 @@ def test_skill_discovery_matches_agent_tracks() -> None:
     }
 
 
-def test_teach_memory_permissions() -> None:
-    rules = teach_memory_permissions()
+def test_teach_memory_permissions(monkeypatch: pytest.MonkeyPatch) -> None:
+    kwargs = _capture_agent_kwargs(monkeypatch)["teach_agent"]
+    rules = cast(list[FilesystemPermission], kwargs["permissions"])
     operation: FilesystemOperation = "write"
 
     assert _check_fs_permission(rules, operation, "/memory/teaching/AGENTS.md") == "allow"
@@ -162,8 +198,9 @@ def test_teach_memory_permissions() -> None:
     assert _check_fs_permission(rules, operation, "/root/workspace/traceroute.py") == "deny"
 
 
-def test_exp_memory_permissions() -> None:
-    rules = exp_memory_permissions()
+def test_exp_memory_permissions(monkeypatch: pytest.MonkeyPatch) -> None:
+    kwargs = _capture_agent_kwargs(monkeypatch)["exp_agent"]
+    rules = cast(list[FilesystemPermission], kwargs["permissions"])
     operation: FilesystemOperation = "write"
 
     assert _check_fs_permission(rules, operation, "/memory/lab/learning.md") == "allow"
@@ -182,7 +219,6 @@ def test_teach_graph_uses_default_and_question_bank_tools(
     assert "ask_student" in tools
     assert "search_questions" in tools
     assert "save_question" in tools
-    assert "view_image" in tools
     assert "read_file" in tools
     assert "write_file" in tools
     assert "delete" in tools
@@ -194,7 +230,7 @@ def test_exp_graph_has_no_ask_student(monkeypatch: pytest.MonkeyPatch) -> None:
     tools = _tool_names(_build_exp_graph(monkeypatch))
 
     assert "ask_student" not in tools
-    assert "view_image" in tools
+    assert "read_file" in tools
     assert "execute" in tools
     assert "task" in tools
 
