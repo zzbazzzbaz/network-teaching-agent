@@ -148,6 +148,7 @@ def test_tool_interrupt_payload_and_recorder(
     import agent.tools.ask_student as ask_student_module
 
     captured: dict[str, object] = {}
+    question_id = uuid.uuid4()
 
     def fake_interrupt(
         payload: dict[str, object],
@@ -168,7 +169,7 @@ def test_tool_interrupt_payload_and_recorder(
         captured["question"] = question
         captured["answer"] = answer
         return AskStudentRecordResponse(
-            question_id=uuid.uuid4(),
+            question_id=question_id,
             attempt_id=uuid.uuid4(),
             reference=QuestionReference(correct_option="B"),
         )
@@ -179,7 +180,11 @@ def test_tool_interrupt_payload_and_recorder(
 
     result = tool_obj.func(question=_question(), runtime=_runtime())
 
-    assert result == "学生答案：b\n参考答案：B"
+    assert result == (
+        "学生答案：b\n"
+        "参考答案：B\n"
+        f"题目 ID（内部使用，不要展示给学生）：{question_id}"
+    )
     assert captured["payload"] == {
         "type": "ask_student",
         "mode": "single_choice",

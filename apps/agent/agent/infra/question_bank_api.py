@@ -141,6 +141,14 @@ def _request[T: BaseModel](
         raise QuestionBankError("题库服务暂不可用，请稍后重试") from e
 
 
+def _question_path_id(question_id: str | UUID) -> str:
+    """把外部传入的题目 ID 规范化为 UUID 字符串，避免路径穿越。"""
+    try:
+        return str(UUID(str(question_id)))
+    except (TypeError, ValueError, AttributeError) as e:
+        raise QuestionBankError("题目 ID 格式不正确") from e
+
+
 def _question_payload(question: Question) -> dict[str, Any]:
     return {
         "question_type": question.mode,
@@ -220,10 +228,10 @@ def create_question(
     )
 
 
-def get_question(context: ToolContext, question_id: str) -> QuestionDetail:
+def get_question(context: ToolContext, question_id: str | UUID) -> QuestionDetail:
     return _request(
         "GET",
-        f"/internal/question-bank/questions/{question_id}",
+        f"/internal/question-bank/questions/{_question_path_id(question_id)}",
         context=context,
         response_model=QuestionDetail,
     )
@@ -232,12 +240,12 @@ def get_question(context: ToolContext, question_id: str) -> QuestionDetail:
 def record_practice_attempt(
     context: ToolContext,
     *,
-    question_id: str,
+    question_id: str | UUID,
     answer: str,
 ) -> PracticeAttemptResponse:
     return _request(
         "POST",
-        f"/internal/question-bank/questions/{question_id}/attempts",
+        f"/internal/question-bank/questions/{_question_path_id(question_id)}/attempts",
         context=context,
         json={
             "thread_id": context.thread_id,

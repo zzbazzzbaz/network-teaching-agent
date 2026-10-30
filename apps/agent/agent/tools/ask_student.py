@@ -12,6 +12,7 @@ _DESCRIPTION = (
     "一次只问一个主问题；出题前读 /skills/teaching/ask-question/SKILL.md。"
     "学生作答后会在后台记录，不要在对话里解释保存机制。"
 )
+_ID_LABEL = "题目 ID（内部使用，不要展示给学生）"
 
 
 def _format_result(
@@ -45,10 +46,11 @@ def make_ask_student() -> BaseTool:
             )
         except QuestionBankError as e:
             return _format_result(answer, reference=reference, warning=str(e))
-        return _format_result(
+        result = _format_result(
             answer,
             reference=record.reference.reference_answer
             or record.reference.correct_option,
         )
+        return f"{result}\n{_ID_LABEL}：{record.question_id}"
 
     return ask_student

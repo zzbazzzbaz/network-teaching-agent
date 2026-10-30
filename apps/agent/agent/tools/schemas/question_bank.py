@@ -1,4 +1,5 @@
 from typing import Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -40,18 +41,16 @@ class SaveQuestionInput(BaseModel):
 
 
 class GetQuestionInput(BaseModel):
-    question_id: str = Field(
-        min_length=1,
-        max_length=64,
+    question_id: UUID = Field(
         description="题库题目 UUID。",
     )
 
 
 class PracticeQuestionInput(BaseModel):
-    question_id: str = Field(
-        min_length=1,
-        max_length=64,
-        description="要练习的题库题目 UUID；必须是当前学生的私有题。",
+    question_id: UUID = Field(
+        description=(
+            "要练习的题库题目 UUID；私有题直接记录，公共题会自动生成私有练习副本。"
+        ),
     )
 
 

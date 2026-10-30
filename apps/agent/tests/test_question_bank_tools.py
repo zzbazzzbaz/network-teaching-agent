@@ -1,10 +1,12 @@
 import uuid
 from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Protocol, cast
+from typing import Literal, Protocol, cast
 
 import pytest
+from pydantic import ValidationError
 
+import agent.infra.question_bank_api as question_bank_api_module
 import agent.tools.question_bank as question_bank_module
 from agent.infra.question_bank_api import (
     KnowledgePointRef,
@@ -22,7 +24,9 @@ from agent.runtime.context import ToolContext
 from agent.tools.question_bank import make_question_bank_tools
 from agent.tools.schemas.question import Question
 from agent.tools.schemas.question_bank import (
+    GetQuestionInput,
     ImportQuestionsResume,
+    PracticeQuestionInput,
     SearchQuestionsInput,
 )
 
@@ -54,6 +58,7 @@ def test_search_questions_formats_summary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
+    question_id = uuid.uuid4()
 
     def fake_search(context: ToolContext, query: SearchQuestionsInput) -> SearchResponse:
         captured["context"] = context
@@ -61,7 +66,7 @@ def test_search_questions_formats_summary(
         return SearchResponse(
             items=[
                 SearchItem(
-                    question_id=uuid.uuid4(),
+                    question_id=question_id,
                     origin="mine",
                     question_type="single_choice",
                     stem_preview="TCP 慢开始阶段 cwnd 如何变化？",
@@ -87,6 +92,7 @@ def test_search_questions_formats_summary(
 
     assert "共 1 条" in result
     assert "[mine] single_choice · 5.8.2 TCP的拥塞控制方法" in result
+    assert f"题目 ID（内部使用，不要展示给学生）：{question_id}" in result
     assert "上次作答：2026-10-28T10:00:00Z" in result
     context = captured["context"]
     assert isinstance(context, ToolContext)
@@ -118,11 +124,12 @@ def test_search_questions_requires_auth() -> None:
 
 def test_save_question(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
+    question_id = uuid.uuid4()
 
     def fake_save(context: ToolContext, question: Question) -> SaveQuestionResponse:
         captured["context"] = context
         captured["question"] = question
-        return SaveQuestionResponse(question_id=uuid.uuid4())
+        return SaveQuestionResponse(question_id=question_id)
 
     monkeypatch.setattr(question_bank_module, "save_question_api", fake_save)
     question = Question(
@@ -135,6 +142,7 @@ def test_save_question(monkeypatch: pytest.MonkeyPatch) -> None:
     result = _tools()["save_question"].func(question=question, runtime=_runtime())
 
     assert "已保存到学生的私人题库" in result
+    assert f"题目 ID（内部使用，不要展示给学生）：{question_id}" in result
     context = captured["context"]
     assert isinstance(context, ToolContext)
     assert context.user_id == "user-1"
@@ -185,8 +193,8 @@ def test_save_question_returns_api_error(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def _detail(
     *,
-    origin: str = "mine",
-    question_type: str = "single_choice",
+    origin: Literal["public", "mine"] = "mine",
+    question_type: Literal["single_choice", "short_answer"] = "single_choice",
     **overrides: object,
 ) -> QuestionDetailPayload:
     data: dict[str, object] = {
@@ -212,14 +220,21 @@ def test_get_question_formats_detail_and_warns_about_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     detail = _detail()
+    expected_question_id = uuid.uuid4()
 
-    def fake_get(context: ToolContext, question_id: str) -> QuestionDetailPayload:
+    def fake_get(
+        context: ToolContext,
+        question_id: uuid.UUID,
+    ) -> QuestionDetailPayload:
         assert context.user_id == "user-1"
-        assert question_id == "q-1"
+        assert question_id == expected_question_id
         return detail
 
     monkeypatch.setattr(question_bank_module, "get_question_api", fake_get)
-    result = _tools()["get_question"].func(question_id="q-1", runtime=_runtime())
+    result = _tools()["get_question"].func(
+        question_id=expected_question_id,
+        runtime=_runtime(),
+    )
 
     assert "题目 ID：" in result
     assert "题干：TTL=1" in result
@@ -231,9 +246,13 @@ def test_practice_question_records_attempt_on_private_question(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     detail = _detail()
+    question_id = uuid.uuid4()
     captured: dict[str, object] = {}
 
-    def fake_get(context: ToolContext, question_id: str) -> QuestionDetailPayload:
+    def fake_get(
+        context: ToolContext,
+        question_id: uuid.UUID,
+    ) -> QuestionDetailPayload:
         return detail
 
     def fake_interrupt(payload: object, *, response_schema: object) -> SimpleNamespace:
@@ -243,7 +262,7 @@ def test_practice_question_records_attempt_on_private_question(
     def fake_record(
         context: ToolContext,
         *,
-        question_id: str,
+        question_id: uuid.UUID,
         answer: str,
     ) -> PracticeAttemptResponse:
         captured["question_id"] = question_id
@@ -259,14 +278,14 @@ def test_practice_question_records_attempt_on_private_question(
     monkeypatch.setattr(question_bank_module, "record_practice_attempt", fake_record)
 
     result = _tools()["practice_question"].func(
-        question_id="q-1",
+        question_id=question_id,
         runtime=_runtime(),
     )
 
     payload = captured["payload"]
     assert isinstance(payload, dict)
     assert payload["type"] == "ask_student"
-    assert captured["question_id"] == "q-1"
+    assert captured["question_id"] == question_id
     assert captured["answer"] == "B"
     assert "学生答案：B" in result
     assert "参考答案：B" in result
@@ -280,7 +299,10 @@ def test_practice_question_public_creates_private_copy_and_records(
     detail = _detail(origin="public", question_id=public_id)
     captured: dict[str, object] = {}
 
-    def fake_get(context: ToolContext, question_id: str) -> QuestionDetailPayload:
+    def fake_get(
+        context: ToolContext,
+        question_id: uuid.UUID,
+    ) -> QuestionDetailPayload:
         captured["read"] = question_id
         return detail
 
@@ -318,11 +340,11 @@ def test_practice_question_public_creates_private_copy_and_records(
     monkeypatch.setattr(question_bank_module, "record_practice_attempt", fake_record)
 
     result = _tools()["practice_question"].func(
-        question_id=str(public_id),
+        question_id=public_id,
         runtime=_runtime(),
     )
 
-    assert captured["read"] == str(public_id)
+    assert captured["read"] == public_id
     copy = captured["copy"]
     assert isinstance(copy, Question)
     assert copy.mode == "single_choice"
@@ -339,6 +361,7 @@ def test_import_questions_saves_after_confirmation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
+    saved_id = uuid.uuid4()
     question = Question(
         mode="short_answer",
         stem="为什么？",
@@ -357,7 +380,7 @@ def test_import_questions_saves_after_confirmation(
         import_key: str | None = None,
     ) -> SaveQuestionResponse:
         captured["import_key"] = import_key
-        return SaveQuestionResponse(question_id=uuid.uuid4())
+        return SaveQuestionResponse(question_id=saved_id)
 
     monkeypatch.setattr(question_bank_module, "interrupt", fake_interrupt)
     monkeypatch.setattr(question_bank_module, "create_question_api", fake_create)
@@ -372,6 +395,7 @@ def test_import_questions_saves_after_confirmation(
     assert payload["type"] == "question_import"
     assert captured["import_key"] == "call-1:0"
     assert "已保存 1 道题" in result
+    assert f"第 1 道：{saved_id}" in result
 
 
 def test_import_questions_cancel_does_not_save(
@@ -424,3 +448,46 @@ def test_import_resume_accepts_frontend_question_shape() -> None:
 
     assert resume.questions[0].mode == "single_choice"
     assert resume.questions[0].correct_option == "A"
+
+
+def test_question_tool_inputs_require_uuid() -> None:
+    with pytest.raises(ValidationError):
+        GetQuestionInput(question_id="q-1")
+    with pytest.raises(ValidationError):
+        PracticeQuestionInput(question_id="../../sandbox/ensure")
+
+
+def test_question_api_rejects_non_uuid_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    called = False
+
+    def fake_request(method: str, path: str, **kwargs: object) -> QuestionDetailPayload:
+        nonlocal called
+        called = True
+        return _detail()
+
+    monkeypatch.setattr(question_bank_api_module, "_request", fake_request)
+
+    with pytest.raises(QuestionBankError, match="题目 ID 格式不正确"):
+        question_bank_api_module.get_question(
+            ToolContext(user_id="user-1", thread_id="thread-1", tool_call_id="call-1"),
+            "../../sandbox/ensure?x=",
+        )
+    assert called is False
+
+
+def test_question_api_normalizes_uuid_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+    question_id = uuid.uuid4()
+
+    def fake_request(method: str, path: str, **kwargs: object) -> QuestionDetailPayload:
+        captured["path"] = path
+        return _detail()
+
+    monkeypatch.setattr(question_bank_api_module, "_request", fake_request)
+
+    question_bank_api_module.get_question(
+        ToolContext(user_id="user-1", thread_id="thread-1", tool_call_id="call-1"),
+        str(question_id).upper(),
+    )
+
+    assert captured["path"] == f"/internal/question-bank/questions/{question_id}"

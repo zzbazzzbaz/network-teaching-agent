@@ -1,3 +1,5 @@
+import uuid
+
 from langchain_core.tools import BaseTool, tool
 from langgraph.prebuilt import ToolRuntime
 from langgraph.types import interrupt
@@ -40,11 +42,13 @@ from agent.tools.schemas.question_bank import (
 _SEARCH_DESCRIPTION = (
     "检索课程公共题库和学生的私人题库，用于找同类题、引用原题或了解练习历史。"
     "摘要足以挑题；讲解需要时再取回参考答案，一次最多 3 条。"
+    "结果中的题目 ID 仅用于后续 get_question / practice_question，不要展示给学生。"
     "细节见 /skills/teaching/ask-question/bank.md。"
 )
 _SAVE_DESCRIPTION = (
     "把学生明确要求保存的题目加入他的私人题库。"
     "只在学生说“记下来/加入题库”时调用；不发布公共题。"
+    "返回的题目 ID 仅用于后续工具调用，不要展示给学生。"
     "细节见 /skills/teaching/ask-question/bank.md。"
 )
 _GET_DESCRIPTION = (
@@ -58,7 +62,9 @@ _PRACTICE_DESCRIPTION = (
 _IMPORT_DESCRIPTION = (
     "把从文本或图片解析出的题目交给学生确认后，保存到他的私人题库。"
     "只在学生明确要求导入/保存题目时调用；单次最多 5 道；不发布公共题；不去重。"
+    "返回的题目 ID 仅用于后续工具调用，不要展示给学生。"
 )
+_ID_LABEL = "题目 ID（内部使用，不要展示给学生）"
 
 
 def _format_search(payload: SearchResponse) -> str:
@@ -71,6 +77,7 @@ def _format_search(payload: SearchResponse) -> str:
         lines.append(
             f"{index}. [{item.origin}] {item.question_type} · {primary.id} {primary.title}"
         )
+        lines.append(f"   {_ID_LABEL}：{item.question_id}")
         if item.secondary_knowledge_points:
             labels = "、".join(
                 f"{point.id} {point.title}"
@@ -179,13 +186,13 @@ def make_question_bank_tools() -> list[BaseTool]:
     @tool(args_schema=SaveQuestionInput, description=_SAVE_DESCRIPTION)
     def save_question(*, question: Question, runtime: ToolRuntime) -> str:
         try:
-            save_question_api(tool_context(runtime), question)
+            saved = save_question_api(tool_context(runtime), question)
         except QuestionBankError as e:
             return f"题目保存失败：{e}"
-        return "已保存到学生的私人题库。"
+        return f"已保存到学生的私人题库。\n{_ID_LABEL}：{saved.question_id}"
 
     @tool(args_schema=GetQuestionInput, description=_GET_DESCRIPTION)
-    def get_question(*, question_id: str, runtime: ToolRuntime) -> str:
+    def get_question(*, question_id: uuid.UUID, runtime: ToolRuntime) -> str:
         try:
             detail = get_question_api(tool_context(runtime), question_id)
         except QuestionBankError as e:
@@ -193,7 +200,7 @@ def make_question_bank_tools() -> list[BaseTool]:
         return _format_detail(detail)
 
     @tool(args_schema=PracticeQuestionInput, description=_PRACTICE_DESCRIPTION)
-    def practice_question(*, question_id: str, runtime: ToolRuntime) -> str:
+    def practice_question(*, question_id: uuid.UUID, runtime: ToolRuntime) -> str:
         context = tool_context(runtime)
         try:
             detail = get_question_api(context, question_id)
@@ -282,7 +289,7 @@ def make_question_bank_tools() -> list[BaseTool]:
         if resume.action == "cancel":
             return "用户取消了导入，没有保存。"
 
-        saved: list[str] = []
+        saved: list[tuple[int, str]] = []
         failed: list[str] = []
         for index, question in enumerate(resume.questions):
             try:
@@ -294,12 +301,16 @@ def make_question_bank_tools() -> list[BaseTool]:
             except QuestionBankError as e:
                 failed.append(f"第 {index + 1} 道：{e}")
             else:
-                saved.append(str(result.question_id))
+                saved.append((index + 1, str(result.question_id)))
 
         if not saved:
             return "没有保存成功：" + "；".join(failed)
 
-        lines = [f"已保存 {len(saved)} 道题到你的私人题库。"]
+        lines = [
+            f"已保存 {len(saved)} 道题到你的私人题库。",
+            f"{_ID_LABEL}：",
+        ]
+        lines.extend(f"- 第 {number} 道：{question_id}" for number, question_id in saved)
         if failed:
             lines.append("失败：")
             lines.extend(failed)
