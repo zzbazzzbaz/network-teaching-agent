@@ -7,7 +7,6 @@ import { DraftRuntime } from "@/features/chat/model/DraftRuntime"
 import { useDraftConversation } from "@/features/chat/model/useDraftConversation"
 import { DraftFooter } from "@/features/chat/ui/DraftFooter"
 import {
-  sessionTitleFor,
   starterPromptFor,
   useCourseOutline,
   type CourseChapter,
@@ -24,16 +23,14 @@ import { WorkspacePanelPage } from "./WorkspacePanelPage"
 
 function ChapterCard({
   chapter,
-  startingId,
+  disabled,
   onStart,
 }: {
   chapter: CourseChapter
-  startingId: string | null
+  disabled: boolean
   onStart: (target: CourseTarget) => void
 }) {
   const [open, setOpen] = useState(false)
-  const busy = startingId === chapter.id
-  const disabled = startingId !== null
 
   return (
     <li className="flex flex-col overflow-hidden rounded-lg border border-line bg-surface">
@@ -53,17 +50,10 @@ function ChapterCard({
             {chapter.title}
           </span>
         </span>
-        {busy ? (
-          <span
-            aria-label="正在创建"
-            className="mt-1 size-3 animate-spin rounded-full border-2 border-line-strong border-t-link"
-          />
-        ) : (
-          <ArrowUpRight
-            className="mt-1 size-3.5 shrink-0 text-ink-muted transition-colors group-hover:text-link"
-            aria-hidden="true"
-          />
-        )}
+        <ArrowUpRight
+          className="mt-1 size-3.5 shrink-0 text-ink-muted transition-colors group-hover:text-link"
+          aria-hidden="true"
+        />
       </button>
 
       {chapter.sections.length > 0 && (
@@ -151,19 +141,44 @@ function DraftQuestionPrefill({ questionId }: { questionId?: string }) {
   return null
 }
 
+function ChapterGrid({
+  chapters,
+  disabled,
+}: {
+  chapters: CourseChapter[]
+  disabled: boolean
+}) {
+  const aui = useAui()
+
+  function startChapter(target: CourseTarget) {
+    // 点章节只预填输入框，用户点发送后才创建会话。
+    aui.thread.composer().setText(starterPromptFor(target))
+    window.setTimeout(() => {
+      document.getElementById("composer")?.focus()
+    }, 0)
+  }
+
+  return (
+    <ul
+      className="mt-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3"
+      aria-label="章节列表"
+    >
+      {chapters.map((chapter) => (
+        <ChapterCard
+          key={chapter.id}
+          chapter={chapter}
+          disabled={disabled}
+          onStart={startChapter}
+        />
+      ))}
+    </ul>
+  )
+}
+
 function ChapterEntry({ questionId }: { questionId?: string }) {
   const navigate = useNavigate()
   const outlineQuery = useCourseOutline()
   const draft = useDraftConversation("learn")
-
-  function startChapter(target: CourseTarget) {
-    void draft.start(
-      starterPromptFor(target),
-      [],
-      sessionTitleFor(target),
-      target.id,
-    )
-  }
 
   const chapters = outlineQuery.outline
 
@@ -243,19 +258,10 @@ function ChapterEntry({ questionId }: { questionId?: string }) {
                 </p>
               </div>
             ) : (
-              <ul
-                className="mt-5 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3"
-                aria-label="章节列表"
-              >
-                {chapters.map((chapter) => (
-                  <ChapterCard
-                    key={chapter.id}
-                    chapter={chapter}
-                    startingId={draft.startingId}
-                    onStart={startChapter}
-                  />
-                ))}
-              </ul>
+              <ChapterGrid
+                chapters={chapters}
+                disabled={draft.starting}
+              />
             )}
           </div>
         </div>
