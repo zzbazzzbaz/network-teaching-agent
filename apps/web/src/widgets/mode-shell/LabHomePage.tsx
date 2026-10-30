@@ -3,11 +3,10 @@ import { useSearch } from "@tanstack/react-router"
 import { DraftRuntime } from "@/features/chat/model/DraftRuntime"
 import { useDraftConversation } from "@/features/chat/model/useDraftConversation"
 import { DraftFooter } from "@/features/chat/ui/DraftFooter"
-import { MODES } from "@/features/sessions"
+import { MODES, type SessionSearch } from "@/features/sessions"
 import { cn } from "@/shared/lib/utils"
 import { workspaceContentClass } from "@/shared/ui/workspace-header"
 
-import type { SessionSearch } from "./SessionPage"
 import { WorkspaceBar } from "./WorkspaceBar"
 import { WorkspacePanelPage } from "./WorkspacePanelPage"
 
@@ -33,10 +32,19 @@ export function LabHomePage() {
   const search = useSearch({ strict: false }) as SessionSearch
   const panel = MODES.lab.panels.find((item) => item.id === search.panel)?.id
 
-  if (panel) {
-    return <WorkspacePanelPage mode="lab" panel={panel} search={search} />
-  }
-  return <LabEntry />
+  return (
+    <>
+      <div
+        className={cn(panel && "hidden")}
+        aria-hidden={panel ? true : undefined}
+      >
+        <LabEntry />
+      </div>
+      {panel ? (
+        <WorkspacePanelPage mode="lab" panel={panel} search={search} />
+      ) : null}
+    </>
+  )
 }
 
 function LabEntry() {

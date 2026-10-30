@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, isValidElement, type ReactNode } from "react"
+import {
+  memo,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  isValidElement,
+  type ReactNode,
+} from "react"
 import DOMPurify from "dompurify"
 import type { MermaidConfig } from "mermaid"
 import ReactMarkdown, { type Components } from "react-markdown"
@@ -15,6 +23,8 @@ import { HtmlBlock } from "./html-block"
 
 type MermaidTheme = NonNullable<MermaidConfig["theme"]>
 type MermaidApi = typeof import("mermaid").default
+
+const MERMAID_DEBOUNCE_MS = 350
 
 let mermaidPromise: Promise<MermaidApi> | undefined
 let initializedTheme: MermaidTheme | undefined
@@ -59,18 +69,31 @@ function MermaidRender({
 }) {
   const reactId = useId()
   const renderSequence = useRef(0)
+  const [renderCode, setRenderCode] = useState(code)
   const [svg, setSvg] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+
+  // 流式输出时 code 每个 token 都会变化；等代码块稳定后再渲染，
+  // 避免对不完整的 Mermaid 源码反复执行解析。
+  useEffect(() => {
+    if (renderCode === code) return
+    const timer = window.setTimeout(
+      () => setRenderCode(code),
+      MERMAID_DEBOUNCE_MS,
+    )
+    return () => window.clearTimeout(timer)
+  }, [code, renderCode])
 
   useEffect(() => {
     const baseId = `mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`
     // StrictMode 会重复执行 effect；每次渲染使用独立临时 ID，避免同一节点被并发清理。
     const renderId = `${baseId}-${renderSequence.current++}`
     let cancelled = false
+    setFailed(false)
     void (async () => {
       try {
         const mermaid = await loadMermaid(theme)
-        const result = await mermaid.render(renderId, code)
+        const result = await mermaid.render(renderId, renderCode)
         if (!cancelled) setSvg(sanitizeSvg(result.svg))
       } catch (error) {
         if (cancelled) return
@@ -85,7 +108,7 @@ function MermaidRender({
       cancelled = true
       cleanupMermaidTempNodes(renderId)
     }
-  }, [code, reactId, theme])
+  }, [reactId, renderCode, theme])
 
   if (failed) return <BlockFallback code={code} />
   if (svg === null) {
@@ -106,9 +129,11 @@ export function MermaidDiagram({
   code,
   className,
 }: Pick<SyntaxHighlighterProps, "code"> & { className?: string }) {
-  if (!code.trim()) return <BlockFallback code={code} />
+  if (!code.trim()) {
+    return <div className="text-[11px] text-ink-muted">图表渲染中…</div>
+  }
   return (
-    <MermaidRender key={`default:${code}`} code={code} theme="default" className={className} />
+    <MermaidRender code={code} theme="default" className={className} />
   )
 }
 
@@ -126,16 +151,26 @@ export function safeUrlTransform(url: string): string {
   return ""
 }
 
-const blockRenderers = new Map<string, (code: string) => ReactNode>([
-  ["mermaid", (code) => <MermaidDiagram code={code} />],
-  ["html", (code) => <HtmlBlock code={code} />],
-  ["echarts", (code) => <EChartsBlock code={code} />],
-])
+const BLOCK_COMPONENTS = {
+  mermaid: MermaidDiagram,
+  html: HtmlBlock,
+  echarts: EChartsBlock,
+} as const
+
+type BlockLanguage = keyof typeof BLOCK_COMPONENTS
 
 const blockComponents = {
-  mermaid: { SyntaxHighlighter: MermaidDiagram },
-  html: { SyntaxHighlighter: HtmlBlock },
-  echarts: { SyntaxHighlighter: EChartsBlock },
+  mermaid: { SyntaxHighlighter: BLOCK_COMPONENTS.mermaid },
+  html: { SyntaxHighlighter: BLOCK_COMPONENTS.html },
+  echarts: { SyntaxHighlighter: BLOCK_COMPONENTS.echarts },
+}
+
+function renderBlock(language: string | undefined, code: string): ReactNode {
+  if (!language || !(language in BLOCK_COMPONENTS)) return null
+  const Component = BLOCK_COMPONENTS[language as BlockLanguage] as (
+    props: { code: string },
+  ) => ReactNode
+  return <Component code={code} />
 }
 
 function languageOf(className: string | undefined): string | undefined {
@@ -154,8 +189,8 @@ function MarkdownPre({ children }: { children?: ReactNode }) {
       className?: string
       children?: ReactNode
     }
-    const render = blockRenderers.get(languageOf(className) ?? "")
-    if (render) return render(String(code ?? ""))
+    const rendered = renderBlock(languageOf(className), String(code ?? ""))
+    if (rendered) return rendered
   }
   return <pre>{children}</pre>
 }
@@ -174,11 +209,17 @@ const commonComponents: Components = {
   ),
 }
 
+const REMARK_PLUGINS = [remarkGfm, remarkCjkFriendly]
+const STATIC_COMPONENTS: Components = {
+  ...commonComponents,
+  pre: MarkdownPre,
+}
+
 export function MarkdownText() {
   return (
     <MarkdownTextPrimitive
       className="prose-chat"
-      remarkPlugins={[remarkGfm, remarkCjkFriendly]}
+      remarkPlugins={REMARK_PLUGINS}
       components={commonComponents}
       componentsByLanguage={blockComponents}
       urlTransform={safeUrlTransform}
@@ -188,7 +229,7 @@ export function MarkdownText() {
   )
 }
 
-export function StaticMarkdown({
+export const StaticMarkdown = memo(function StaticMarkdown({
   text,
   className,
   tone = "chat",
@@ -200,16 +241,13 @@ export function StaticMarkdown({
   return (
     <div className={cn(tone === "chat" ? "prose-chat" : "prose-note", className)}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkCjkFriendly]}
+        remarkPlugins={REMARK_PLUGINS}
         urlTransform={safeUrlTransform}
         skipHtml
-        components={{
-          ...commonComponents,
-          pre: MarkdownPre,
-        }}
+        components={STATIC_COMPONENTS}
       >
         {text}
       </ReactMarkdown>
     </div>
   )
-}
+})

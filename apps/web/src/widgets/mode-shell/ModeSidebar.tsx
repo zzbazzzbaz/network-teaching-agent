@@ -5,49 +5,28 @@ import {
   Folder,
   Layers,
   LogOut,
-  MoreHorizontal,
-  Pencil,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   Terminal,
-  Trash2,
 } from "lucide-react"
 import { useState } from "react"
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router"
-import { toast } from "sonner"
 
 import type { Mode, Session } from "@/shared/api/types"
-import { ApiError } from "@/shared/api/client"
 import { useAuth } from "@/features/auth"
 import {
   MODES,
-  useDeleteSession,
-  useRenameSession,
   useSessions,
   type PanelId,
+  type SessionSearch,
 } from "@/features/sessions"
-import { cn, formatDate, formatTime, relativeDay } from "@/shared/lib/utils"
+import {
+  DeleteSessionDialog,
+  RenameSessionDialog,
+} from "@/features/sessions/ui"
+import { cn } from "@/shared/lib/utils"
 import { Wordmark } from "@/shared/ui/brand"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/ui/alert-dialog"
-import { Button } from "@/shared/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,40 +35,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu"
-import { Input } from "@/shared/ui/input"
-import { Label } from "@/shared/ui/label"
 
+import { ModeSessionList } from "./ModeSessionList"
 const MODE_ICON = { learn: BookOpen, lab: FlaskConical } as const
 
-const UTILITIES: Record<
-  Mode,
-  { id: PanelId; label: string; icon: typeof Layers }[]
-> = {
-  learn: [
-    { id: "questions", label: "题库", icon: Layers },
-    { id: "memory", label: "记忆", icon: Folder },
-  ],
-  lab: [
-    { id: "sandbox", label: "沙盒", icon: Terminal },
-    { id: "memory", label: "记忆", icon: Folder },
-  ],
-}
-
-type SessionSearch = {
-  panel?: PanelId
-  question?: string
-  path?: string
+const PANEL_ICONS: Record<PanelId, typeof Layers> = {
+  questions: Layers,
+  memory: Folder,
+  sandbox: Terminal,
 }
 
 function sessionIdFromPath(pathname: string): string | undefined {
   const match = /^\/(?:learn|lab)\/([^/]+)\/?$/.exec(pathname)
   return match?.[1]
-}
-
-function errorText(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return error.message
-  if (error instanceof TypeError) return "无法连接服务器，请确认服务已启动"
-  return fallback
 }
 
 export function ModeSidebar({
@@ -108,19 +66,18 @@ export function ModeSidebar({
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const rawSearch = useSearch({ strict: false }) as SessionSearch
   const sessionId = sessionIdFromPath(pathname)
-  const utils = UTILITIES[mode]
+  const utils = MODES[mode].panels.map((item) => ({
+    ...item,
+    icon: PANEL_ICONS[item.id],
+  }))
   const activePanel = utils.find((item) => item.id === rawSearch.panel)?.id
 
   const sessionsQuery = useSessions(MODES[mode].agentId)
   const sessions = sessionsQuery.data?.pages.flatMap((page) => page.items) ?? []
   const total = sessionsQuery.data?.pages[0]?.total ?? 0
 
-  const rename = useRenameSession()
-  const remove = useDeleteSession()
-
   const [renaming, setRenaming] = useState<Session | null>(null)
   const [deleting, setDeleting] = useState<Session | null>(null)
-  const [draftTitle, setDraftTitle] = useState("")
 
   function goToSession(id: string, search: SessionSearch = {}) {
     onNavigate?.()
@@ -156,9 +113,6 @@ export function ModeSidebar({
     } else {
       void navigate({ to: "/lab", search: {} })
     }
-    window.setTimeout(() => {
-      document.getElementById("composer")?.focus()
-    }, 60)
   }
 
   function openPanel(panel: PanelId | null) {
@@ -179,40 +133,13 @@ export function ModeSidebar({
     }
   }
 
-  async function saveRename() {
-    if (!renaming) return
-    const title = draftTitle.trim() || "新会话"
-    if (title === renaming.title) {
-      setRenaming(null)
-      return
-    }
-    try {
-      await rename.mutateAsync({ sessionId: renaming.session_id, title })
-      setRenaming(null)
-      toast("会话已重命名")
-    } catch (error) {
-      toast.error(errorText(error, "重命名失败"))
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleting) return
-    const target = deleting
-    const wasCurrent = target.session_id === sessionId
-    try {
-      await remove.mutateAsync(target)
-      setDeleting(null)
-      toast("会话已删除")
-      if (wasCurrent) {
-        const next = sessions.find(
-          (item) => item.session_id !== target.session_id,
-        )
-        if (next) goToSession(next.session_id)
-        else goToModeHome()
-      }
-    } catch (error) {
-      toast.error(errorText(error, "删除会话失败"))
-    }
+  function handleDeleted(target: Session) {
+    if (target.session_id !== sessionId) return
+    const next = sessions.find(
+      (item) => item.session_id !== target.session_id,
+    )
+    if (next) goToSession(next.session_id)
+    else goToModeHome()
   }
 
   const brandTo = MODES[mode].path
@@ -330,146 +257,21 @@ export function ModeSidebar({
       {collapsed ? (
         <div className="min-h-0 flex-1" />
       ) : (
-        <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-line px-3 pt-3">
-          <div className="flex items-baseline justify-between px-1 pb-1">
-            <span className="text-[10.5px] font-medium text-ink-muted">会话</span>
-            <span className="font-mono text-[9.5px] text-ink-muted">
-              {total}
-            </span>
-          </div>
-
-          <nav
-            aria-label="会话列表"
-            className="scroll-slim -mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-2"
-          >
-            {sessionsQuery.isLoading ? (
-              <div className="space-y-2 px-1 py-2" aria-label="会话加载中">
-                {[0, 1, 2].map((index) => (
-                  <div
-                    key={index}
-                    className="h-[54px] animate-pulse rounded-md bg-surface-3"
-                  />
-                ))}
-              </div>
-            ) : sessionsQuery.isError ? (
-              <div className="px-2 py-8 text-center">
-                <p className="text-[12px] text-ink-muted">会话加载失败</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => void sessionsQuery.refetch()}
-                >
-                  重试
-                </Button>
-              </div>
-            ) : sessions.length === 0 ? (
-              <div className="px-2 py-8 text-center">
-                <p className="text-[12px] text-ink-muted">还没有会话</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => void handleNewSession()}
-                >
-                  新建第一个会话
-                </Button>
-              </div>
-            ) : (
-              <>
-                <ul className="space-y-1">
-                  {sessions.map((session) => {
-                    const active = session.session_id === sessionId
-                    return (
-                      <li key={session.session_id} className="group/item relative">
-                        <button
-                          type="button"
-                          onClick={() => goToSession(session.session_id)}
-                          aria-current={active ? "page" : undefined}
-                          className={cn(
-                            "block w-full rounded-md border py-2 pr-2.5 pl-3 text-left transition-colors",
-                            active
-                              ? "border-line bg-surface"
-                              : "border-transparent hover:bg-surface/70",
-                          )}
-                        >
-                          {active && (
-                            <span
-                              aria-hidden="true"
-                              className="absolute top-2.5 bottom-2.5 left-0 w-[2px] rounded-full bg-link"
-                            />
-                          )}
-                          <span className="flex items-center pr-[4.25rem]">
-                            <span
-                              className={cn(
-                                "min-w-0 flex-1 truncate text-[12.5px] leading-5",
-                                active ? "font-medium text-ink" : "text-ink-soft",
-                              )}
-                            >
-                              {session.title || "新会话"}
-                            </span>
-                          </span>
-                          <time
-                            dateTime={session.updated_at}
-                            className="absolute top-1/2 right-2.5 -translate-y-1/2 text-[9.5px] tabular-nums text-ink-muted"
-                          >
-                            {relativeDay(session.updated_at) === "今天"
-                              ? formatTime(session.updated_at)
-                              : formatDate(session.updated_at)}
-                          </time>
-                        </button>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label={`管理会话「${session.title || "新会话"}」`}
-                              className="absolute top-1/2 right-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-sm text-ink-muted opacity-100 transition-opacity hover:bg-surface-3 hover:text-ink focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/30 lg:opacity-0 lg:group-hover/item:opacity-100"
-                            >
-                              <MoreHorizontal
-                                className="size-3.5"
-                                aria-hidden="true"
-                              />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-36">
-                            <DropdownMenuItem
-                              onSelect={() => {
-                                setRenaming(session)
-                                setDraftTitle(session.title || "新会话")
-                              }}
-                            >
-                              <Pencil className="size-3.5" aria-hidden="true" />
-                              重命名
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onSelect={() => setDeleting(session)}
-                            >
-                              <Trash2 className="size-3.5" aria-hidden="true" />
-                              删除会话
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </li>
-                    )
-                  })}
-                </ul>
-                {sessionsQuery.hasNextPage && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 w-full text-[11.5px]"
-                    disabled={sessionsQuery.isFetchingNextPage}
-                    onClick={() => void sessionsQuery.fetchNextPage()}
-                  >
-                    {sessionsQuery.isFetchingNextPage ? "加载中…" : "加载更多"}
-                  </Button>
-                )}
-              </>
-            )}
-          </nav>
-        </div>
+        <ModeSessionList
+          sessions={sessions}
+          total={total}
+          activeSessionId={sessionId}
+          isLoading={sessionsQuery.isLoading}
+          isError={sessionsQuery.isError}
+          hasNextPage={sessionsQuery.hasNextPage}
+          isFetchingNextPage={sessionsQuery.isFetchingNextPage}
+          onSelect={goToSession}
+          onRename={setRenaming}
+          onDelete={setDeleting}
+          onRetry={() => void sessionsQuery.refetch()}
+          onLoadMore={() => void sessionsQuery.fetchNextPage()}
+          onNew={handleNewSession}
+        />
       )}
 
       <div className="border-t border-line p-2">
@@ -534,80 +336,15 @@ export function ModeSidebar({
         </DropdownMenu>
       </div>
 
-      <Dialog
-        open={Boolean(renaming)}
-        onOpenChange={(open) => {
-          if (!open) setRenaming(null)
-        }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>重命名会话</DialogTitle>
-            <DialogDescription className="sr-only">
-              修改这个会话在侧栏里的标题。
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void saveRename()
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="session-title">会话标题</Label>
-              <Input
-                id="session-title"
-                name="session-title"
-                value={draftTitle}
-                onChange={(event) => setDraftTitle(event.target.value)}
-                maxLength={100}
-                autoComplete="off"
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setRenaming(null)}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={rename.isPending}>
-                {rename.isPending ? "保存中…" : "保存"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog
-        open={Boolean(deleting)}
-        onOpenChange={(open) => {
-          if (!open) setDeleting(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>删除这个会话？</AlertDialogTitle>
-            <AlertDialogDescription>
-              「{deleting?.title || "新会话"}」的对话记录会被删除。题库中的题目和沙盒里的文件不受影响。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault()
-                void confirmDelete()
-              }}
-              disabled={remove.isPending}
-            >
-              {remove.isPending ? "删除中…" : "删除"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RenameSessionDialog
+        session={renaming}
+        onClose={() => setRenaming(null)}
+      />
+      <DeleteSessionDialog
+        session={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={handleDeleted}
+      />
     </div>
   )
 }

@@ -62,28 +62,37 @@ export function EChartsBlock({ code }: { code: string }) {
   useEffect(() => {
     if (!option) return
     let cancelled = false
-    void loadECharts().then(({ default: echarts }) => {
-      if (cancelled || !containerRef.current) return
-      try {
-        let chart = chartRef.current
-        if (!chart) {
-          chart = echarts.init(containerRef.current, "diagram", { renderer: "canvas" })
-          chartRef.current = chart
-          const observer = new ResizeObserver(() => {
-            window.requestAnimationFrame(() => chartRef.current?.resize())
-          })
-          observer.observe(containerRef.current)
-          observerRef.current = observer
+    void loadECharts()
+      .then(({ default: echarts }) => {
+        if (cancelled || !containerRef.current) return
+        try {
+          let chart = chartRef.current
+          if (!chart) {
+            chart = echarts.init(containerRef.current, "diagram", {
+              renderer: "canvas",
+            })
+            chartRef.current = chart
+            const observer = new ResizeObserver(() => {
+              window.requestAnimationFrame(() => chartRef.current?.resize())
+            })
+            observer.observe(containerRef.current)
+            observerRef.current = observer
+          }
+          chart.setOption(option, { notMerge: true })
+        } catch (error) {
+          console.error("ECharts 渲染失败", error)
+          chartRef.current?.dispose()
+          chartRef.current = null
+          setReason("图表配置无法渲染，已显示源码。")
+          setFailed(true)
         }
-        chart.setOption(option, { notMerge: true })
-      } catch (error) {
-        console.error("ECharts 渲染失败", error)
-        chartRef.current?.dispose()
-        chartRef.current = null
-        setReason("图表配置无法渲染，已显示源码。")
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error("ECharts 加载失败", error)
+        setReason("图表组件加载失败，请刷新页面后重试。")
         setFailed(true)
-      }
-    })
+      })
     return () => {
       cancelled = true
     }

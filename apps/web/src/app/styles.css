@@ -402,6 +402,11 @@ body,
 }
 
 /* assistant-ui thread spacing */
+.thread-message {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
 .thread-message + .thread-message {
   margin-top: 1.25rem;
 }

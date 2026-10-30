@@ -3,6 +3,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   notFound,
   Outlet,
   redirect,
@@ -15,26 +16,39 @@ import { ApiError } from "@/shared/api/client"
 import type { Mode, Session } from "@/shared/api/types"
 import { getSession } from "@/shared/auth/session"
 import { Button } from "@/shared/ui/button"
-import { LoginPage } from "@/features/auth"
 import {
-  agentForMode,
   ensureSessionThread,
+  isSessionForMode,
   sessionQueryOptions,
+  type SessionSearch,
 } from "@/features/sessions"
 
 import { queryClient } from "./query-client"
-import { ChapterHomePage } from "@/widgets/mode-shell/ChapterHomePage"
-import { LabHomePage } from "@/widgets/mode-shell/LabHomePage"
-import { ModeShell } from "@/widgets/mode-shell/ModeShell"
-import {
-  SessionError,
-  SessionPage,
-  type SessionSearch,
-} from "@/widgets/mode-shell/SessionPage"
 
 function RootLayout() {
   return <Outlet />
 }
+
+// 路由级拆包：登录页不再预加载工作台、聊天和题库代码。
+const LoginPage = lazyRouteComponent(
+  () => import("@/features/auth/LoginPage"),
+  "LoginPage",
+)
+const ModeShell = lazyRouteComponent(
+  () => import("@/widgets/mode-shell/ModeShell"),
+  "ModeShell",
+)
+const ChapterHomePage = lazyRouteComponent(
+  () => import("@/widgets/mode-shell/ChapterHomePage"),
+  "ChapterHomePage",
+)
+const LabHomePage = lazyRouteComponent(
+  () => import("@/widgets/mode-shell/LabHomePage"),
+  "LabHomePage",
+)
+const sessionPageModule = () => import("@/widgets/mode-shell/SessionPage")
+const SessionPage = lazyRouteComponent(sessionPageModule, "SessionPage")
+const SessionError = lazyRouteComponent(sessionPageModule, "SessionError")
 
 function RoutePending() {
   return (
@@ -141,7 +155,7 @@ async function loadSession(mode: Mode, sessionId: string): Promise<{ session: Se
     throw error
   }
 
-  if (session.agent_id !== agentForMode(mode)) {
+  if (!isSessionForMode(session, mode)) {
     if (mode === "learn") {
       throw redirect({
         to: "/lab/$sessionId",
@@ -188,12 +202,18 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   validateSearch: validateLoginSearch,
+  beforeLoad: async () => {
+    await LoginPage.preload?.()
+  },
   component: LoginPage,
 })
 
 const learnLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/learn",
+  beforeLoad: async () => {
+    await ModeShell.preload?.()
+  },
   component: () => <ModeShell mode="learn" />,
 })
 
@@ -201,6 +221,9 @@ const learnIndexRoute = createRoute({
   getParentRoute: () => learnLayoutRoute,
   path: "/",
   validateSearch: validateSessionSearch,
+  beforeLoad: async () => {
+    await ChapterHomePage.preload?.()
+  },
   component: () => <ChapterHomePage />,
 })
 
@@ -208,7 +231,13 @@ const learnSessionRoute = createRoute({
   getParentRoute: () => learnLayoutRoute,
   path: "$sessionId",
   validateSearch: validateSessionSearch,
-  loader: ({ params }) => loadSession("learn", params.sessionId),
+  loader: async ({ params }) => {
+    await Promise.all([
+      SessionPage.preload?.(),
+      SessionError.preload?.(),
+    ])
+    return loadSession("learn", params.sessionId)
+  },
   component: LearnSessionRoute,
   errorComponent: SessionRouteError,
   pendingComponent: RoutePending,
@@ -222,6 +251,9 @@ function LearnSessionRoute() {
 const labLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/lab",
+  beforeLoad: async () => {
+    await ModeShell.preload?.()
+  },
   component: () => <ModeShell mode="lab" />,
 })
 
@@ -229,6 +261,9 @@ const labIndexRoute = createRoute({
   getParentRoute: () => labLayoutRoute,
   path: "/",
   validateSearch: validateSessionSearch,
+  beforeLoad: async () => {
+    await LabHomePage.preload?.()
+  },
   component: () => <LabHomePage />,
 })
 
@@ -236,7 +271,13 @@ const labSessionRoute = createRoute({
   getParentRoute: () => labLayoutRoute,
   path: "$sessionId",
   validateSearch: validateSessionSearch,
-  loader: ({ params }) => loadSession("lab", params.sessionId),
+  loader: async ({ params }) => {
+    await Promise.all([
+      SessionPage.preload?.(),
+      SessionError.preload?.(),
+    ])
+    return loadSession("lab", params.sessionId)
+  },
   component: LabSessionRoute,
   errorComponent: SessionRouteError,
   pendingComponent: RoutePending,

@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
-import { ApiError } from "@/shared/api/client"
+import { humanizeApiError } from "@/shared/api/errors"
 import { cn, formatSize } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
 import {
@@ -20,12 +20,9 @@ import {
 import type { MemoryTreeNode } from "../model/tree"
 
 function treeErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 503) return "记忆服务暂不可用"
-    return error.message
-  }
-  if (error instanceof TypeError) return "无法连接服务器，请确认服务已启动"
-  return "读取记忆目录失败"
+  return humanizeApiError(error, "读取记忆目录失败", {
+    503: "记忆服务暂不可用",
+  })
 }
 
 export function MemoryTree({

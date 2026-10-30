@@ -117,7 +117,7 @@ export function QuestionDetailDialog({
         <DialogContent className="max-w-2xl">
           {detailQuery.isPending && <DetailLoading />}
 
-          {detailQuery.isError && (
+          {detailQuery.isError && !question && (
             <DetailError
               error={detailQuery.error}
               onClose={onClose}

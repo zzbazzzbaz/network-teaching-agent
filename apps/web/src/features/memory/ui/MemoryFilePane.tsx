@@ -1,7 +1,7 @@
 import { AlertCircle, ArrowLeft, Loader2, RefreshCw } from "lucide-react"
 
 import { ApiError } from "@/shared/api/client"
-import { StaticMarkdown } from "@/features/chat"
+import { StaticMarkdown } from "@/features/chat/ui/markdown"
 import { cn, formatDateTime, formatSize } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
 
@@ -72,7 +72,8 @@ export function MemoryFilePane({
   const fileQuery = useMemoryFile(path)
   const file = fileQuery.data
   const name = file?.name ?? path.split("/").at(-1) ?? path
-  const errorCopy = fileQuery.isError ? fileErrorCopy(fileQuery.error) : null
+  const errorCopy =
+    fileQuery.isError && !file ? fileErrorCopy(fileQuery.error) : null
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-surface">

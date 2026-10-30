@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Loader2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
 import { LayerMark, Wordmark } from "@/shared/ui/brand"
@@ -8,7 +8,7 @@ import { LayerDiagram } from "@/shared/ui/layer-diagram"
 import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"
 import { Label } from "@/shared/ui/label"
-import { ApiError } from "@/shared/api/client"
+import { humanizeApiError } from "@/shared/api/errors"
 import { cn } from "@/shared/lib/utils"
 
 import { useAuth } from "./AuthProvider"
@@ -43,12 +43,9 @@ function LoginBrand({
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 401) return "账号或密码不正确"
-    return error.message
-  }
-  if (error instanceof TypeError) return "无法连接服务器，请确认服务已启动"
-  return "登录失败，请稍后重试"
+  return humanizeApiError(error, "登录失败，请稍后重试", {
+    401: "账号或密码不正确",
+  })
 }
 
 export function LoginPage() {
@@ -60,28 +57,6 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const html = document.documentElement
-    const body = document.body
-    const previousHtmlOverflow = html.style.overflow
-    const previousBodyOverflow = body.style.overflow
-
-    html.style.overflow = "hidden"
-    body.style.overflow = "hidden"
-
-    const preventWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return
-      event.preventDefault()
-    }
-    window.addEventListener("wheel", preventWheel, { passive: false })
-
-    return () => {
-      html.style.overflow = previousHtmlOverflow
-      body.style.overflow = previousBodyOverflow
-      window.removeEventListener("wheel", preventWheel)
-    }
-  }, [])
 
   async function submit() {
     if (submitting) return
@@ -118,8 +93,8 @@ export function LoginPage() {
   }
 
   return (
-    <div className="h-dvh overflow-hidden overscroll-none bg-surface">
-      <div className="grid h-full lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+    <div className="min-h-dvh overflow-x-hidden bg-surface">
+      <div className="grid min-h-dvh lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
         <aside className="relative hidden flex-col overflow-hidden bg-ink px-12 py-10 lg:flex xl:px-16">
           <div
             className="login-grid pointer-events-none absolute inset-0"
@@ -154,7 +129,7 @@ export function LoginPage() {
 
         <main
           id="main"
-          className="flex h-full min-h-0 flex-col justify-center overflow-hidden px-6 py-6 lg:px-12 lg:py-10 xl:px-16"
+          className="flex min-h-dvh flex-col justify-center px-6 py-6 lg:px-12 lg:py-10 xl:px-16"
         >
           <div className="mx-auto w-full max-w-[342px]">
             <LoginBrand className="mb-10 lg:hidden" />

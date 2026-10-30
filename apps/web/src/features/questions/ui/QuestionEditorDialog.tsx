@@ -1,4 +1,3 @@
-import { ChevronDown, Plus, X } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -8,7 +7,6 @@ import type {
   QuestionInput,
   QuestionType,
 } from "@/shared/api/types"
-import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
 import {
   Dialog,
@@ -18,24 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog"
-import { Input } from "@/shared/ui/input"
-import { Label } from "@/shared/ui/label"
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select"
-import { Textarea } from "@/shared/ui/textarea"
 
 import {
   LETTERS,
   MAX_OPTIONS,
   MIN_OPTIONS,
-  REFERENCE_MAX_LENGTH,
-  STEM_MAX_LENGTH,
   questionErrorMessage,
   validateQuestionDraft,
   type QuestionEditorDraft,
@@ -46,12 +31,13 @@ import {
   useCreateQuestion,
   useUpdateQuestion,
 } from "../queries"
-import { KnowledgePointTree } from "./KnowledgePointTree"
-
-const TYPE_CHOICES = [
-  { id: "single_choice", label: "单选" },
-  { id: "short_answer", label: "简答" },
-] as const satisfies readonly { id: QuestionType; label: string }[]
+import {
+  QuestionKnowledgePointField,
+  QuestionOptionsField,
+  QuestionReferenceField,
+  QuestionStemField,
+  QuestionTypeField,
+} from "./QuestionFormFields"
 
 const ERROR_FIELD_ORDER: readonly QuestionEditorField[] = [
   "stem",
@@ -87,7 +73,7 @@ export function QuestionEditorDialog({
   question: QuestionDetail | null
   defaultKnowledgePointId?: string
   onClose: () => void
-  onSaved: (questionId: string, created: boolean) => void
+  onSaved?: (questionId: string, created: boolean) => void
   onSubmit?: (input: QuestionInput) => Promise<void> | void
   initialCorrectOption?: string | null
 }) {
@@ -117,7 +103,6 @@ export function QuestionEditorDialog({
   )
   const [errors, setErrors] = useState<QuestionEditorErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [knowledgePointOpen, setKnowledgePointOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const knowledgePointsQuery = useKnowledgePoints()
@@ -126,9 +111,6 @@ export function QuestionEditorDialog({
   const pending =
     createQuestion.isPending || updateQuestion.isPending || submitting
   const nodes = knowledgePointsQuery.data?.nodes ?? []
-  const selectedKnowledgePoint = nodes.find(
-    (node) => node.id === primaryKnowledgePointId,
-  )
   const secondaryKnowledgePointIds =
     question?.secondary_knowledge_points.map((point) => point.id) ?? []
 
@@ -178,9 +160,7 @@ export function QuestionEditorDialog({
     clearError("correctOption")
   }
 
-  function selectCorrectOption(letter: string) {
-    const index = LETTERS.findIndex((item) => item === letter)
-    if (index < 0) return
+  function selectCorrectIndex(index: number) {
     setCorrectIndex(index)
     clearError("correctOption")
   }
@@ -234,11 +214,11 @@ export function QuestionEditorDialog({
           input: payload,
         })
         toast("题目已更新")
-        onSaved(question.question_id, false)
+        onSaved?.(question.question_id, false)
       } else {
         const created = await createQuestion.mutateAsync(payload)
         toast("已保存到我的题库")
-        onSaved(created.question_id, true)
+        onSaved?.(created.question_id, true)
       }
     } catch (error) {
       setSubmitError(
@@ -276,270 +256,52 @@ export function QuestionEditorDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>题型</Label>
-            <div
-              role="group"
-              aria-label="题型"
-              className="grid grid-cols-2 gap-0.5 rounded-md bg-surface-3 p-0.5"
-            >
-              {TYPE_CHOICES.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-pressed={questionType === item.id}
-                  onClick={() => changeType(item.id)}
-                  className={cn(
-                    "h-9 rounded-sm border text-[12.5px] font-medium transition-colors sm:h-8",
-                    questionType === item.id
-                      ? "border-line bg-surface text-ink"
-                      : "border-transparent text-ink-muted hover:text-ink",
-                  )}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <QuestionTypeField value={questionType} onChange={changeType} />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="question-stem">题干</Label>
-            <Textarea
-              id="question-stem"
-              name="stem"
-              value={stem}
-              onChange={(event) => {
-                setStem(event.target.value)
-                clearError("stem")
-              }}
-              rows={3}
-              maxLength={STEM_MAX_LENGTH}
-              placeholder="用一句话描述问题…"
-              autoComplete="off"
-              aria-invalid={Boolean(errors.stem)}
-              aria-describedby={errors.stem ? "question-stem-error" : undefined}
-              className="min-h-24 text-[16px] sm:text-[14px]"
-            />
-            {errors.stem && (
-              <p
-                id="question-stem-error"
-                role="alert"
-                className="text-[12px] text-danger"
-              >
-                {errors.stem}
-              </p>
-            )}
-          </div>
+          <QuestionStemField
+            value={stem}
+            onChange={(value) => {
+              setStem(value)
+              clearError("stem")
+            }}
+            error={errors.stem}
+          />
 
           {questionType === "single_choice" && (
-            <>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <Label>选项</Label>
-                  <span className="text-[10.5px] text-ink-muted">
-                    字母会自动添加
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {optionTexts.map((option, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <span className="w-4 shrink-0 font-mono text-[11px] text-ink-muted">
-                        {LETTERS[index]}
-                      </span>
-                      <Input
-                        id={`question-option-${index}`}
-                        value={option}
-                        onChange={(event) =>
-                          changeOption(index, event.target.value)
-                        }
-                        placeholder={`选项 ${LETTERS[index]}`}
-                        aria-label={`选项 ${LETTERS[index]}`}
-                        aria-invalid={Boolean(errors.options)}
-                        aria-describedby={
-                          errors.options ? "question-options-error" : undefined
-                        }
-                        name={`option-${index}`}
-                        autoComplete="off"
-                        spellCheck={false}
-                        className="h-10 text-[16px] sm:h-9 sm:text-[14px]"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`删除选项 ${LETTERS[index]}`}
-                        disabled={optionTexts.length <= MIN_OPTIONS}
-                        onClick={() => removeOption(index)}
-                      >
-                        <X className="size-3.5" aria-hidden="true" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                {optionTexts.length < MAX_OPTIONS && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1 px-1 text-[12px]"
-                    onClick={addOption}
-                  >
-                    <Plus className="size-3.5" aria-hidden="true" />
-                    添加选项
-                  </Button>
-                )}
-                {errors.options && (
-                  <p
-                    id="question-options-error"
-                    role="alert"
-                    className="text-[12px] text-danger"
-                  >
-                    {errors.options}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="correct-option">正确答案</Label>
-                <Select
-                  value={
-                    correctIndex >= 0 ? LETTERS[correctIndex] : undefined
-                  }
-                  onValueChange={selectCorrectOption}
-                >
-                  <SelectTrigger
-                    id="correct-option"
-                    aria-describedby={
-                      errors.correctOption
-                        ? "question-correct-option-error"
-                        : undefined
-                    }
-                    className="w-28"
-                  >
-                    <SelectValue placeholder="选择" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {optionTexts.map((_, index) => (
-                      <SelectItem key={LETTERS[index]} value={LETTERS[index]}>
-                        {LETTERS[index]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.correctOption && (
-                  <p
-                    id="question-correct-option-error"
-                    role="alert"
-                    className="text-[12px] text-danger"
-                  >
-                    {errors.correctOption}
-                  </p>
-                )}
-              </div>
-            </>
+            <QuestionOptionsField
+              optionTexts={optionTexts}
+              correctIndex={correctIndex}
+              optionsError={errors.options}
+              correctError={errors.correctOption}
+              onOptionChange={changeOption}
+              onAdd={addOption}
+              onRemove={removeOption}
+              onCorrectChange={selectCorrectIndex}
+            />
           )}
 
           {questionType === "short_answer" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="reference-answer">参考答案</Label>
-              <Textarea
-                id="reference-answer"
-                name="reference-answer"
-                value={referenceAnswer}
-                onChange={(event) => {
-                  setReferenceAnswer(event.target.value)
-                  clearError("referenceAnswer")
-                }}
-                rows={4}
-                maxLength={REFERENCE_MAX_LENGTH}
-                placeholder="可以留空，之后在对话里补充。"
-                autoComplete="off"
-                aria-invalid={Boolean(errors.referenceAnswer)}
-                aria-describedby={
-                  errors.referenceAnswer ? "reference-answer-error" : undefined
-                }
-                className="text-[16px] sm:text-[14px]"
-              />
-              {errors.referenceAnswer && (
-                <p
-                  id="reference-answer-error"
-                  role="alert"
-                  className="text-[12px] text-danger"
-                >
-                  {errors.referenceAnswer}
-                </p>
-              )}
-            </div>
+            <QuestionReferenceField
+              value={referenceAnswer}
+              onChange={(value) => {
+                setReferenceAnswer(value)
+                clearError("referenceAnswer")
+              }}
+              error={errors.referenceAnswer}
+            />
           )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="question-primary-kp">主知识点</Label>
-            <Popover
-              open={knowledgePointOpen}
-              onOpenChange={setKnowledgePointOpen}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  id="question-primary-kp"
-                  disabled={
-                    knowledgePointsQuery.isPending || knowledgePointsQuery.isError
-                  }
-                  aria-describedby={
-                    errors.primaryKnowledgePointId
-                      ? "question-primary-kp-error"
-                      : undefined
-                  }
-                  className={cn(
-                    "h-10 w-full justify-between gap-1.5 px-3 text-[13px] font-normal sm:h-9",
-                    selectedKnowledgePoint ? "text-ink" : "text-ink-muted",
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate">
-                      {selectedKnowledgePoint
-                        ? `${selectedKnowledgePoint.id} ${selectedKnowledgePoint.title}`
-                        : knowledgePointsQuery.isPending
-                          ? "正在加载知识点…"
-                          : "选择主知识点"}
-                    </span>
-                  </span>
-                  <ChevronDown
-                    className="size-3.5 shrink-0 text-ink-muted"
-                    aria-hidden="true"
-                  />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-[360px] p-1.5">
-                <div className="scroll-slim max-h-72 overflow-y-auto">
-                  <KnowledgePointTree
-                    nodes={nodes}
-                    value={primaryKnowledgePointId || undefined}
-                    onSelect={(id) => {
-                      setPrimaryKnowledgePointId(id)
-                      clearError("primaryKnowledgePointId")
-                      setKnowledgePointOpen(false)
-                    }}
-                  />
-                </div>
-              </PopoverContent>
-            </Popover>
-            {knowledgePointsQuery.isError && (
-              <p role="alert" className="text-[12px] text-danger">
-                知识点目录加载失败，请关闭后重试。
-              </p>
-            )}
-            {errors.primaryKnowledgePointId && (
-              <p
-                id="question-primary-kp-error"
-                role="alert"
-                className="text-[12px] text-danger"
-              >
-                {errors.primaryKnowledgePointId}
-              </p>
-            )}
-          </div>
+          <QuestionKnowledgePointField
+            nodes={nodes}
+            value={primaryKnowledgePointId}
+            isPending={knowledgePointsQuery.isPending}
+            isError={knowledgePointsQuery.isError}
+            error={errors.primaryKnowledgePointId}
+            onSelect={(id) => {
+              setPrimaryKnowledgePointId(id)
+              clearError("primaryKnowledgePointId")
+            }}
+          />
 
           {submitError && (
             <p

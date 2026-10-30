@@ -10,17 +10,15 @@ export {
 export {
   DEFAULT_SESSION_TITLE,
   MODES,
-  agentForMode,
   isSessionForMode,
   modeForAgent,
-  modeFromPath,
   panelLabel,
   type PanelId,
+  type SessionSearch,
 } from "./model"
 export {
   sessionKeys,
   sessionQueryOptions,
-  sessionsQueryOptions,
   useCreateSession,
   useDeleteSession,
   useRenameSession,

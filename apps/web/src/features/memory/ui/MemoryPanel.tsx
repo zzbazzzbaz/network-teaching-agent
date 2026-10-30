@@ -15,7 +15,10 @@ import { MemoryTree } from "./MemoryTree"
 
 export interface MemoryPanelProps {
   path?: string
-  onPathChange: (path: string | undefined) => void
+  onPathChange: (
+    path: string | undefined,
+    options?: { replace?: boolean },
+  ) => void
 }
 
 export function MemoryPanel({ path, onPathChange }: MemoryPanelProps) {
@@ -39,7 +42,8 @@ export function MemoryPanel({ path, onPathChange }: MemoryPanelProps) {
 
   useEffect(() => {
     if (!isWide || filePath || !defaultPath) return
-    onPathChange(defaultPath)
+    // 自动选中默认文件只替换当前历史记录，避免浏览器后退再次触发自动选中。
+    onPathChange(defaultPath, { replace: true })
   }, [defaultPath, filePath, isWide, onPathChange])
 
   function backToTree() {
@@ -75,7 +79,11 @@ export function MemoryPanel({ path, onPathChange }: MemoryPanelProps) {
 
             {showFile ? (
               filePath ? (
-                <MemoryFilePane path={filePath} onBack={backToTree} />
+                <MemoryFilePane
+                  key={filePath}
+                  path={filePath}
+                  onBack={backToTree}
+                />
               ) : (
                 <FilePlaceholder />
               )

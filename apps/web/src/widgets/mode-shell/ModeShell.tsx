@@ -3,6 +3,7 @@ import { Outlet } from "@tanstack/react-router"
 
 import type { Mode } from "@/shared/api/types"
 import { useMediaQuery } from "@/shared/lib/hooks"
+import { readStorage, writeStorage } from "@/shared/lib/storage"
 import { cn } from "@/shared/lib/utils"
 import {
   Sheet,
@@ -16,10 +17,9 @@ import { ModeSidebar } from "./ModeSidebar"
 
 export function ModeShell({ mode }: { mode: Mode }) {
   const [navOpen, setNavOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false
-    return window.localStorage.getItem("link.sidebar") === "collapsed"
-  })
+  const [collapsed, setCollapsed] = useState(
+    () => readStorage("link.sidebar") === "collapsed",
+  )
   const isWide = useMediaQuery("(min-width: 1024px)")
 
   useEffect(() => {
@@ -27,10 +27,7 @@ export function ModeShell({ mode }: { mode: Mode }) {
   }, [isWide])
 
   useEffect(() => {
-    window.localStorage.setItem(
-      "link.sidebar",
-      collapsed ? "collapsed" : "expanded",
-    )
+    writeStorage("link.sidebar", collapsed ? "collapsed" : "expanded")
   }, [collapsed])
 
   return (
@@ -38,7 +35,6 @@ export function ModeShell({ mode }: { mode: Mode }) {
       value={{
         mode,
         openNav: () => setNavOpen(true),
-        closeNav: () => setNavOpen(false),
       }}
     >
       <div className="min-h-dvh bg-surface">

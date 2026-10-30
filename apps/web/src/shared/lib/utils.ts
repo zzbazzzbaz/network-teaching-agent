@@ -44,12 +44,3 @@ export function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   return `${(bytes / 1024).toFixed(1)} KB`
 }
-
-export function greeting(date = new Date()) {
-  const hour = date.getHours()
-  if (hour < 5) return "夜深了"
-  if (hour < 11) return "早上好"
-  if (hour < 13) return "中午好"
-  if (hour < 18) return "下午好"
-  return "晚上好"
-}

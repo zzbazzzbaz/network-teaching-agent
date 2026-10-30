@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import type { AIMessage, ToolMessage } from "@langchain/core/messages"
 
 import type { ChatStream } from "./useChatSession"
@@ -26,4 +27,25 @@ export function pendingInterrupt(stream: ChatStream) {
   )
 
   return waiting ? stream.interrupt : undefined
+}
+
+/**
+ * 只依赖会影响 pending 判断的字段，避免每个流式 token 都重新扫描全部消息。
+ */
+export function pendingInterruptSignature(stream: ChatStream): string {
+  const messages = stream.messages
+  const last = messages.at(-1)
+  const lastType = last?.getType() ?? ""
+  const toolIds =
+    lastType === "ai"
+      ? ((last as AIMessage).tool_calls ?? [])
+          .map((call) => call.id ?? "")
+          .join(",")
+      : ""
+  return `${stream.interrupt?.id ?? ""}|${stream.interrupt ? 1 : 0}|${messages.length}|${lastType}|${toolIds}`
+}
+
+export function usePendingInterrupt(stream: ChatStream) {
+  const signature = pendingInterruptSignature(stream)
+  return useMemo(() => pendingInterrupt(stream), [signature])
 }

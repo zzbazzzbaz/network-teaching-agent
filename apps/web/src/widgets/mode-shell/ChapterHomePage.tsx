@@ -14,12 +14,11 @@ import {
   type CourseTarget,
 } from "@/features/course"
 import { questionStarter } from "@/features/questions/model"
-import { MODES } from "@/features/sessions"
+import { MODES, type SessionSearch } from "@/features/sessions"
 import { cn } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
 import { workspaceContentClass } from "@/shared/ui/workspace-header"
 
-import type { SessionSearch } from "./SessionPage"
 import { WorkspaceBar } from "./WorkspaceBar"
 import { WorkspacePanelPage } from "./WorkspacePanelPage"
 
@@ -121,19 +120,28 @@ export function ChapterHomePage() {
   const search = useSearch({ strict: false }) as SessionSearch
   const panel = MODES.learn.panels.find((item) => item.id === search.panel)?.id
 
-  if (panel) {
-    return <WorkspacePanelPage mode="learn" panel={panel} search={search} />
-  }
-  return <ChapterEntry questionId={search.question} />
+  return (
+    <>
+      <div
+        className={cn(panel && "hidden")}
+        aria-hidden={panel ? true : undefined}
+      >
+        <ChapterEntry questionId={search.question} />
+      </div>
+      {panel ? (
+        <WorkspacePanelPage mode="learn" panel={panel} search={search} />
+      ) : null}
+    </>
+  )
 }
 
 function DraftQuestionPrefill({ questionId }: { questionId?: string }) {
   const aui = useAui()
-  const appliedRef = useRef(false)
+  const appliedRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    if (appliedRef.current || !questionId) return
-    appliedRef.current = true
+    if (!questionId || appliedRef.current === questionId) return
+    appliedRef.current = questionId
     aui.thread.composer().setText(questionStarter(questionId))
     window.setTimeout(() => {
       document.getElementById("composer")?.focus()

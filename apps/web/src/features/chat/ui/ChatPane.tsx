@@ -8,7 +8,7 @@ import { workspaceContentClass } from "@/shared/ui/workspace-header"
 import { cn } from "@/shared/lib/utils"
 
 import { ChatRuntime } from "../model/ChatRuntime"
-import { pendingInterrupt } from "../model/interrupt"
+import { usePendingInterrupt } from "../model/interrupt"
 import { STARTERS } from "../model/starters"
 import type { ChatStream } from "../model/useChatSession"
 import { Composer } from "./Composer"
@@ -83,7 +83,7 @@ function ChatSurface({
   stream: ChatStream
 }) {
   const empty = useAuiState((state) => state.thread.isEmpty)
-  const pending = pendingInterrupt(stream)
+  const pending = usePendingInterrupt(stream)
   const pendingRef = useRef<HTMLDivElement>(null)
   const pendingKey = pending?.id ?? (pending ? "ask-student" : undefined)
 

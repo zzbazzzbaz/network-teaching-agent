@@ -170,7 +170,10 @@ async function parseErrorDetail(response: Response): Promise<{ message: string; 
   return { message: `请求失败（HTTP ${response.status}）`, detail: undefined }
 }
 
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function performRequest(
+  path: string,
+  options: RequestOptions = {},
+): Promise<Response> {
   const { method = "GET", body, auth = true, signal } = options
   const url = `${API_BASE}${path}`
 
@@ -185,7 +188,6 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   }
 
   const response = auth ? await authedFetch(url, init) : await fetch(url, init)
-
   if (!response.ok) {
     if (auth && response.status === 401) {
       notifyUnauthorized()
@@ -194,44 +196,26 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     const { message, detail } = await parseErrorDetail(response)
     throw new ApiError(response.status, message, detail)
   }
+  return response
+}
 
-  if (response.status === 204) {
-    return undefined as T
-  }
+export async function apiFetch<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  const response = await performRequest(path, options)
+  if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
 
-/** 删除等接口可能返回 202 + JSON，也可能返回 204。 */
+/** 删除等接口可能返回 204，也可能返回 202 + JSON。 */
 export async function apiFetchMaybeJson<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T | undefined> {
-  const { method = "GET", body, auth = true, signal } = options
-  const url = `${API_BASE}${path}`
-  const headers = new Headers()
-  if (body !== undefined) headers.set("Content-Type", "application/json")
-  const response = auth
-    ? await authedFetch(url, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal,
-      })
-    : await fetch(url, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal,
-      })
-
-  if (!response.ok) {
-    if (auth && response.status === 401) {
-      notifyUnauthorized()
-      throw new ApiError(401, "登录已失效，请重新登录")
-    }
-    const { message, detail } = await parseErrorDetail(response)
-    throw new ApiError(response.status, message, detail)
-  }
+  const response = await performRequest(path, options)
   if (response.status === 204) return undefined
-  return (await response.json()) as T
+  const text = await response.text()
+  if (!text) return undefined
+  return JSON.parse(text) as T
 }

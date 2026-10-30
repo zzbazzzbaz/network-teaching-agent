@@ -17,20 +17,40 @@ export function usePendingStarter(
     pendingRef.current = peekPendingMessage(sessionId) ?? null
   }
   const submittedRef = useRef(false)
+  const inFlightRef = useRef(false)
   const { error, isThreadLoading, messages, submit } = stream
 
   useEffect(() => {
     const pending = pendingRef.current
-    if (!pending || submittedRef.current) return
-    if (isThreadLoading) return
+    if (!pending || submittedRef.current || isThreadLoading || inFlightRef.current) {
+      return
+    }
 
-    submittedRef.current = true
-    pendingRef.current = null
-    clearPendingMessage(sessionId)
+    // 会话已经有历史消息，草稿消息不应再插入，直接丢弃。
+    if (messages.length > 0) {
+      pendingRef.current = null
+      submittedRef.current = true
+      clearPendingMessage(sessionId)
+      return
+    }
 
-    if (error || messages.length > 0) return
+    // thread 加载失败时保留 pending，等用户重试或刷新后继续发送。
+    if (error) return
+
+    inFlightRef.current = true
     void submit({
       messages: [buildHumanMessage(pending.text, pending.attachments)],
     })
+      .then(() => {
+        pendingRef.current = null
+        submittedRef.current = true
+        clearPendingMessage(sessionId)
+      })
+      .catch(() => {
+        // 发送失败保留 pending，避免首条消息静默丢失。
+      })
+      .finally(() => {
+        inFlightRef.current = false
+      })
   }, [error, isThreadLoading, messages.length, sessionId, submit])
 }

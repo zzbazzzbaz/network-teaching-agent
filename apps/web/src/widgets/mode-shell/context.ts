@@ -5,7 +5,6 @@ import type { Mode } from "@/shared/api/types"
 export const ShellContext = createContext<{
   mode: Mode
   openNav: () => void
-  closeNav: () => void
 } | null>(null)
 
 export function useShell() {

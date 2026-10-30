@@ -1,38 +1,27 @@
 import { lazy, Suspense, useEffect } from "react"
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { useSearch } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 
 import type { Mode } from "@/shared/api/types"
 import {
+  DEFAULT_SESSION_TITLE,
   MODES,
   panelLabel,
   sessionQueryOptions,
   touchSession,
+  type SessionSearch,
 } from "@/features/sessions"
 import { Button } from "@/shared/ui/button"
 import { cn } from "@/shared/lib/utils"
 
 import { WorkspaceBar } from "./WorkspaceBar"
 import { WorkspacePanel } from "./WorkspacePanel"
+import { WorkspacePending } from "./WorkspacePending"
+import { useWorkspaceNavigation } from "./useWorkspaceNavigation"
 
 const ChatPane = lazy(() =>
   import("@/features/chat").then((module) => ({ default: module.ChatPane })),
 )
-
-function PanelPending() {
-  return (
-    <div className="flex min-h-0 flex-1 items-center justify-center bg-surface">
-      <span className="size-5 animate-spin rounded-full border-2 border-line-strong border-t-link" />
-    </div>
-  )
-}
-
-export type SessionSearch = {
-  panel?: "questions" | "memory" | "sandbox"
-  question?: string
-  kp?: string
-  path?: string
-}
 
 export function SessionPage({
   mode,
@@ -41,7 +30,6 @@ export function SessionPage({
   mode: Mode
   sessionId: string
 }) {
-  const navigate = useNavigate()
   const search = useSearch({ strict: false }) as SessionSearch
   const sessionQuery = useQuery(sessionQueryOptions(sessionId))
   const session = sessionQuery.data
@@ -49,6 +37,13 @@ export function SessionPage({
   useEffect(() => {
     void touchSession(sessionId).catch(() => undefined)
   }, [sessionId])
+
+  const {
+    closePanel,
+    selectQuestion,
+    selectKnowledgePoint,
+    selectMemoryPath,
+  } = useWorkspaceNavigation({ mode, sessionId, search })
 
   if (!session) {
     return (
@@ -68,68 +63,38 @@ export function SessionPage({
   const panel = allowedPanels.find((item) => item.id === search.panel)?.id
   const panelTitle = panelLabel(mode, panel)
 
-  function updateSearch(next: SessionSearch, replace = false) {
-    if (mode === "learn") {
-      void navigate({
-        to: "/learn/$sessionId",
-        params: { sessionId },
-        search: next,
-        replace,
-      })
-    } else {
-      void navigate({
-        to: "/lab/$sessionId",
-        params: { sessionId },
-        search: next,
-        replace,
-      })
-    }
-  }
-
-  function closePanel() {
-    updateSearch({})
-  }
-
-  function selectQuestion(questionId: string | undefined) {
-    updateSearch({
-      panel: "questions",
-      kp: search.kp,
-      question: questionId,
-    })
-  }
-
-  function selectKnowledgePoint(
-    knowledgePointId: string | undefined,
-    options?: { replace?: boolean },
-  ) {
-    updateSearch(
-      knowledgePointId
-        ? { panel: "questions", kp: knowledgePointId }
-        : { panel: "questions" },
-      options?.replace,
-    )
-  }
-
-  function selectMemoryPath(path: string | undefined) {
-    updateSearch(path ? { panel: "memory", path } : { panel: "memory" })
-  }
-
   return (
     <div className="flex h-dvh flex-col">
       <WorkspaceBar
         title={
           panelTitle
-            ? `${panelTitle} · ${session.title || "新会话"}`
-            : session.title || "新会话"
+            ? `${panelTitle} · ${session.title || DEFAULT_SESSION_TITLE}`
+            : session.title || DEFAULT_SESSION_TITLE
         }
         onBack={panel ? closePanel : undefined}
       />
 
       <main id="main" className="flex min-h-0 flex-1 flex-col">
-        <h1 className="sr-only">{session.title || "新会话"}</h1>
+        <h1 className="sr-only">{session.title || DEFAULT_SESSION_TITLE}</h1>
 
-        <Suspense fallback={<PanelPending />}>
-          {panel ? (
+        <Suspense fallback={<WorkspacePending />}>
+          {/* 面板打开时保持聊天挂载：流式回答、输入内容和附件预览不被卸载。 */}
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 flex-col",
+              panel && "hidden",
+            )}
+            aria-hidden={panel ? true : undefined}
+          >
+            <ChatPane
+              key={session.session_id}
+              session={session}
+              mode={mode}
+            />
+          </div>
+        </Suspense>
+        {panel ? (
+          <Suspense fallback={<WorkspacePending />}>
             <WorkspacePanel
               panel={panel}
               selectedQuestionId={search.question}
@@ -139,14 +104,8 @@ export function SessionPage({
               onSelectKnowledgePoint={selectKnowledgePoint}
               onSelectMemoryPath={selectMemoryPath}
             />
-          ) : (
-            <ChatPane
-              key={session.session_id}
-              session={session}
-              mode={mode}
-            />
-          )}
-        </Suspense>
+          </Suspense>
+        ) : null}
       </main>
     </div>
   )

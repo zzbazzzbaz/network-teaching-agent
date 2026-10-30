@@ -1,9 +1,10 @@
 import { Clock, Eye } from "lucide-react"
+import { memo } from "react"
 
 import type { QuestionSummary } from "@/shared/api/types"
 import { formatDate } from "@/shared/lib/utils"
 
-export function QuestionCard({
+export const QuestionCard = memo(function QuestionCard({
   question,
   onOpen,
 }: {
@@ -51,4 +52,4 @@ export function QuestionCard({
       </div>
     </button>
   )
-}
+})

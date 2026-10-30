@@ -1,193 +1,21 @@
-import { Pencil, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { z } from "zod"
 
 import { useKnowledgePoints } from "@/features/course"
-import {
-  LETTERS,
-  typeLabel,
-  validateQuestionDraft,
-  type QuestionEditorDraft,
-} from "@/features/questions/model"
 import { QuestionEditorDialog } from "@/features/questions/ui/QuestionEditorDialog"
-import type {
-  QuestionDetail,
-  QuestionInput,
-} from "@/shared/api/types"
-import { cn } from "@/shared/lib/utils"
+import type { QuestionDetail, QuestionInput } from "@/shared/api/types"
 import { Badge } from "@/shared/ui/badge"
 import { Button } from "@/shared/ui/button"
 
+import {
+  firstError,
+  fromQuestionInput,
+  parseImportPayload,
+  toAgentQuestion,
+  validateImports,
+  type ImportDraft,
+} from "../model/question-import"
 import type { ChatStream } from "../model/useChatSession"
-
-const draftSchema = z.object({
-  mode: z.enum(["single_choice", "short_answer"]),
-  stem: z.string().min(1).max(4000),
-  options: z.array(z.string()).nullable().optional(),
-  correct_option: z.string().nullable().optional(),
-  reference_answer: z.string().nullable().optional(),
-  primary_knowledge_point_id: z.string().min(1).max(16),
-  secondary_knowledge_point_ids: z.array(z.string()).max(3).default([]),
-})
-
-const payloadSchema = z.object({
-  type: z.literal("question_import"),
-  questions: z.array(draftSchema).min(1).max(5),
-})
-
-type ImportDraft = z.infer<typeof draftSchema>
-
-function parsePayload(value: unknown): ImportDraft[] | undefined {
-  const parsed = payloadSchema.safeParse(value)
-  return parsed.success ? parsed.data.questions : undefined
-}
-
-function toEditorDraft(draft: ImportDraft): QuestionEditorDraft {
-  const choice = draft.mode === "single_choice"
-  const optionTexts = choice ? (draft.options ?? []) : []
-  const correctIndex =
-    choice && draft.correct_option
-      ? LETTERS.findIndex((letter) => letter === draft.correct_option)
-      : -1
-  return {
-    questionType: draft.mode,
-    stem: draft.stem,
-    optionTexts,
-    correctIndex,
-    referenceAnswer: choice ? "" : (draft.reference_answer ?? ""),
-    primaryKnowledgePointId: draft.primary_knowledge_point_id,
-    secondaryKnowledgePointIds:
-      draft.secondary_knowledge_point_ids ?? [],
-  }
-}
-
-function fromQuestionInput(input: QuestionInput): ImportDraft {
-  return {
-    mode: input.question_type,
-    stem: input.stem,
-    options: input.options ?? null,
-    correct_option: input.correct_option ?? null,
-    reference_answer: input.reference_answer ?? null,
-    primary_knowledge_point_id: input.primary_knowledge_point_id,
-    secondary_knowledge_point_ids:
-      input.secondary_knowledge_point_ids ?? [],
-  }
-}
-
-function toAgentQuestion(input: QuestionInput) {
-  return {
-    mode: input.question_type,
-    stem: input.stem,
-    options: input.options ?? null,
-    correct_option: input.correct_option ?? null,
-    reference_answer: input.reference_answer ?? null,
-    primary_knowledge_point_id: input.primary_knowledge_point_id,
-    secondary_knowledge_point_ids:
-      input.secondary_knowledge_point_ids ?? [],
-  }
-}
-
-function firstError(errors: Record<string, string | undefined>): string {
-  return (
-    Object.values(errors).find((value): value is string => Boolean(value)) ??
-    "请检查题目内容。"
-  )
-}
-
-function DraftSummary({
-  draft,
-  index,
-  invalidMessage,
-  canRemove,
-  onEdit,
-  onRemove,
-}: {
-  draft: ImportDraft
-  index: number
-  invalidMessage: string | null
-  canRemove: boolean
-  onEdit: () => void
-  onRemove: () => void
-}) {
-  const choice = draft.mode === "single_choice"
-  return (
-    <li className="px-4 py-3">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="muted">{typeLabel(draft.mode)}</Badge>
-            <span className="font-mono text-[10px] text-ink-muted">
-              {draft.primary_knowledge_point_id}
-            </span>
-          </div>
-
-          <p className="mt-1.5 line-clamp-3 text-[13px] leading-6 break-words whitespace-pre-wrap text-ink">
-            {draft.stem}
-          </p>
-
-          {choice && draft.options && draft.options.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {draft.options.map((option, optionIndex) => {
-                const letter = LETTERS[optionIndex]
-                const correct = draft.correct_option === letter
-                return (
-                  <li
-                    key={`${letter}-${option}`}
-                    className={cn(
-                      "text-[11.5px] leading-5 break-words",
-                      correct ? "text-link-strong" : "text-ink-muted",
-                    )}
-                  >
-                    {letter}. {option}
-                    {correct && (
-                      <span className="ml-1.5 text-[10px]">答案</span>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-
-          {!choice && (
-            <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-5 text-ink-muted">
-              参考答案：{draft.reference_answer?.trim() || "未填写"}
-            </p>
-          )}
-
-          {invalidMessage && (
-            <p role="alert" className="mt-1.5 text-[11px] text-danger">
-              {invalidMessage}
-            </p>
-          )}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9 gap-1 px-2 sm:h-8"
-            onClick={onEdit}
-            aria-label={`编辑第 ${index + 1} 道题`}
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-            编辑
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-ink-muted hover:text-danger"
-            disabled={!canRemove}
-            onClick={onRemove}
-            aria-label={`删除第 ${index + 1} 道题`}
-            title={canRemove ? "删除这道题" : "至少保留一道；取消请点「取消」"}
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
-    </li>
-  )
-}
+import { QuestionImportDraftItem } from "./QuestionImportDraftItem"
 
 export function QuestionImportCard({
   interrupt,
@@ -196,7 +24,10 @@ export function QuestionImportCard({
   interrupt: { id?: string; value?: unknown }
   stream: ChatStream
 }) {
-  const payload = parsePayload(interrupt.value)
+  const payload = useMemo(
+    () => parseImportPayload(interrupt.value),
+    [interrupt.value],
+  )
   const [drafts, setDrafts] = useState<ImportDraft[]>(() => payload ?? [])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -215,6 +46,8 @@ export function QuestionImportCard({
     [knowledgePointsQuery.data],
   )
 
+  const validations = useMemo(() => validateImports(drafts), [drafts])
+
   if (!payload || drafts.length === 0) {
     return (
       <section className="w-full overflow-hidden rounded-lg border border-line bg-surface">
@@ -231,14 +64,10 @@ export function QuestionImportCard({
     )
   }
 
-  const validations = drafts.map((draft) =>
-    validateQuestionDraft(toEditorDraft(draft)),
-  )
   const firstInvalidIndex = validations.findIndex(
     (validation) => !validation.payload,
   )
   const invalid = firstInvalidIndex >= 0
-
   const editingDraft = editingIndex === null ? null : drafts[editingIndex]
 
   function toDetail(draft: ImportDraft): QuestionDetail {
@@ -267,7 +96,9 @@ export function QuestionImportCard({
   }
 
   function removeDraft(index: number) {
-    setDrafts((previous) => previous.filter((_, itemIndex) => itemIndex !== index))
+    setDrafts((previous) =>
+      previous.filter((_, itemIndex) => itemIndex !== index),
+    )
     if (editingIndex === index) setEditingIndex(null)
   }
 
@@ -326,7 +157,7 @@ export function QuestionImportCard({
 
         <ol className="divide-y divide-line/70">
           {drafts.map((draft, index) => (
-            <DraftSummary
+            <QuestionImportDraftItem
               key={`${index}-${draft.stem}`}
               draft={draft}
               index={index}
@@ -336,6 +167,7 @@ export function QuestionImportCard({
                   : firstError(validations[index]?.errors ?? {})
               }
               canRemove={drafts.length > 1}
+              disabled={Boolean(submittedLabel)}
               onEdit={() => setEditingIndex(index)}
               onRemove={() => removeDraft(index)}
             />
@@ -392,7 +224,6 @@ export function QuestionImportCard({
           key={`import-${editingIndex}`}
           question={toDetail(editingDraft)}
           onClose={() => setEditingIndex(null)}
-          onSaved={() => undefined}
           initialCorrectOption={editingDraft.correct_option ?? null}
           onSubmit={(input) => {
             setDrafts((previous) =>

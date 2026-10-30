@@ -51,7 +51,7 @@ export type QuestionAttemptItem = {
   created_at: string
   thread_id: string | null
   session_title: string | null
-  agent_id: string | null
+  agent_id: AgentId | null
   session_exists: boolean
 }
 

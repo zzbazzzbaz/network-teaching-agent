@@ -36,16 +36,16 @@ export const MODES = {
 
 export type PanelId = "questions" | "memory" | "sandbox"
 
+/** 工作区 URL 的 search 形状，题库/记忆/沙盒共用。 */
+export type SessionSearch = {
+  panel?: PanelId
+  question?: string
+  kp?: string
+  path?: string
+}
+
 export function modeForAgent(agentId: AgentId): Mode {
   return agentId === "teach_agent" ? "learn" : "lab"
-}
-
-export function agentForMode(mode: Mode): AgentId {
-  return MODES[mode].agentId
-}
-
-export function modeFromPath(pathname: string): Mode {
-  return pathname.startsWith("/lab") ? "lab" : "learn"
 }
 
 export function isSessionForMode(session: Session, mode: Mode): boolean {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { ImageOff } from "lucide-react"
 
+import { useInView } from "@/shared/lib/hooks"
 import {
   Dialog,
   DialogContent,
@@ -74,11 +75,17 @@ function RawImage({ fileId, name }: ImageMarker) {
 
 function UserImage({ fileId, name }: ImageMarker) {
   const [open, setOpen] = useState(false)
-  const { url, failed, loading } = useFileObjectUrl(fileId, "thumb")
+  const [thumbRef, inView] = useInView<HTMLButtonElement>()
+  const { url, failed, loading } = useFileObjectUrl(
+    fileId,
+    "thumb",
+    inView,
+  )
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <button
+        ref={thumbRef}
         type="button"
         onClick={() => setOpen(true)}
         className={cn(

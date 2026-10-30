@@ -6,6 +6,7 @@ import type {
   QuestionDetail,
   QuestionType,
 } from "@/shared/api/types"
+import { modeForAgent } from "@/features/sessions"
 import { formatDateTime } from "@/shared/lib/utils"
 import { Button } from "@/shared/ui/button"
 
@@ -83,7 +84,8 @@ export function AttemptHistory({
 
   function openSession(attempt: QuestionAttemptItem) {
     if (!attempt.thread_id) return
-    if (attempt.agent_id === "exp_agent") {
+    const mode = attempt.agent_id ? modeForAgent(attempt.agent_id) : "learn"
+    if (mode === "lab") {
       void navigate({
         to: "/lab/$sessionId",
         params: { sessionId: attempt.thread_id },

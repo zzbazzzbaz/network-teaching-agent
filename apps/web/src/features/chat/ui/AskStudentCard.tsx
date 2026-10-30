@@ -1,5 +1,5 @@
 import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react"
-import { useId, useState } from "react"
+import { useId, useMemo, useState } from "react"
 import { z } from "zod"
 
 import { Button } from "@/shared/ui/button"
@@ -69,7 +69,10 @@ export function AskStudentCard({
   const [open, setOpen] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const payload = parsePayload(interrupt.value)
+  const payload = useMemo(
+    () => parsePayload(interrupt.value),
+    [interrupt.value],
+  )
 
   if (!payload) {
     return (

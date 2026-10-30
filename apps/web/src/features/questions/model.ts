@@ -66,13 +66,6 @@ export function correctOptionText(question: QuestionDetail): string | null {
   return question.options[index] ?? null
 }
 
-export function knowledgePointTitle(
-  nodes: KnowledgePoint[],
-  id: string | undefined,
-): string | undefined {
-  if (!id) return undefined
-  return nodes.find((node) => node.id === id)?.title
-}
 
 export type KnowledgePointTreeNode = KnowledgePoint & {
   children: KnowledgePointTreeNode[]
@@ -220,22 +213,32 @@ export function validateQuestionDraft(
   let payload: QuestionInput | null = null
 
   if (draft.questionType === "single_choice") {
-    const filled = draft.optionTexts
-      .map((text, index) => ({ text: text.trim(), index }))
-      .filter((item) => item.text.length > 0)
+    // 末尾留空视为“还没添加这个选项”，中间的空白则是真实缺项；
+    // 这样既允许先填 2 个、保留 4 个输入框，也不会悄悄重排选项字母。
+    const optionTexts = [...draft.optionTexts]
+    while (
+      optionTexts.length > MIN_OPTIONS &&
+      !optionTexts[optionTexts.length - 1]?.trim()
+    ) {
+      optionTexts.pop()
+    }
+    const trimmedOptions = optionTexts.map((text) => text.trim())
 
-    if (filled.length < MIN_OPTIONS) {
+    if (trimmedOptions.some((text) => !text)) {
+      errors.options = "选项不能留空，请填写或删除空选项。"
+    } else if (trimmedOptions.length < MIN_OPTIONS) {
       errors.options = `单选题至少需要 ${MIN_OPTIONS} 个选项。`
-    } else if (filled.length > MAX_OPTIONS) {
+    } else if (trimmedOptions.length > MAX_OPTIONS) {
       errors.options = `单选题最多 ${MAX_OPTIONS} 个选项。`
-    } else if (new Set(filled.map((item) => item.text)).size !== filled.length) {
+    } else if (new Set(trimmedOptions).size !== trimmedOptions.length) {
       errors.options = "选项内容不能重复。"
     }
 
-    const correctPosition = filled.findIndex(
-      (item) => item.index === draft.correctIndex,
-    )
-    if (correctPosition < 0) {
+    if (
+      draft.correctIndex < 0 ||
+      draft.correctIndex >= trimmedOptions.length ||
+      !trimmedOptions[draft.correctIndex]
+    ) {
       errors.correctOption = "正确答案必须指向一个已填写的选项。"
     }
 
@@ -243,8 +246,8 @@ export function validateQuestionDraft(
       payload = {
         question_type: "single_choice",
         stem,
-        options: filled.map((item) => item.text),
-        correct_option: LETTERS[correctPosition],
+        options: trimmedOptions,
+        correct_option: LETTERS[draft.correctIndex],
         reference_answer: null,
         primary_knowledge_point_id: primaryKnowledgePointId,
         secondary_knowledge_point_ids: secondaryKnowledgePointIds,

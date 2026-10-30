@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { useCreateSession } from "@/features/sessions"
+import { humanizeApiError } from "@/shared/api/errors"
 import type { Mode } from "@/shared/api/types"
 
 import {
@@ -14,8 +15,7 @@ import {
 import { setPendingMessage } from "./pending"
 
 function errorText(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return "创建会话失败"
+  return humanizeApiError(error, "创建会话失败")
 }
 
 /**

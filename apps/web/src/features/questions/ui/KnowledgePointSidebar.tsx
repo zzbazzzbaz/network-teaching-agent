@@ -1,4 +1,5 @@
 import { Check, Info } from "lucide-react"
+import { memo } from "react"
 
 import type { KnowledgePoint } from "@/shared/api/types"
 import { cn } from "@/shared/lib/utils"
@@ -33,7 +34,7 @@ export interface KnowledgePointSidebarProps {
   onRetryCounts: () => void
 }
 
-export function KnowledgePointSidebar({
+export const KnowledgePointSidebar = memo(function KnowledgePointSidebar({
   variant,
   className,
   nodes,
@@ -212,7 +213,7 @@ export function KnowledgePointSidebar({
       </div>
     </div>
   )
-}
+})
 
 function TreeSkeleton() {
   return (
