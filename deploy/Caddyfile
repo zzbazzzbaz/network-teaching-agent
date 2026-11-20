@@ -1,0 +1,35 @@
+network-agent.test.chatgqt.top {
+	encode zstd gzip
+
+	request_body {
+		max_size 20MB
+	}
+
+	redir /agent /agent/ 308
+
+	handle_path /agent/* {
+		reverse_proxy 127.0.0.1:8083 {
+			flush_interval -1
+			transport http {
+				read_timeout 3600s
+				write_timeout 3600s
+			}
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8082
+	}
+
+	handle /.well-known/jwks.json {
+		reverse_proxy 127.0.0.1:8082
+	}
+
+	handle /health {
+		reverse_proxy 127.0.0.1:8082
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8081
+	}
+}

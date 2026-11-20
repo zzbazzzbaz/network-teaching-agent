@@ -28,4 +28,4 @@
 | `apps/api` | FastAPI + SQLAlchemy + Postgres | 账号、会话元数据、沙箱生命周期 | 8000 | `apps/api/AGENTS.md` |
 | `apps/agent` | LangGraph + deepagents + Langfuse | 教学 Agent 运行时 | 2024 | `apps/agent/AGENTS.md` |
 | `apps/sandbox` | AGS/E2B 镜像 | code-server + ttyd 实验环境 | 9000 | `apps/sandbox/AGENTS.md` |
-| `deploy` | nginx + docker compose | 生产部署 | — | `deploy/AGENTS.md` |
+| `deploy` | caddy + docker compose | 生产部署 | — | `deploy/AGENTS.md` |
